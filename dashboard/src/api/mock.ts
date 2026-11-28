@@ -33,7 +33,7 @@ export class MockApi extends MockWiringBase implements OneMindApi {
   }
   async saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings> {
     try { window.sessionStorage.removeItem(MOCK_FRESH_KEY); } catch { /* nothing to clear */ }
-    this.firstRun = { ...body, saved: true };
+    this.firstRun = { ...body, backup_destination_id: body.backup_destination_id ?? null, saved: true };
     return { ...this.firstRun };
   }
   async backupDestinations(): Promise<BackupDestinationRecord[]> {
@@ -175,6 +175,7 @@ export class MockApi extends MockWiringBase implements OneMindApi {
     const ts = new Date(this.now()).toISOString();
     const action: Action = {
       ...req,
+      params: { ...req.params },
       id: `act-${String(this.seq++).padStart(4, '0')}`,
       state: 'awaiting_approval',
       requested_by: p,

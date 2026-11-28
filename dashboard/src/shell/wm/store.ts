@@ -5,6 +5,8 @@ export interface Rect { x: number; y: number; width: number; height: number }
 export interface DesktopWindow { id: string; path: string; rect: Rect; minimised: boolean; maximised: boolean; ws: number }
 export type Windows = DesktopWindow[];
 export const LIMIT = 8;
+/** Share of the stage width Home's tile column keeps free on the left when a window opens. */
+export const HOME_COLUMN = 36;
 export const WORKSPACES = 4;
 export const validWorkspace = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) < WORKSPACES;
 
@@ -17,7 +19,8 @@ export function fit(rect: Rect): Rect {
 export const close = (windows: Windows, id: string) => windows.filter(w => w.id !== id);
 export const minimise = (windows: Windows, id: string) => windows.map(w => w.id === id ? { ...w, minimised: true } : w);
 export const toggleMax = (windows: Windows, id: string) => windows.map(w => w.id === id ? { ...w, maximised: !w.maximised } : w);
-export const position = (windows: Windows, id: string, rect: Rect) => windows.map(w => w.id === id ? { ...w, rect: fit(rect) } : w);
+/** Placing a window (drag, keys, a snap layout) gives it that rectangle; a maximised window comes back down into it. */
+export const position = (windows: Windows, id: string, rect: Rect) => windows.map(w => w.id === id ? { ...w, rect: fit(rect), maximised: false } : w);
 /** The most recently focused open window, on one workspace when `ws` is given. */
 export const top = (windows: Windows, ws?: number) => windows.filter(w => !w.minimised && (ws === undefined || w.ws === ws)).at(-1);
 export const onWorkspace = (windows: Windows, ws: number) => windows.filter(w => w.ws === ws);
@@ -27,8 +30,9 @@ export const sendTo = (windows: Windows, id: string, ws: number) => validWorkspa
 /** Opening a screen puts it on `ws` (default: where it already is, else the first workspace). */
 export function open(windows: Windows, id: string, path: string, ws?: number): Windows {
   const existing = windows.find(w => w.id === id);
-  const offset = 3 + (windows.length % 5) * 3;
-  const rect = { x: offset, y: offset, width: ['storage', 'backups'].includes(id) ? 60 : 82, height: 80 };
+  // New windows open right of Home's tile column (Atlas screen 01), cascading a little each time.
+  const step = (windows.length % 5) * 2;
+  const rect = { x: HOME_COLUMN + step, y: 2 + step, width: ['storage', 'backups'].includes(id) ? 40 : 100 - HOME_COLUMN - 10, height: 84 };
   return [...close(windows, id).slice(1 - LIMIT), { rect, maximised: false, ws: 0, ...existing, id, path, minimised: false, ...(ws === undefined ? {} : { ws }) }];
 }
 export function focus(windows: Windows, id: string): Windows {

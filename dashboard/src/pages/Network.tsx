@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Network (NET-UI-01, #239): this box's interfaces, addresses, gateway, DNS, Wi-Fi signal and what it
-// listens on, from GET /v1/network (the gateway asks the host service). Read only: changing the IP
-// address, Wi-Fi or firewall comes later as requests the owner approves, with an automatic revert.
+// listens on, from GET /v1/network (the gateway asks the host service). The cable address can be changed from
+// here (NetworkChange: a request an owner approves, with an automatic revert); Wi-Fi and firewall come later.
 import { useMemo, useState } from 'react';
 import { OneMind, OneMindError, type NetworkView } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill, Table, type Tone } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { NetworkChange } from './NetworkChange';
 import { DomainsCard } from './DomainsCard';
+import { FirewallCard } from './NetworkFirewall';
 import { Load } from './parts';
 
 type Iface = NetworkView['interfaces'][number];
@@ -58,7 +60,7 @@ function LiveNetwork({ token }: { token: string }) {
   if (view.error?.status === 403 && view.data === undefined) return <OwnerOnly />;
   return (
     <div className="dash-stack">
-      <PageHeader title="Network" lede="How this box is connected: its addresses, gateway and DNS, Wi-Fi, and what it listens on. The connection details only read; your own domains, below, are the one thing you can change here." />
+      <PageHeader title="Network" lede="How this box is connected: its addresses, gateway and DNS, Wi-Fi, and what it listens on. Changing a cable address is a request an owner approves; your own domains are below." />
       <Button onClick={() => void view.reload()}>Refresh network</Button>
       <Load res={view} what="Loading the network">
         {(v) => {
@@ -74,6 +76,7 @@ function LiveNetwork({ token }: { token: string }) {
           const open = v.ports.filter((p) => p.scope === 'any');
           return (
             <>
+              <NetworkChange client={client} view={v} onChanged={() => void view.reload()} />
               <Card as="article" title="Connection">
                 <dl className="om-facts">
                   <div>
@@ -114,7 +117,7 @@ function LiveNetwork({ token }: { token: string }) {
               </Card>
               <Card as="article" title="Open ports">
                 <p>
-                  {open.length} {open.length === 1 ? 'port is' : 'ports are'} open to every network the box is on. This lists what the box listens on, not what the firewall lets through; firewall rules are not shown yet.
+                  {open.length} {open.length === 1 ? 'port is' : 'ports are'} open to every network the box is on. This lists what the box listens on, not what the firewall lets through; the Firewall section below shows that.
                 </p>
                 <Table<Port>
                   caption="Listening ports"
@@ -130,12 +133,13 @@ function LiveNetwork({ token }: { token: string }) {
                   ]}
                 />
               </Card>
+              <FirewallCard client={client} />
               {v.dropped > 0 && (
                 <p className="om-note om-tone-warn" role="note">
                   {v.dropped} {v.dropped === 1 ? 'entry was' : 'entries were'} left out because the box reported something that did not check out.
                 </p>
               )}
-              <p className="om-hint">Setting a fixed IP address, joining Wi-Fi and firewall changes come next, as requests you approve, with an automatic revert if the box becomes unreachable.</p>
+              <p className="om-hint">Joining Wi-Fi comes next, as a request you approve, with the same automatic revert.</p>
             </>
           );
         }}

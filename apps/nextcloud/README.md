@@ -7,7 +7,7 @@ Nextcloud server, a safe home for all your data
 
 | | |
 |---|---|
-| Version | 33.0.10 (upstream release `v33.0.10`, published 2026-10-15) |
+| Version | 33.0.11 (upstream release `v33.0.11`, published 2026-11-12) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
@@ -35,8 +35,8 @@ Storage: PVC `nextcloud-db` 5Gi, PVC `nextcloud-html` 20Gi.
 
 Images:
 
-- `docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc`
-- `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42`
+- `docker.io/library/nextcloud:33.0.11-apache@sha256:73d52a6c57497a619120d1fca99d559f09dad52fb5e542051e31ebc66e05c7f3`
+- `docker.io/library/postgres:18.7-trixie@sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328`
 - `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7`
 
 <!-- onemind:notes:begin -->
@@ -55,7 +55,7 @@ Nextcloud is a personal cloud: file sync and sharing, calendars, contacts and ma
 
 ## How it runs here
 
-- One `Deployment` (`Recreate`) with three containers: `nextcloud` (the official `nextcloud:33.0.10-apache` image), and native sidecars `postgres` (PostgreSQL 18, the version the Nextcloud 33 admin manual recommends) and `valkey` (Redis-compatible, for file locking; `REDIS_HOST`).
+- One `Deployment` (`Recreate`) with three containers: `nextcloud` (the official `nextcloud:33.0.11-apache` image), and native sidecars `postgres` (PostgreSQL 18, the version the Nextcloud 33 admin manual recommends) and `valkey` (Redis-compatible, for file locking; `REDIS_HOST`).
 - The database runs as a native sidecar in the same pod and listens on 127.0.0.1 only, so no other pod can reach it. For that reason PostgreSQL trusts local connections and there is no database password and no Secret (contract §11.2 forbids committed Secrets; §12.18 `spec.secrets` with generated values is not in the schema yet). When `spec.secrets` exists, a generated password can replace `trust`.
 - Nextcloud runs as UID 33 (`www-data`), as the README section "Running as an arbitrary user" describes; PostgreSQL and Valkey run as UID 999. No privilege escalation, all capabilities dropped. Apache keeps port 80: the pod sets the namespaced sysctl `net.ipv4.ip_unprivileged_port_start=0` (in the Kubernetes safe set), which affects only this pod's network namespace.
 - PHP `conf.d` is a writable copy: with `REDIS_HOST` set, the image's entrypoint writes `/usr/local/etc/php/conf.d/redis-session.ini` on every start, and as UID 33 it cannot write the image's root-owned directory (the container exits with "Permission denied"). The `php-conf` init container copies the image's `conf.d` into an emptyDir mounted there, on every pod start, so a new image's PHP settings still apply.
@@ -97,6 +97,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 **Hold (apps/market-unblock-2, 2026-11-13):** `libopenexr` CVE-2026-42216/42217, postgres Go `stdlib`, and an Azure key string in a vendored PHP library. No newer `33.x` tag exists (`33.0.10` is the last). Nextcloud `34.0.5` exists but moving to 34 is a founder decision (D9, pending), so it is not bumped here. Unblock: a `33.x` rebuild, or the D9 decision.
 
 **Hold (2026-11-21, apps/147-household-apps):** `nextcloud:33.0.11-apache` now exists (digest `sha256:293744abb460e5e1b07a3bd730a687003d1e0c45bdce6645e3c54075e83479ae`) and, scanned with Trivy (amd64), clears the `libopenexr` CRITICALs. It still has the `azure-storage-account-key` secret finding in the vendored `azure-storage-common` PHP library (the gate counts any secret finding), and the postgres sidecar still has CRITICAL CVE-2025-68121 (Go `stdlib` v1.24.6): `postgres:18.7-trixie`/`18.7-alpine` (alpine digest `sha256:ff64c9e3bdf8e2120107d3559de8db314e8305f7e38c5105903c6295876738ff`) carries the same stdlib. So no pin move clears the gate; the pins are unchanged and the tier stays `blocked`. Unblock: an upstream postgres built with Go 1.24.13 or newer, and the Azure string removed or allow-listed by a founder decision, or a OneMind rebuild (founder decision). Tracked on #147.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Nextcloud 33.0.10 to 33.0.11, same major. Nextcloud 34 and 35 exist but moving majors stays the pending founder decision D9 (a major cannot be skipped on existing data). The PostgreSQL sidecar moves 18.6 to 18.7 (Debian flavour). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
+
+**Valkey sidecar (ma/market-bump-45-blocked-app-images, 2026-11-27):** left at 9.1.3 on purpose: the committed scan shows 0 CRITICAL for it, and a newer patch (9.1.4 / 9.2.1) was not adopted in this change. The CI gate decides the tier.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

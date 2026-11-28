@@ -28,6 +28,7 @@ DOOR = "door"
 WRITE = "write"
 FLEET = "fleet"
 CONSOLE = "console"
+LIBRARY = "library"
 
 REASONS: dict[str, str] = {
     OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
@@ -46,8 +47,11 @@ REASONS: dict[str, str] = {
     FLEET: "Fleet OS versions and staged rollouts (#156): a rollout starts only as an owner-approved action "
            "(os.rollout.start), which an agent follows through get_action; this is the owner's update console.",
     CONSOLE: "The owner's system console: host service logs (which can hold secrets until a redacted read tool "
-             "exists), the message-bus monitor (#619), bridge status (#610) and the UPS battery (#244). Agents read the world through the "
+             "exists), the message-bus monitor (#619), bridge status (#610), the UPS battery (#244) and the keyboard layout (P-11). Agents read the world through the "
              "data commons doors and request changes as actions.",
+    LIBRARY: "The owner's offline library (#127): the Kiwix catalogue, sizes and update check are the owner's alone "
+             "(403 to everyone else, 409 until Kiwix is installed). A change is filed as an app.configure request "
+             "the owner approves; an agent has no tool for it.",
 }
 
 SKIP_METHODS = frozenset({"HEAD", "OPTIONS"})
@@ -92,9 +96,32 @@ def problems(keys: Iterable[str], tool_routes: dict[str, str]) -> list[str]:
 HUMAN_ONLY: dict[str, str] = {
     "POST /v1/work/projects": WRITE,
     "POST /v1/work/capture": WRITE,
+    # ---- offline content manager (NMD-02 #127): owner-only reads, and changes that wait for the owner's approval
+    "GET /v1/content": LIBRARY,
+    "GET /v1/content/wikipedia": LIBRARY,
+    "GET /v1/content/updates": LIBRARY,
+    "POST /v1/content/plan": LIBRARY,
+    "POST /v1/content/changes": LIBRARY,
+    "PUT /v1/content/auto-update": LIBRARY,
     "POST /v1/work/quick-add": WRITE,
     "PATCH /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
     "DELETE /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
+    "POST /v1/work/parse": WRITE,
+    "PATCH /v1/work/projects/{project_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}": WRITE,
+    "PUT /v1/work/projects/{project_id}/members/{person_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}/members/{person_id}": WRITE,
+    "GET /v1/work/projects": PERSON,
+    "GET /v1/work/projects/{project_id}": PERSON,
+    "GET /v1/work/projects/{project_id}/members": PERSON,
+    "GET /v1/work/projects/{project_id}/tasks/{task_id}/activity": PERSON,
+    "GET /v1/work/projects/{project_id}/tasks/{task_id}/comments": PERSON,
+    "POST /v1/work/projects/{project_id}/tasks/{task_id}/comments": WRITE,
+    "DELETE /v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}": WRITE,
+    "GET /v1/work/projects/{project_id}/sections": PERSON,
+    "POST /v1/work/projects/{project_id}/sections": WRITE,
+    "PATCH /v1/work/projects/{project_id}/sections/{section_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}/sections/{section_id}": WRITE,
     # ---- oversight: deciding requests and controlling agents
     "POST /v1/actions/{action_id}/approve": OVERSIGHT,
     "POST /v1/actions/{action_id}/approve-options": OVERSIGHT,
@@ -102,6 +129,8 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/agents/kill-switch": OVERSIGHT,
     "PUT /v1/agents/kill-switch": OVERSIGHT,
     "PUT /v1/agents/{name}/budget": OVERSIGHT,
+    "GET /v1/agents/{name}/inputs": OVERSIGHT,
+    "PUT /v1/agents/{name}/inputs": OVERSIGHT,
     "POST /v1/agents/{name}/cancel": OVERSIGHT,
     "POST /v1/agents/{name}/resume": OVERSIGHT,
     # an agent never gets a tool that issues, reads or revokes its own NATS key
@@ -110,6 +139,7 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/agents/{name}/nats-key": CREDENTIAL,
     "GET /v1/approval-policies": OVERSIGHT,
     "POST /v1/approval-policies": OVERSIGHT,
+    "POST /v1/approval-policies/{policy_id}/confirm": OVERSIGHT,
     "DELETE /v1/approval-policies/{policy_id}": OVERSIGHT,
     # FD-08 is an owner-only report for assessing the box before deciding on maintenance.
     "GET /v1/care/checkup": OVERSIGHT,
@@ -130,9 +160,52 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/apps/{app_id}/credentials": CREDENTIAL,
     "GET /v1/apps/{app_id}/secrets": CREDENTIAL,
     "POST /v1/apps/{app_id}/secrets": CREDENTIAL,
+    # Recovery contacts (25d, D-028): a person's way back into their own account; no agent tool, ever.
+    "GET /v1/auth/recovery/contacts": CREDENTIAL,
+    "POST /v1/auth/recovery/contacts": CREDENTIAL,
+    "DELETE /v1/auth/recovery/contacts/{contact_id}": CREDENTIAL,
+    "GET /v1/auth/recovery/settings": CREDENTIAL,
+    "PUT /v1/auth/recovery/settings": CREDENTIAL,
+    "GET /v1/auth/recovery/invitations": CREDENTIAL,
+    "POST /v1/recovery/invites/{invite_id}/accept": CREDENTIAL,
+    "GET /v1/recovery/contact": CREDENTIAL,
+    "GET /v1/recovery/contact/notices": CREDENTIAL,
+    "POST /v1/recovery/contact/resign": CREDENTIAL,
+    # Contact-assisted and remote recovery (25e): a locked-out person's way back; never an agent tool.
+    "POST /v1/auth/recovery": CREDENTIAL,
+    "GET /v1/auth/recovery": CREDENTIAL,
+    "GET /v1/auth/recovery/requests/{request_id}": CREDENTIAL,
+    "POST /v1/auth/recovery/requests/{request_id}/code": CREDENTIAL,
+    "POST /v1/auth/recovery/requests/{request_id}/cancel": CREDENTIAL,
+    "POST /v1/auth/recovery/requests/{request_id}/complete/options": CREDENTIAL,
+    "POST /v1/auth/recovery/requests/{request_id}/complete": CREDENTIAL,
+    "GET /v1/recovery/requests": CREDENTIAL,
+    "POST /v1/recovery/requests/{request_id}/vouch": CREDENTIAL,
+    "POST /v1/recovery/requests/{request_id}/cancel": CREDENTIAL,
+    # Legacy contacts and claims (25f): access to a person's data after death; never an agent tool.
+    "GET /v1/auth/legacy/contacts": CREDENTIAL,
+    "POST /v1/auth/legacy/contacts": CREDENTIAL,
+    "GET /v1/auth/legacy/contacts/{contact_id}/invite": CREDENTIAL,
+    "DELETE /v1/auth/legacy/contacts/{contact_id}": CREDENTIAL,
+    "GET /v1/auth/legacy/invitations": CREDENTIAL,
+    "GET /v1/auth/legacy/claims": CREDENTIAL,
+    "GET /v1/auth/legacy/claims/{claim_id}/certificate": CREDENTIAL,
+    "POST /v1/auth/legacy/claims/{claim_id}/cancel": CREDENTIAL,
+    "POST /v1/auth/legacy/claims/{claim_id}/confirm": CREDENTIAL,
+    "POST /v1/legacy/invites/{invite_id}/accept": CREDENTIAL,
+    "GET /v1/legacy/contact": CREDENTIAL,
+    "GET /v1/legacy/contact/notices": CREDENTIAL,
+    "POST /v1/legacy/contact/resign": CREDENTIAL,
+    "GET /v1/legacy/claims": CREDENTIAL,
+    "POST /v1/legacy/claims": CREDENTIAL,
+    "POST /v1/legacy/claims/{claim_id}/confirm": CREDENTIAL,
+    "GET /v1/legacy/export": CREDENTIAL,
+    "GET /v1/legacy/export/download": CREDENTIAL,
     "DELETE /v1/auth/app-session": CREDENTIAL,
     "POST /v1/auth/app-session": CREDENTIAL,
     "POST /v1/auth/enrol": CREDENTIAL,
+    "POST /v1/auth/email/options": CREDENTIAL,
+    "POST /v1/auth/email/verify": CREDENTIAL,
     "GET /v1/auth/forward": CREDENTIAL,
     "POST /v1/auth/login": CREDENTIAL,
     "POST /v1/auth/login/options": CREDENTIAL,
@@ -141,20 +214,38 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/auth/passkeys": CREDENTIAL,
     "POST /v1/auth/passkeys/register": CREDENTIAL,
     "POST /v1/auth/passkeys/register/options": CREDENTIAL,
+    # D-028 verification levels: a person's own step-up, the owner's table and trusted key models
+    "POST /v1/auth/step-up/options": CREDENTIAL,
+    "POST /v1/auth/step-up": CREDENTIAL,
+    "GET /v1/auth/authenticator-allowlist": CREDENTIAL,
+    "DELETE /v1/auth/authenticator-allowlist/{aaguid}": CREDENTIAL,
+    "GET /v1/verification-requirements": OVERSIGHT,
     "DELETE /v1/auth/passkeys/{credential_id}": CREDENTIAL,
     "POST /v1/auth/password": CREDENTIAL,
+    "POST /v1/auth/recovery/options": CREDENTIAL,
+    "POST /v1/auth/recovery/reset": CREDENTIAL,
+    "GET /v1/auth/recovery/remote": CREDENTIAL,
+    "POST /v1/auth/recovery/remote": CREDENTIAL,
+    "DELETE /v1/auth/recovery/remote": CREDENTIAL,
     "POST /v1/auth/refresh": CREDENTIAL,
+    "POST /v1/auth/rescue/kit": CREDENTIAL,
     "POST /v1/auth/rescue/options": CREDENTIAL,
     "POST /v1/auth/rescue/verify": CREDENTIAL,
     "GET /v1/auth/sessions": CREDENTIAL,
     "DELETE /v1/auth/sessions/{session_id}": CREDENTIAL,
     "POST /v1/auth/setup": CREDENTIAL,
+    "GET /v1/auth/setup/status": CREDENTIAL,
+    "POST /v1/auth/setup/options": CREDENTIAL,
+    "POST /v1/auth/setup/kit": CREDENTIAL,
+    "POST /v1/auth/setup/finish": CREDENTIAL,
     "POST /v1/auth/totp/confirm": CREDENTIAL,
     "POST /v1/auth/totp/disable": CREDENTIAL,
     "POST /v1/auth/totp/setup": CREDENTIAL,
     "GET /v1/backups/kit": CREDENTIAL,
     "POST /v1/backups/kit": CREDENTIAL,
     "POST /v1/backups/kit/confirm": CREDENTIAL,
+    "POST /v1/backups/kit/request": CREDENTIAL,
+    "POST /v1/backups/kit/{action_id}/claim": CREDENTIAL,
     "POST /v1/fabric/join-requests": CREDENTIAL,
     "GET /v1/fabric/join-requests/{request_id}": CREDENTIAL,
     "GET /v1/fabric/join-tickets": CREDENTIAL,
@@ -173,6 +264,13 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/push/vapid-public-key": CREDENTIAL,
     "GET /v1/secrets/public-key": CREDENTIAL,
     "POST /v1/shares/smb/password": CREDENTIAL,
+    # P-06: the owner's SSH keys and switch. Reading names who may log in; every change is the owner's alone (an agent may
+    # not even request one: ssh.* types have an empty requesters set).
+    "GET /v1/ssh": CREDENTIAL,
+    "GET /v1/ssh/keys": CREDENTIAL,
+    "POST /v1/ssh/keys": CREDENTIAL,
+    "DELETE /v1/ssh/keys/{key_id}": CREDENTIAL,
+    "PUT /v1/ssh": CREDENTIAL,
     "POST /v1/storage/recovery-key": CREDENTIAL,
     "GET /v1/tls/ca.crt": CREDENTIAL,
     "GET /v1/tls/onemind.mobileconfig": CREDENTIAL,
@@ -303,6 +401,8 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/files/downloads/{download_id}/release": WRITE,
     "DELETE /v1/files/downloads/{download_id}": WRITE,
     "PUT /v1/instance/kiosk": WRITE,
+    "PUT /v1/instance/name": WRITE,
+    "POST /v1/system/time/zone": WRITE,  # P-04: files a time zone change; only an owner approves it
     "POST /v1/machines/disable": WRITE,
     "POST /v1/machines/enable": WRITE,
     "POST /v1/migrate/plans": WRITE,
@@ -327,10 +427,14 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/sites": WRITE,
     "POST /v1/storage/actions": WRITE,
     "POST /v1/storage/plans": WRITE,
+    "POST /v1/storage/removable/{name}/eject": WRITE,
     "POST /v1/system/actions": WRITE,
     "PUT /v1/update-policy": WRITE,
     "POST /v1/update-policy/resume": WRITE,
     "POST /v1/users": WRITE,
+    "POST /v1/users/invites": WRITE,
+    "POST /v1/users/{user_id}/invite": WRITE,
+    "POST /v1/users/invites/{action_id}/claim": CREDENTIAL,
     "PATCH /v1/users/{user_id}": WRITE,
     "POST /v1/users/{user_id}/disable": WRITE,
     # ---- fleet: OS versions and staged rollouts
@@ -353,10 +457,27 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
     "GET /v1/engine": CONSOLE,
     "GET /v1/system/services/{unit}/logs": CONSOLE,
+    "GET /v1/system/keyboard": CONSOLE,
+    # desktop apps (#1097): owner-only list and Flathub search; launching starts a program on the box
+    "GET /v1/desktop-apps": CONSOLE,
+    "GET /v1/desktop-apps/search": CONSOLE,
+    "POST /v1/desktop-apps/{app_id}/launch": WRITE,
+    "GET /v1/system/journal": CONSOLE,
     "GET /v1/system/ups": CONSOLE,
+    "GET /v1/storage/housekeeping": CONSOLE,
+    "GET /v1/system/time": CONSOLE,  # P-04: the hub's zone and clock sync state, owner only
+    "GET /v1/network/firewall": CONSOLE,  # P-09: the live host firewall explained, owner only, read only
+    "GET /v1/fabric/events": CONSOLE,  # N3 (#620): the NATS system account's sign-ins and refusals, audit:read
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
+    "POST /v1/system/keyboard": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,
     "PUT /v1/mesh/settings": WRITE,
+    # P-09 part 2: an owner allow rule (LAN or mesh only) reverts unless confirmed; owner writes, never an agent tool
+    "POST /v1/network/firewall/allow": WRITE,
+    "POST /v1/network/firewall/allow/{rule_id}/confirm": WRITE,
+    "DELETE /v1/network/firewall/allow/{rule_id}": WRITE,
+    "PUT /v1/network/{iface}": WRITE,
+    "POST /v1/network/{iface}/confirm": WRITE,
     # ---- data commons (#615): the commons is itself the grant-checked door; grants are the owner's oversight
     "GET /v1/data/classes": DOOR,
     "GET /v1/data/classes/{data_class}": DOOR,

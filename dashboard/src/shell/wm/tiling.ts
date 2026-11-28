@@ -54,3 +54,15 @@ export function snapRect(xPercent: number): Rect | null {
   if (xPercent >= 100 - SNAP_EDGE) return { x: 50, y: 0, width: 50, height: 100 };
   return null;
 }
+
+/** One place a window can snap to: `where` finishes "<window> …" ("on the right third"). */
+export interface SnapZone { where: string; rect: Rect }
+const third = 100 / 3;
+const col = (x: number, width: number): Rect => ({ x, y: 0, width, height: 100 });
+/** The snap layouts flyout on a window's maximise button (Atlas 01b): each layout's zones fill the stage width. */
+export const SNAP_LAYOUTS: readonly { id: string; zones: SnapZone[] }[] = [
+  { id: 'halves', zones: [{ where: 'on the left half', rect: col(0, 50) }, { where: 'on the right half', rect: col(50, 50) }] },
+  { id: 'wide-left', zones: [{ where: 'on the left two thirds', rect: col(0, 2 * third) }, { where: 'on the right third', rect: col(2 * third, third) }] },
+  { id: 'wide-right', zones: [{ where: 'on the left third', rect: col(0, third) }, { where: 'on the right two thirds', rect: col(third, 2 * third) }] },
+  { id: 'thirds', zones: [{ where: 'on the left third', rect: col(0, third) }, { where: 'in the middle third', rect: col(third, third) }, { where: 'on the right third', rect: col(2 * third, third) }] },
+];

@@ -22,6 +22,8 @@ export interface Screen {
   query?: Record<string, string>;
   /** Dashboard screens need a signed-in session; the sign-in page does not. */
   signedIn?: boolean;
+  /** Dashboard: open on the lock screen (the snapshot session.tsx keeps while a workspace is locked). */
+  locked?: boolean;
 }
 
 const ui = (route: string, query?: Record<string, string>, name?: string): Screen => ({
@@ -38,7 +40,7 @@ export const UI_SCREENS: Screen[] = [
   // Primary IA screens (docs/design/IA.md; same list as ui/scripts/screenshots.mjs)
   ...['home', 'apps', 'app/home-assistant', 'app/immich', 'approvals', 'activity', 'nodes', 'backups', 'updates', 'notifications', 'settings', 'gallery'].map((r) => ui(r)),
   // Home launcher variants (ui/demo/src/home/HomeLauncher.tsx)
-  ...['edit', 'errors', 'fresh', 'loading', 'offline'].map((v) => ui(`home/${v}`)),
+  ...['edit', 'errors', 'fresh', 'loading', 'offline', 'desktop', 'desktop-edit'].map((v) => ui(`home/${v}`)),
   // Settings sections (ui/src/settings SETTINGS_SECTIONS) and the system activity and approvals pages
   ui('system'),
   ...['account', 'users', 'agents', 'devices', 'network', 'storage', 'backups', 'updates', 'notifications', 'automation', 'about', 'activity', 'approvals'].map((s) => ui(`system/${s}`)),
@@ -53,7 +55,7 @@ export const UI_SCREENS: Screen[] = [
   ...states('store'),
   // Shell: command palette, notifications, toasts, shared states, onboarding (ui/demo/src/shell/ShellScreens.tsx)
   ...['palette', 'palette-search', 'notifications', 'toasts', 'states'].map((a) => ui(`shell/${a}`)),
-  ...[1, 2, 3, 4, 5, 6].map((n) => ui(`shell/onboarding-${n}`)),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ui(`shell/onboarding-${n}`)),
 ];
 
 // dashboard/src/App.tsx routes. The dashboard has one (light) theme today.
@@ -63,7 +65,12 @@ export const DASH_SCREENS: Screen[] = [
   { name: 'dash-nodes', target: 'dashboard', route: 'nodes', signedIn: true },
   { name: 'dash-market', target: 'dashboard', route: 'market', signedIn: true },
   { name: 'dash-market-uptime-kuma', target: 'dashboard', route: 'market/uptime-kuma', signedIn: true },
+  { name: 'dash-market-requests', target: 'dashboard', route: 'market/requests', signedIn: true },
   { name: 'dash-approvals', target: 'dashboard', route: 'approvals', signedIn: true },
+  { name: 'dash-map', target: 'dashboard', route: 'map', signedIn: true },
+  { name: 'dash-plugins', target: 'dashboard', route: 'plugins', signedIn: true },
+  { name: 'dash-files', target: 'dashboard', route: 'files', signedIn: true },
+  { name: 'dash-lock', target: 'dashboard', route: '', locked: true },
 ];
 
 export function urlFor(s: Screen, theme: Theme): string {
@@ -87,6 +94,9 @@ export async function open(page: Page, s: Screen, theme: Theme): Promise<void> {
   await page.clock.setFixedTime(FIXED_TIME);
   if (s.signedIn) {
     await page.addInitScript((token) => window.sessionStorage.setItem('onemind.token', token), DASH_TOKEN);
+  }
+  if (s.locked) {
+    await page.addInitScript(() => window.sessionStorage.setItem('onemind.locked', JSON.stringify({ boxName: 'Home', waiting: 2, person: 'Sam Rivera' })));
   }
   await page.goto(urlFor(s, theme));
   if (s.target === 'ui') {

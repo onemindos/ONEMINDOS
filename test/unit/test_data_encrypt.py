@@ -5,6 +5,7 @@ passphrase. data_encrypt.py decides everything; these tests run it with a fake c
 sequence, the secrets handling and the 'never touch data that is already there' rules. The real boot (swtpm) is
 test/qemu/dataenc.py, run in CI."""
 import copy, hashlib, json, importlib.util, os, re, shutil, subprocess, sys, tempfile, unittest
+from pathlib import Path
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -388,6 +389,27 @@ class Consoles(unittest.TestCase):
             with mock.patch.object(de, "ACTIVE_CONSOLES", os.path.join(t, "missing")):
                 self.assertEqual(de.console_devices(), [])
 
+    def test_the_recovery_key_goes_to_the_screen_only_unless_serial_is_opted_in(self):
+        """#1118: a serial console is often logged on another machine, so by default the key is drawn on the screen's
+        own terminals and nowhere else; the owner of a headless box can opt in with onemind.recovery_key=serial."""
+        names = ["tty0", "ttyS0", "ttyAMA0", "ttyUSB0", "tty1", "hvc0", "console"]
+        self.assertEqual(de.key_terminals(names, "quiet console=tty0 console=ttyS0,115200"), ["/dev/tty0", "/dev/tty1"])
+        self.assertEqual(de.key_terminals(names, "quiet onemind.recovery_key=serial"),
+                         ["/dev/tty0", "/dev/ttyS0", "/dev/ttyAMA0", "/dev/ttyUSB0", "/dev/tty1"])   # never hvc0
+        self.assertEqual(de.key_terminals(["ttyS0"], "onemind.recovery_key=serialx"), [])           # exact word only
+
+    def test_a_box_with_no_screen_shows_the_key_nowhere_not_even_dev_console(self):
+        opened = []
+        with mock.patch.object(de.os, "open", lambda path, *a, **k: opened.append(path) or (_ for _ in ()).throw(OSError())):
+            self.assertEqual(de.show_recovery_key(RECOVERY, []), 0)
+            self.assertEqual(de.show_recovery_key(RECOVERY, ["/nonexistent/tty0"]), 0)
+        self.assertNotIn("/dev/console", opened)
+        with mock.patch.object(de, "console_devices", return_value=["/dev/ttyS0"]), \
+                mock.patch.object(de, "cmdline", return_value="console=ttyS0,115200"), \
+                mock.patch.object(de, "to_consoles") as tc:
+            self.assertEqual(de.show_recovery_key(RECOVERY), 0)
+        tc.assert_not_called()
+
     def test_serial_ports_are_recognised_by_name(self):
         self.assertEqual(de.serial_consoles(["tty0", "ttyS0", "ttyS1", "ttyAMA0", "ttyUSB0", "tty1", "hvc0"]),
                          ["/dev/ttyS0", "/dev/ttyS1", "/dev/ttyAMA0", "/dev/ttyUSB0"])
@@ -533,7 +555,7 @@ class Main(unittest.TestCase):
              mock.patch.object(de.os.path, "exists", side_effect=exists), \
              mock.patch.object(de, "signature", return_value=sig), \
              mock.patch.object(de, "head_is_zero", return_value=zero), \
-             mock.patch.object(de, "say"), mock.patch.object(de, "write_state") as ws, \
+             mock.patch.object(de, "say") as self.said, mock.patch.object(de, "write_state") as ws, \
              mock.patch.object(de, "keep_recovery_key") as keep, \
              mock.patch.object(de, "first_boot_encrypt", side_effect=lambda node, has_tpm, runner, passphrase=None:
                                {"recovery_key": RECOVERY, "tpm2": has_tpm, "passphrase": bool(passphrase)}) as fb, \
@@ -567,6 +589,29 @@ class Main(unittest.TestCase):
         self.plain.assert_not_called(); self.ask.assert_not_called()
         self.assertEqual(ws.call_args.kwargs["state"], "encrypted")
         self.assertEqual(ws.call_args.kwargs["fs"], "btrfs")
+
+    def test_first_boot_shows_the_key_on_the_screen_and_never_on_serial_the_journal_or_say(self):
+        """#1118: on a box with a screen and a serial console (console=tty0 console=ttyS0), the key reaches /dev/tty0 only.
+        Before the fix it went through say() to every console, the serial port included."""
+        sent = []
+        with mock.patch.object(de, "console_devices", return_value=["/dev/tty0", "/dev/ttyS0"]), \
+                mock.patch.object(de, "to_consoles", side_effect=lambda line, devices=None, fallback=True:
+                                  sent.append((line, devices, fallback)) or len(devices or [])), \
+                mock.patch("builtins.print") as pr:
+            rc, r, ws, keep, fb, ul = self.run_main("", True, tpm=True, cmdline="quiet console=tty0 console=ttyS0,115200")
+        keyed = [(d, f) for line, d, f in sent if RECOVERY in line]
+        self.assertEqual(keyed, [(["/dev/tty0"], False)])                       # once, the screen, no /dev/console
+        self.assertFalse([c for c in self.said.call_args_list if RECOVERY in repr(c)])   # say() feeds serial + journal
+        self.assertFalse([c for c in pr.call_args_list if RECOVERY in repr(c)])
+        self.assertTrue([c for c in self.said.call_args_list if "recovery key made" in repr(c)])
+        keep.assert_called_once_with(RECOVERY)                                  # the recovery kit can still read it
+        self.assertEqual(rc, 0)
+        sent.clear()
+        with mock.patch.object(de, "console_devices", return_value=["/dev/tty0", "/dev/ttyS0"]), \
+                mock.patch.object(de, "to_consoles", side_effect=lambda line, devices=None, fallback=True:
+                                  sent.append((line, devices, fallback)) or len(devices or [])):
+            self.run_main("", True, tpm=True, cmdline="console=ttyS0 onemind.recovery_key=serial")
+        self.assertEqual([d for line, d, f in sent if RECOVERY in line], [["/dev/tty0", "/dev/ttyS0"]])   # opted in
 
     def test_blank_without_a_tpm_stays_unencrypted(self):
         rc, r, ws, keep, fb, ul = self.run_main("", True, tpm=False)
@@ -660,7 +705,69 @@ class Main(unittest.TestCase):
 
 
 
+class RecoveryKit(unittest.TestCase):
+    def test_handoff_stays_root_only_and_does_not_follow_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "unrelated"
+            target.write_text("untouched")
+            key = Path(directory) / "data-recovery-key"
+            key.symlink_to(target)
+            with mock.patch.multiple(de, RUN=directory, RECOVERY_FILE=str(key)):
+                de.keep_recovery_key(RECOVERY)
+            self.assertEqual(target.read_text(), "untouched")
+            self.assertFalse(key.is_symlink())
+            self.assertEqual(key.stat().st_uid, os.geteuid())
+            self.assertEqual(key.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(key.read_text(), RECOVERY + "\n")
+            self.assertCountEqual(Path(directory).iterdir(), [target, key])
+
+    def test_lost_ram_handoff_is_recovered_using_existing_disk_unlock(self):
+        actual_exists = os.path.exists
+        for tpm, secret in ((True, None), (False, PASSPHRASE), (False, RECOVERY)):
+            with self.subTest(tpm=tpm, passphrase=secret == PASSPHRASE), tempfile.TemporaryDirectory() as directory:
+                key = Path(directory) / "data-recovery-key"
+                runner = FakeRunner()
+                answers = {"uuid": "CRYPT-LUKS2-test", "name": "onemind-data"}
+                prompt = mock.Mock(return_value=secret)
+                with mock.patch.multiple(de, RUN=directory, RECOVERY_FILE=str(key)), \
+                     mock.patch.object(de.os, "geteuid", return_value=0), \
+                     mock.patch.object(de.sys.stdin, "isatty", return_value=True), \
+                     mock.patch.object(de.os.path, "exists", side_effect=lambda p: tpm if p == de.TPM_DEV
+                                       else actual_exists(p)), \
+                     mock.patch.object(de.os.path, "realpath", return_value="/dev/dm-0"), \
+                     mock.patch.object(de, "read_sysfs", side_effect=lambda p: answers.get(p.split("/")[-1])), \
+                     mock.patch.object(de.os, "listdir", return_value=["test-partition"]), \
+                     mock.patch("builtins.print") as printed:
+                    self.assertEqual(de.recover_kit(runner=runner, prompt=prompt), 0)
+                self.assertEqual(key.read_text().strip(), RECOVERY)
+                self.assertEqual(key.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(runner.lines()[-1], "systemctl restart onemind-gateway.service")
+                if tpm:
+                    self.assertIn("--unlock-tpm2-device=auto --recovery-key /dev/test-partition", runner.lines()[0])
+                    prompt.assert_not_called()
+                else:
+                    method = "--unlock-key-file=/dev/stdin" if secret == PASSPHRASE else "--test-passphrase --key-file -"
+                    self.assertIn(method + (" --recovery-key" if secret == PASSPHRASE else "") + " /dev/test-partition",
+                                  runner.lines()[0])
+                    self.assertEqual(runner.calls[0][1], secret)
+                    prompt.assert_called_once()
+                for secret in (RECOVERY, PASSPHRASE):
+                    self.assertNotIn(secret, repr(printed.call_args_list))
+                    self.assertNotIn(secret, repr(runner.lines()))
+
+
 class Wiring(unittest.TestCase):
+    def test_gateway_alone_gets_the_open_disk_key_descriptor(self):
+        units = Path(ROOT, "os/rootfs/layers/onemind/usr/lib/systemd/system")
+        gateway = units / "onemind-gateway.service"
+        handoff = "OpenFile=/run/onemind/data-recovery-key:data-recovery-key:graceful"
+        self.assertIn(handoff, gateway.read_text())
+        self.assertIn("ONEMIND_IDENTITY_RECOVERY_DISK_STATE_FILE=/run/onemind/data-crypt.json", gateway.read_text())
+        self.assertNotIn("gateway-recovery-key", gateway.read_text())
+        for unit in units.glob("*.service"):
+            if unit != gateway:
+                self.assertNotIn("/run/onemind/data-recovery-key", unit.read_text())
+
     def test_unit_runs_before_any_mount_and_a_locked_disk_is_not_a_failed_unit(self):
         u = rd("os/rootfs/layers/base/usr/lib/systemd/system/onemind-data-encrypt.service")
         self.assertIn("Before=local-fs-pre.target", u)
@@ -786,9 +893,9 @@ class Assembler(unittest.TestCase):
 
     def test_the_criteria_file_matches_its_preregistered_hash(self):
         want = [l.split()[0] for l in rd("test/qemu/PREREGISTRATION.sha256").splitlines() if "CRITERIA-DATAENC.md" in l]
-        self.assertEqual(len(want), 1)
+        self.assertTrue(want)
         have = hashlib.sha256(open(os.path.join(ROOT, "test", "qemu", "CRITERIA-DATAENC.md"), "rb").read()).hexdigest()
-        self.assertEqual(have, want[0])
+        self.assertEqual(have, want[-1])          # append-only log: the newest line is the file as it is now
 
     def test_the_reset_criteria_are_preregistered_and_the_harness_runs_them(self):
         h = hashlib.sha256(open(os.path.join(ROOT, "test", "qemu", "CRITERIA-DATARESET.md"), "rb").read()).hexdigest()

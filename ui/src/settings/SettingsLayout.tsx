@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about' | 'time' | 'recovery' | 'security' | 'permissions' | 'activity-monitor' | 'accessibility';
+export type SettingsSectionId = 'default-apps' | 'appearance' | 'region' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about' | 'time' | 'recovery' | 'security' | 'sign-in-keys' | 'verification' | 'standing-approvals' | 'permissions' | 'activity-monitor' | 'accessibility';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -23,11 +23,15 @@ export interface SettingsSectionMeta {
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'accessibility', label: 'Accessibility and motion', icon: 'eye', group: 'You', keywords: ['reduce motion', 'text size', 'contrast', 'focus', 'underline'] },
   { id: 'appearance', label: 'Appearance', icon: 'eye', group: 'You', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color', 'density', 'font'] },
+  { id: 'region', label: 'Language & region', icon: 'globe', group: 'You', keywords: ['keyboard', 'layout', 'azerty', 'qwerty', 'qwertz', 'language', 'locale', 'console', 'dvorak'] },
   { id: 'default-apps', label: 'Default apps', icon: 'settings', group: 'You', keywords: ['open with', 'preferred', 'browser'] },
   { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp', 'my devices', 'lost phone'] },
   { id: 'users', label: 'Users & roles', icon: 'users', group: 'People and access', keywords: ['people', 'family', 'invite', 'owner', 'guest'] },
   { id: 'agents', label: 'Agents & MCP', icon: 'agent', group: 'People and access', keywords: ['ai', 'hermes', 'mcp', 'tools', 'revoke', 'suspend'] },
   { id: 'security', label: 'Security overview', icon: 'lock', group: 'Security', keywords: ['passkeys', 'devices', 'tokens', 'audit', 'approval', 'exposure'] },
+  { id: 'sign-in-keys', label: 'Sign-in keys', icon: 'lock', group: 'Security', keywords: ['passkey', 'security key', 'yubikey', 'proven key', 'verification level', 'trusted models', 'biometric'] },
+  { id: 'verification', label: 'Verification levels', icon: 'lock', group: 'Security', keywords: ['verification', 'level', 'l2', 'l3', 'step-up', 'box code', 'approval strength', 'biometric'] },
+  { id: 'standing-approvals', label: 'Standing approvals', icon: 'lock', group: 'Security', keywords: ['approve in advance', 'policy', 'policies', 'auto approve', 'daily limit', 'window'] },
   { id: 'permissions', label: 'Permissions', icon: 'lock', group: 'Security', keywords: ['people', 'agents', 'file grants', 'app access', 'scopes', 'data access', 'data grants', 'hardware access', 'host grants', 'revoke'] },
   { id: 'activity-monitor', label: 'Activity monitor', icon: 'info', group: 'Security', keywords: ['apps', 'services', 'cpu', 'memory', 'sessions'] },
   { id: 'devices', label: 'Devices & nodes', icon: 'nodes', group: 'Machines', keywords: ['fabric', 'join', 'qr', 'hub', 'worker', 'leaf', 'add node'] },

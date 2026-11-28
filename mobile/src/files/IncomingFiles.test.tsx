@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as SecureStore from 'expo-secure-store';
 import { Features, OP, type OneMindApi } from '../api/client';
 import { ApiError } from '../api/types';
+import { LOCK_KEY, LockProvider, useIsLocked } from '../lock/LockProvider';
 import { useSignedIn } from '../session';
 import { IncomingFiles } from './IncomingFiles';
 import { canResolve, stagedFiles, useFileShare } from './incoming';
@@ -9,6 +11,7 @@ import { deliverShare, discardShare, readShare, shareDirectory, stageShare } fro
 import type { ResolvedSharePayload } from 'expo-sharing';
 
 jest.mock('../data', () => ({ useHubData: () => ({ refreshing: false }) }));
+jest.mock('../lock/LockProvider', () => ({ ...jest.requireActual('../lock/LockProvider'), useIsLocked: jest.fn(() => false) }));
 jest.mock('../session', () => ({ useSignedIn: jest.fn() }));
 jest.mock('./incoming', () => ({ ...jest.requireActual('./incoming'), useFileShare: jest.fn() }));
 jest.mock('./shareQueue', () => ({
@@ -25,6 +28,7 @@ const writable = { root: 'shared', name: 'Shared files', path: '/', writable: tr
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(useIsLocked).mockReturnValue(false);
   jest.mocked(readShare).mockResolvedValue(undefined);
   jest.mocked(deliverShare).mockResolvedValue(undefined);
   jest.mocked(useFileShare).mockReturnValue({ incoming: { key: 'photos', files }, clear });
@@ -93,4 +97,37 @@ it('registers Android single-document and mixed-batch shares without advertising
   expect(options.android).toEqual({
     enabled: true, singleShareMimeTypes: ['image/*', 'application/*', 'audio/*', 'video/*'], multipleShareMimeTypes: ['*/*'],
   });
+});
+
+it('shows nothing while the app is locked (a Modal would draw above the lock), and the sheet opens after the unlock', async () => {
+  jest.mocked(useIsLocked).mockReturnValue(true);
+  const view = await render(<IncomingFiles />);
+  expect(screen.queryByText('Shared files')).toBeNull();
+  expect(shareDirectory).not.toHaveBeenCalled(); // no folder listing or upload can start behind the lock
+  jest.mocked(useIsLocked).mockReturnValue(false);
+  await view.rerender(<IncomingFiles />);
+  expect(await screen.findByText('Shared files')).toBeTruthy();
+  expect(clear).not.toHaveBeenCalled(); // the shared files were kept for after the unlock
+});
+
+it('keeps an incoming share out of the native modal while the lock preference is loading', async () => {
+  const actual = jest.requireActual<typeof import('../lock/LockProvider')>('../lock/LockProvider');
+  const read = jest.mocked(SecureStore.getItemAsync);
+  const previous = read.getMockImplementation()!;
+  let finish!: (value: string | null) => void;
+  read.mockImplementation((key, options) => key === LOCK_KEY
+    ? new Promise((resolve) => { finish = resolve; })
+    : previous(key, options));
+  jest.mocked(useIsLocked).mockImplementation(actual.useIsLocked);
+  try {
+    await render(<LockProvider><IncomingFiles /></LockProvider>);
+    expect(screen.getByTestId('app-lock-checking')).toBeTruthy();
+    expect(screen.queryByText('Send to OneMind', { includeHiddenElements: true })).toBeNull();
+    expect(shareDirectory).not.toHaveBeenCalled();
+    finish(null);
+    expect(await screen.findByText('Shared files')).toBeTruthy();
+    expect(clear).not.toHaveBeenCalled();
+  } finally {
+    read.mockImplementation(previous);
+  }
 });

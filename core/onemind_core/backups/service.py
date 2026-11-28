@@ -18,12 +18,14 @@ Long work runs on one worker thread, in order, so a restore never overlaps a bac
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import queue
 import secrets
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -36,7 +38,7 @@ from ..errors import ApiError
 from ..executors import ExecResult
 from ..ledger import Action, iso, utc
 from .jobs import AgentClient, AgentError, load_or_create_job_key
-from .kit import answer_ok, challenge, kit_text, new_owner_key
+from .kit import answer_ok, challenge, kit_text, new_owner_key, parse_typed_key, verifier, verifier_ok
 from .kube import DryKube, Kube, KubeError, Workload
 from .manifest import BackupSpec, backup_spec, database_spec
 from .settings import BackupsSettings
@@ -116,6 +118,14 @@ def _ts(value: object) -> datetime | None:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+@dataclass
+class _KitReveal:
+    action_id: str
+    expires_at: datetime
+    one_time: dict
+    session_id: str | None = None
+
+
 class BackupService:
     def __init__(self, gw: Gateway, settings: BackupsSettings, *, pg=None, kube: Kube | None = None,
                  agent: AgentClient | None = None, inline: bool = False):
@@ -131,9 +141,16 @@ class BackupService:
             self.agent = AgentClient(settings.agent_url, load_or_create_job_key(Path(key_file)), gw.clock,
                                      settings.job_timeout_s)
         self.worker = Worker(inline)
+        # D-028: the disk (LUKS) recovery key is read ("peek", the node keeps it) while a kit is issued and destroyed
+        # ("forget") when the owner confirms that kit, so a closed tab or a dropped connection loses nothing. The
+        # router sets both to the storage service; None, or no key waiting, leaves the disk key out of the kit.
+        self.disk_key_source: Callable[[], str | None] | None = None
+        self.disk_key_forget: Callable[[], None] | None = None
+        # Serialize publishing a page, confirming it, and checking its console verifier and try count.
+        self._kit_lock = threading.Lock()
         self.builtins = None  # the built-in registry (builtins.py); the router sets it (#616)
         self._pending_secrets: dict[str, dict] = {}  # action id -> destination credentials (memory only)
-        self._one_time: dict[str, dict] = {}
+        self._one_time: _KitReveal | None = None  # only the current kit can be delivered and confirmed
         # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
         # the action's params, the audit log or the database; dropped when used, expired or the gateway restarts.
         self._pending_keys: dict[str, tuple[str, datetime]] = {}
@@ -187,6 +204,8 @@ class BackupService:
     def shutdown(self) -> None:
         self._stop.set()
         self.worker.stop()
+        with self._kit_lock:
+            self._one_time = None
 
     def installed_apps(self) -> list[AppEntry]:
         states = self.gw.repo.list_app_states()
@@ -408,9 +427,15 @@ class BackupService:
     def kit_state(self) -> dict:
         k = self.repo.kit()
         if k is None:
-            return {"state": "missing", "issued_at": None, "confirmed_at": None, "fingerprint": None, "positions": []}
+            return {"state": "missing", "issued_at": None, "confirmed_at": None, "fingerprint": None, "positions": [],
+                    "disk_key_included": False, "uncovered_destinations": [], "disk_key_kit": None}
+        covered = k.challenge.get("covered")
+        uncovered = [] if covered is None else [d.id for d in self.repo.destinations() if d.id not in covered]
         return {"state": k.state, "issued_at": iso(k.issued_at), "confirmed_at": iso(k.confirmed_at),
-                "fingerprint": k.fingerprint, "positions": k.challenge.get("positions", [])}
+                "fingerprint": k.fingerprint, "positions": k.challenge.get("positions", []),
+                "disk_key_included": bool(k.challenge.get("disk_key")), "uncovered_destinations": uncovered,
+                # Non-secret: which kit page holds the disk key (D-028). Stays on later kits so a thrown-away page is noticed.
+                "disk_key_kit": k.challenge.get("disk_key_kit")}
 
     def builtin_units(self) -> list[dict]:
         """The gateway database and every switched-on built-in's declared tables and folders (#616)."""
@@ -518,21 +543,37 @@ class BackupService:
                         "finished_at": v.get("finished_at")})
         return out
 
+    NO_DESTINATION = "no backup destination yet"
+
     def snapshots(self, app_id: str | None = None, unit: str | None = None) -> list[dict]:
+        snaps, _ = self.snapshot_listing(app_id=app_id, unit=unit)
+        return snaps
+
+    def snapshot_listing(self, app_id: str | None = None, unit: str | None = None) -> tuple[list[dict], str | None]:
+        self._agent()  # backups switched off stays a 503 backups_disabled, before anything else
+        if not self.repo.destinations():
+            # The agent can have targets from its own config or from an add interrupted before the ledger write.
+            # Its status counts configured targets without opening a repository.
+            status = self._agent_status().get("status") or {}
+            if status.get("copies") == 0:
+                return [], self.NO_DESTINATION
         if app_id:
             unit = f"app:{app_id}"
         params = {"unit": unit} if unit else {}
         snaps = self._job("backup.snapshots", params) or []
+        if not snaps:
+            return [], None
         verified = {}
         try:
             for name, v in ((self._agent_status().get("status") or {}).get("last_verified") or {}).items():
                 verified[v.get("snapshot_id")] = v.get("finished_at")
         except (Unavailable, AgentError):
             pass
-        return [{"id": s["id"], "short_id": s.get("short_id"), "unit": s.get("unit"), "app_id": s.get("app_id") or None,
+        items = [{"id": s["id"], "short_id": s.get("short_id"), "unit": s.get("unit"), "app_id": s.get("app_id") or None,
                  "node_id": s.get("node_id"), "destination_id": None, "taken_at": s.get("taken_at"),
                  "size_bytes": None, "reason": s.get("reason"), "run_id": s.get("run_id"), "tags": s.get("tags") or [],
                  "paths": s.get("paths") or [], "verified_at": verified.get(s["id"])} for s in snaps]
+        return items, None
 
     def restore_candidates(self, destination_id: str, box_id: str | None = None,
                            recovery_key: str | None = None) -> list[dict]:
@@ -1047,43 +1088,179 @@ class BackupService:
     # ---- emergency kit ------------------------------------------------------------------------
     def _act_kit_issue(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
         dests = [destination_json(d) for d in self.repo.destinations()]
-        if not dests:
-            finish(ExecResult("failed", "add a backup destination first: the key is added to its repository"))
-            return
         key = new_owner_key()
-        try:
-            res = self._job("backup.key.add", {"which": "owner", "key": key.password}, a.id)
-        except (AgentError, Unavailable) as e:
-            finish(ExecResult("failed", f"the key could not be added to every destination: {e}"))
-            return
+        res: object = []
+        if dests:  # restic adds this key beside the ones already there: an older kit still opens older repositories
+            try:
+                res = self._job("backup.key.add", {"which": "owner", "key": key.password}, a.id)
+            except (AgentError, Unavailable) as e:
+                finish(ExecResult("failed", f"the key could not be added to every destination: {e}"))
+                return
+        # No destination yet (D-028): the kit still opens the box at its console. The box does not keep the key, so a
+        # destination added later is listed as "not covered" until a new kit is issued.
         now = self.gw.clock()
         ch = challenge(key)
-        self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
-                                 confirmed_at=None, attempts=0))
-        self._one_time[a.id] = {
-            "owner_key": key.password, "groups": list(key.groups), "check": key.check,
-            "qr_payload": f"onemind-kit:v1?key={key.password}&box={self.gw.settings.node_id or ''}",
-            "text": kit_text(box_name=self.gw.settings.instance_name, instance_id=self.gw.settings.node_id or "",
-                             key=key, destinations=dests, issued_at=now),
-        }
-        self._event("kit.issued", {"fingerprint": key.fingerprint, "destinations": len(dests)}, action_id=a.id)
+        ch["covered"] = [d["id"] for d in dests]
+        ch["console_verify"] = verifier(key.password)
+        with self._kit_lock:
+            before = self.repo.kit()
+            disk_key = self._peek_disk_key()
+            marker = before.challenge.get("disk_key_kit") if before else None
+            if disk_key:  # any older page with the disk key still works
+                marker = {"fingerprint": key.fingerprint, "issued_at": iso(now)}
+            ch["disk_key"] = bool(disk_key)
+            ch["disk_key_kit"] = marker
+            if before is not None:
+                previous = before.challenge.get("confirmed_console")
+                if before.state == "confirmed":
+                    previous = self._console_verifier(before)
+                if previous is not None:
+                    ch["confirmed_console"] = previous
+            self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
+                                     confirmed_at=None, attempts=0))
+            self._one_time = _KitReveal(a.id, utc(a.expires_at), {
+                "owner_key": key.password, "groups": list(key.groups), "check": key.check,
+                "qr_payload": f"onemind-kit:v1?key={key.password}&box={self.gw.settings.node_id or ''}",
+                "text": kit_text(box_name=self.gw.settings.instance_name, instance_id=self.gw.settings.node_id or "",
+                                 key=key, destinations=dests, issued_at=now, disk_key=disk_key,
+                                 disk_key_marker=None if disk_key else marker),
+                **({"disk_recovery_key": disk_key} if disk_key else {}),
+            })
+        if before is not None:
+            self._event("kit.reissued", {"old_fingerprint": before.fingerprint, "fingerprint": key.fingerprint},
+                        severity="warning", action_id=a.id)
+        self._event("kit.issued", {"fingerprint": key.fingerprint, "destinations": len(dests), "disk_key": bool(disk_key)},
+                    action_id=a.id)
         finish(ExecResult("succeeded", "emergency kit issued; it is shown once",
-                          [{"fingerprint": key.fingerprint, "destinations": res}]))
+                          [{"fingerprint": key.fingerprint, "destinations": res, "disk_key": bool(disk_key)}]))
 
-    def take_one_time(self, action_id: str) -> dict | None:
-        return self._one_time.pop(action_id, None)
+    def _peek_disk_key(self) -> str | None:
+        """The disk recovery key, read without using it up, when /data is encrypted and its key still waits.
+        It is destroyed only when the owner confirms the kit (confirm_kit), so a failed issue, a closed tab or
+        'Skip for now' leaves it for the next kit."""
+        if self.disk_key_source is None:
+            return None
+        try:
+            return self.disk_key_source() or None
+        except Exception:
+            log.exception("could not read the disk recovery key for the kit")
+            return None
 
-    def confirm_kit(self, principal, answers: dict[str, str]) -> dict:
-        k = self.repo.kit()
-        if k is None:
-            raise ApiError(404, "not_found", "no emergency kit has been issued")
-        if k.state == "confirmed":
-            return self.kit_state()
-        if not answer_ok(k.challenge, answers):
-            self.repo.update_kit(attempts=k.attempts + 1)
-            self.gw.audit.append("backup.kit.confirm_failed", principal.as_dict(), None, {"attempts": k.attempts + 1})
-            raise ApiError(409, "conflict", "those groups do not match your kit; look at the printed key again")
-        now = self.gw.clock()
-        self.repo.update_kit(state="confirmed", confirmed_at=utc(now))
+    def _forget_disk_key(self) -> None:
+        if self.disk_key_forget is None:
+            return
+        try:
+            self.disk_key_forget()
+        except Exception:
+            log.exception("could not destroy the disk recovery key after the kit was confirmed")
+
+    # ---- the kit typed at the box's rescue console (D-028) -------------------------------------------
+    CONSOLE_FREE_TRIES = 5
+    CONSOLE_FIRST_LOCK = timedelta(minutes=15)
+    CONSOLE_MAX_LOCK = timedelta(hours=24)
+
+    def kit_ready(self) -> bool:
+        return self.repo.kit() is not None
+
+    def verify_console_kit(self, principal, typed: str) -> dict:
+        """Does the typed owner key match the issued kit? Compared as a salted hash, in constant time. After 5 wrong tries
+        the console waits 15 minutes, doubling per further wrong try up to 24 hours. It only waits: it never
+        deletes, re-keys or wipes anything. A mistyped key (wrong length, bad check group) is not a try."""
+        password = parse_typed_key(typed)
+        with self._kit_lock:
+            k = self.repo.kit()
+            if k is None:
+                raise ApiError(409, "conflict", "no emergency kit has been issued on this box", reason="no_kit")
+            active = k.challenge.get("confirmed_console") or self._console_verifier(k)
+            fingerprint = active["fingerprint"]
+            now = utc(self.gw.clock())
+            lock = self.repo.kit_lock()
+            fails = lock.fails if lock else 0
+            if lock and lock.locked_until is not None and utc(lock.locked_until) > now:
+                wait = int((utc(lock.locked_until) - now).total_seconds()) + 1
+                self.gw.audit.append("backup.kit.console_locked", principal.as_dict(), None, {"retry_after_s": wait})
+                raise ApiError(429, "rate_limited", "too many wrong kit keys; wait before trying again", reason="kit_locked",
+                               retry_after_s=wait)
+            if password is None:
+                raise ApiError(422, "conflict", "that is not a whole kit key: type the 13 groups (and the check group) as printed",
+                               reason="kit_key_malformed")
+            if not self._kit_key_matches(active, password):
+                fails += 1
+                until = None
+                if fails >= self.CONSOLE_FREE_TRIES:
+                    until = now + min(self.CONSOLE_FIRST_LOCK * 2 ** (fails - self.CONSOLE_FREE_TRIES), self.CONSOLE_MAX_LOCK)
+                self.repo.put_kit_lock(fails, until)
+                self.gw.audit.append("backup.kit.console_failed", principal.as_dict(), None, {"fails": fails})
+                raise ApiError(401, "unauthenticated", "that is not this box's kit key", reason="kit_key_wrong")
+            self.repo.put_kit_lock(0, None)
+        self._event("kit.console_used", {"fingerprint": fingerprint}, principal=principal.as_dict())
+        return {"fingerprint": fingerprint}
+
+    @staticmethod
+    def _console_verifier(k: KitRow) -> dict:
+        return {"fingerprint": k.fingerprint, "verifier": k.challenge.get("console_verify")}
+
+    @staticmethod
+    def _kit_key_matches(active: dict, password: str) -> bool:
+        """Use the salted full hash. A legacy kit with only a fingerprint keeps working until replacement."""
+        v = active["verifier"]
+        if v:
+            return verifier_ok(v, password)
+        return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest()[:16], active["fingerprint"])
+
+    def bind_kit_approval(self, action_id: str, session_id: str) -> None:
+        with self._kit_lock:
+            if self._one_time is not None and self._one_time.action_id == action_id:
+                self._one_time.session_id = session_id
+
+    def _unclaimed_kit(self, session_id: str | None) -> _KitReveal | None:
+        """Called under _kit_lock. None identifies the legacy in-response shortcut only."""
+        reveal = self._one_time
+        if reveal is None:
+            return None
+        if reveal.expires_at <= utc(self.gw.clock()):
+            self._one_time = None
+            return None
+        return reveal if reveal.session_id == session_id else None
+
+    def approved_without_session(self, action_id: str) -> bool:
+        """The current page belongs to this action, but its approval bound no session (a token approved it)."""
+        with self._kit_lock:
+            reveal = self._unclaimed_kit(None)
+            return reveal is not None and reveal.action_id == action_id
+
+    def claimable_kit(self, session_id: str) -> str | None:
+        with self._kit_lock:
+            reveal = self._unclaimed_kit(session_id)
+            return reveal.action_id if reveal else None
+
+    def take_one_time(self, action_id: str, session_id: str | None) -> tuple[dict, dict] | None:
+        with self._kit_lock:
+            reveal = self._unclaimed_kit(session_id)
+            if reveal is None or reveal.action_id != action_id:
+                return None
+            kit = self.kit_state()
+            self._one_time = None
+            return kit, reveal.one_time
+
+    def confirm_kit(self, principal, answers: dict[str, str], fingerprint: str | None = None) -> dict:
+        with self._kit_lock:
+            k = self.repo.kit()
+            if k is None:
+                raise ApiError(404, "not_found", "no emergency kit has been issued")
+            if fingerprint is not None and fingerprint != k.fingerprint:
+                raise ApiError(409, "stale_precondition", "a newer kit was issued; confirm the current kit")
+            if k.state == "confirmed":
+                return self.kit_state()
+            if not answer_ok(k.challenge, answers):
+                self.repo.update_kit(attempts=k.attempts + 1)
+                self.gw.audit.append("backup.kit.confirm_failed", principal.as_dict(), None, {"attempts": k.attempts + 1})
+                raise ApiError(409, "conflict", "those groups do not match your kit; look at the printed key again")
+            ch = {name: value for name, value in k.challenge.items() if name != "confirmed_console"}
+            self.repo.update_kit(state="confirmed", confirmed_at=utc(self.gw.clock()), challenge=ch)
+            self._one_time = None
+            if ch.get("disk_key"):  # the owner proved the page was saved: the node can destroy its copy now
+                self._forget_disk_key()
+            state = self.kit_state()
         self._event("kit.confirmed", {"fingerprint": k.fingerprint}, principal=principal.as_dict())
-        return self.kit_state()
+        return state

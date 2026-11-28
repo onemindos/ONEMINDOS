@@ -3,7 +3,7 @@
 // size, corners, motion and transparency, per person. Appearance changes nothing on the box,
 // so it is not a request and needs no approval (P1 applies to box state); it is still
 // headless-first: every control maps to one field of PUT /v1/me/preferences (§12, pending).
-import { useId, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { dark, light } from '../tokens/tokens';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
@@ -29,9 +29,9 @@ import {
   type TransparencyPref,
 } from './preferences';
 import { API_CONTRACT_STATUS, PREFERENCES_PATH } from './store';
-import { THEME_PACKS, packIsActive, packPatch } from './packs';
+import { THEME_PACKS, packIsActive, packPatch, type ThemePack } from './packs';
 import { prepareWallpaper, checkUpload } from './upload';
-import { WALLPAPERS, WALLPAPER_IDS, type WallpaperChoice } from './wallpapers';
+import { WALLPAPERS, WALLPAPER_IDS, type WallpaperChoice, type WallpaperId } from './wallpapers';
 import { WallpaperSurface, wallpaperLayers } from './WallpaperLayer';
 
 type Vars = CSSProperties & Record<`--${string}`, string>;
@@ -96,6 +96,56 @@ export function AppearanceStatus({ onReset }: { onReset?: () => void }) {
         </Button>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ packs */
+
+/** A pack's own look in miniature: its wallpaper side for its mode, a window and its highlight. */
+function PackMini({ pack }: { pack: ThemePack }) {
+  const t = pack.set.theme === 'dark' ? dark : light;
+  const accent = presetAccent(pack.set.accentPreset)[pack.set.theme === 'dark' ? 'dark' : 'light'].set.accent;
+  const w = pack.set.wallpaper;
+  const layers = w === 'none' || w === 'custom' ? null : wallpaperLayers(w as WallpaperId, null);
+  const bg = layers ? layers[pack.set.theme === 'dark' ? 1 : 0] : t.bg;
+  const solid = pack.set.transparency === 'off';
+  const win = { '--a-bg': t.bg, '--a-surface': t.surface, '--a-line': t.border, '--a-accent': accent } as Vars;
+  return (
+    <span className="om-cz-pack-mini" style={{ background: bg }} aria-hidden="true" data-solid={solid || undefined}>
+      <span className="om-cz-art-win om-cz-pack-win" style={win}>
+        <span className="om-cz-art-side" />
+        <span className="om-cz-art-body">
+          <span className="om-cz-art-bar" />
+          <span className="om-cz-art-bar om-cz-art-bar-short" />
+          <span className="om-cz-art-dot" />
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function PackSection() {
+  const { prefs, update } = useCustomize();
+  const groups: Array<{ source: ThemePack['source']; label: string }> = [
+    { source: 'Atlas', label: 'From Atlas' },
+    { source: 'Console', label: 'From Console' },
+  ];
+  return (
+    <Section title="Theme pack" description="A pack sets mode, wallpaper, highlight, corners and glass together. It never changes text size, density, motion or the run bar. Buttons stay red.">
+      {groups.map((g) => (
+        <div key={g.source} className="om-cz-pack-group" role="group" aria-label={g.label}>
+          <h3 className="om-cz-pack-head">{g.label}</h3>
+          <div className="om-cz-packs">
+            {THEME_PACKS.filter((p) => p.source === g.source).map((p) => (
+              <button key={p.id} type="button" className="om-cz-pack" aria-label={`${p.name} pack`} aria-pressed={packIsActive(p, prefs)} title={p.note} onClick={() => update(packPatch(p))}>
+                <PackMini pack={p} />
+                <span className="om-cz-pack-name">{p.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </Section>
   );
 }
 
@@ -194,8 +244,11 @@ function AccentSection() {
   const hexText = draft ?? prefs.accentCustom;
   const hexValid = normalizeHex(hexText) !== null;
 
+  const fromPhoto = prefs.wallpaper === 'custom' && prefs.customWallpaperColors.length > 0;
   const options: Array<{ value: string; label: string; vars: Vars; hint?: string }> = [
-    { value: 'wallpaper', label: 'Match wallpaper', vars: pair('sw', wp.light.set.accent, wp.dark.set.accent), hint: ACCENTS[wpAccent].name },
+    fromPhoto
+      ? { value: 'wallpaper', label: 'From my photo', vars: pair('sw', resolved.light.set.accent, resolved.dark.set.accent), hint: 'darkened until text passes AA' }
+      : { value: 'wallpaper', label: 'Match wallpaper', vars: pair('sw', wp.light.set.accent, wp.dark.set.accent), hint: ACCENTS[wpAccent].name },
     ...ACCENT_IDS.map((id: AccentId) => {
       const a = presetAccent(id);
       return { value: id, label: ACCENTS[id].name, vars: pair('sw', a.light.set.accent, a.dark.set.accent) };
@@ -204,7 +257,7 @@ function AccentSection() {
   ];
 
   return (
-    <Section title="Accent colour" description="Tints your wallpaper. Selection stays teal and primary actions stay red. Every choice is checked for readable contrast (WCAG AA).">
+    <Section title="Highlight colour" description="Selection, focus and the map's selected place. Teal by default, so red only means act or needs you. Every choice is checked for readable contrast (WCAG AA).">
       <fieldset className="om-cz-group">
         <legend className="om-visually-hidden">Accent colour</legend>
         <div className="om-cz-swatches">
@@ -230,13 +283,19 @@ function AccentSection() {
           ))}
         </div>
       </fieldset>
+      <SettingRow title="Buttons stay signal red" description={prefs.buttonsRed ? "On by default. Off: buttons use your highlight colour instead." : 'Buttons use your highlight colour. Needs-you and danger stay red.'}>
+        <label className="om-cz-check">
+          <input type="checkbox" role="switch" checked={prefs.buttonsRed} onChange={(e) => update({ buttonsRed: e.target.checked })} />
+          <span>Buttons stay signal red</span>
+        </label>
+      </SettingRow>
       {prefs.accentSource === 'custom' && (
         <div className="om-cz-custom">
           <label className="om-cz-field om-cz-field-color">
             <span>Pick a colour</span>
             <input
               type="color"
-              value={normalizeHex(prefs.accentCustom) ?? '#1f6a66'}
+              value={normalizeHex(prefs.accentCustom) ?? ACCENTS[DEFAULT_ACCENT].light}
               onChange={(e) => {
                 setDraft(null);
                 update({ accentCustom: e.target.value });
@@ -329,7 +388,7 @@ function WallpaperSection() {
   const customLayers = wallpaperLayers('custom', wallpaperImage);
 
   return (
-    <Section title="Wallpaper" description="Drawn for OneMind and generated in your browser. Text on top is kept readable: the dim never goes below what contrast needs.">
+    <Section title="Wallpaper" description="Console's set first, each with a light and a dark side that the mode picks; drawn for OneMind and generated in your browser.">
       <fieldset className="om-cz-group">
         <legend className="om-visually-hidden">Wallpaper</legend>
         <div className="om-cz-wallpapers">
@@ -392,6 +451,9 @@ function WallpaperSection() {
           </p>
         )}
       </div>
+      <p className="om-cz-desc" id={`${name}-veil`}>
+        Honest note: in light mode a veil of the page colour sits over the wallpaper so text stays readable, so it looks softer than in dark mode. The dim slider can lower it, never below what contrast needs.
+      </p>
       <div className="om-cz-sliders">
         <RangeField
           label="Blur"
@@ -432,10 +494,12 @@ function LayoutSection() {
   const { prefs, update } = useCustomize();
   return (
     <Section title="Layout and text">
-      <label>
-        <input type="checkbox" checked={prefs.commandBar} onChange={(event) => update({ commandBar: event.target.checked })} />
-        Show the Home command bar
-      </label>
+      <SettingRow title="Run bar" description="The &quot;Run a command or ask an agent&quot; bar from the Console look. Off by default. Shortcut Alt R, arriving with the run bar window; until then it shows on Home.">
+        <label className="om-cz-check">
+          <input type="checkbox" role="switch" checked={prefs.commandBar} onChange={(event) => update({ commandBar: event.target.checked })} />
+          <span>Show the run bar (Alt R)</span>
+        </label>
+      </SettingRow>
       <SettingRow title="Density" description="Compact fits more on a screen; tap targets stay at least 36 px on mouse screens and 44 px on touch.">
         <ChoiceGroup<Density>
           legend="Density"
@@ -483,15 +547,15 @@ function EffectsSection() {
   const { prefs, update } = useCustomize();
   return (
     <Section title="Motion and effects">
-      <SettingRow title="Reduce motion" description="Stops sliding, fading and pulsing. Your device's setting is always respected.">
+      <SettingRow title="Motion" description="Stops sliding, fading and pulsing. Your device's setting is always respected. Status never needs motion.">
         <ChoiceGroup<MotionPref>
-          legend="Reduce motion"
+          legend="Motion"
           hideLegend
           value={prefs.motion}
           onChange={(motion) => update({ motion })}
           choices={[
             { value: 'system', label: 'Like my device' },
-            { value: 'reduce', label: 'Always' },
+            { value: 'reduce', label: 'Always reduce' },
           ]}
         />
       </SettingRow>
@@ -551,16 +615,22 @@ export function AppearancePreview() {
   );
 }
 
-function cliArgs(p: AppearancePreferences): string {
+/** The `onemind look set` flags for these preferences: the active pack when one matches, else the fields. */
+export function lookCommand(p: AppearancePreferences): string {
   const d = DEFAULT_PREFERENCES;
-  const parts: string[] = [];
-  if (p.theme !== d.theme) parts.push(`theme=${p.theme}`);
-  if (p.accentSource === 'preset') parts.push(`accent=${p.accentPreset}`);
-  else if (p.accentSource === 'custom') parts.push(`accent=${p.accentCustom}`);
-  if (p.wallpaper !== d.wallpaper) parts.push(`wallpaper=${p.wallpaper}`);
-  if (p.density !== d.density) parts.push(`density=${p.density}`);
-  if (p.fontScale !== d.fontScale) parts.push(`font-scale=${p.fontScale}`);
-  return parts.join(' ') || 'theme=system';
+  const pack = THEME_PACKS.find((x) => packIsActive(x, p));
+  const parts: string[] = pack ? [`--pack ${pack.id}`] : [`--theme ${p.theme}`];
+  if (!pack) {
+    if (p.accentSource === 'preset') parts.push(`--highlight ${p.accentPreset}`);
+    else if (p.accentSource === 'custom') parts.push(`--highlight ${p.accentCustom}`);
+    parts.push(`--wallpaper ${p.wallpaper}`);
+  }
+  if (p.density !== d.density) parts.push(`--density ${p.density}`);
+  if (p.fontScale !== d.fontScale) parts.push(`--text-size ${Math.round(p.fontScale * 100)}`);
+  if (p.motion !== d.motion) parts.push(`--motion ${p.motion}`);
+  if (!p.buttonsRed) parts.push('--buttons highlight');
+  if (p.commandBar) parts.push('--run-bar on');
+  return `onemind look set ${parts.join(' ')}`;
 }
 
 export function AppearanceApiEquivalent() {
@@ -569,10 +639,10 @@ export function AppearanceApiEquivalent() {
     <details className="om-details om-cz-api">
       <summary>Same change from the API or CLI</summary>
       <p className="om-cz-desc">
-        <code>PUT {PREFERENCES_PATH}</code>: {API_CONTRACT_STATUS}. CLI verb planned. Appearance is personal: agents cannot read or change it.
+        <code>PUT {PREFERENCES_PATH}</code>: {API_CONTRACT_STATUS}. The CLI verb is planned, not shipped. Appearance is personal: agents cannot read or change it.
       </p>
       <pre className="om-code">{`PUT ${PREFERENCES_PATH}\n${JSON.stringify({ appearance: prefs }, null, 2)}`}</pre>
-      <pre className="om-code">{`onemind me appearance set ${cliArgs(prefs)}   # planned`}</pre>
+      <pre className="om-code">{`${lookCommand(prefs)}   # planned`}</pre>
     </details>
   );
 }
@@ -602,6 +672,21 @@ function Skeleton() {
 export function AppearanceSettings() {
   const ctx = useCustomize();
   const [undo, setUndo] = useState<AppearancePreferences | null>(null);
+  // "Undo last change": remember the preferences from before the latest edit made on this screen.
+  const [previous, setPrevious] = useState<AppearancePreferences | null>(null);
+  const seen = useRef<AppearancePreferences | null>(null);
+  const undoing = useRef(false);
+  const ready = ctx.status.phase === 'ready';
+  useEffect(() => {
+    if (!ready) return;
+    const before = seen.current;
+    seen.current = ctx.prefs;
+    if (before === null || JSON.stringify(before) === JSON.stringify(ctx.prefs)) return;
+    if (undoing.current) {
+      undoing.current = false;
+      setPrevious(null);
+    } else setPrevious(before);
+  }, [ready, ctx.prefs]);
   if (ctx.status.phase === 'loading') return <Skeleton />;
   if (ctx.status.phase === 'error') {
     return (
@@ -624,6 +709,21 @@ export function AppearanceSettings() {
           ctx.replace({ ...DEFAULT_PREFERENCES, theme: 'system' });
         }}
       />
+      <div className="om-cz-lookbar">
+        <code className="om-cz-cmdline">{lookCommand(ctx.prefs)}</code>
+        <span className="om-cz-desc">CLI verb planned, not shipped yet</span>
+        <Button
+          size="sm"
+          disabled={!previous}
+          onClick={() => {
+            if (!previous) return;
+            undoing.current = true;
+            ctx.replace(previous);
+          }}
+        >
+          Undo last change
+        </Button>
+      </div>
       {undo && (
         <div className="om-cz-banner om-tone-info" role="status">
           <Icon name="info" size={18} />
@@ -642,15 +742,7 @@ export function AppearanceSettings() {
       <div className="om-cz-layout">
         <div className="om-cz-main">
           <ThemeSection />
-          <Section title="Theme pack">
-            <div className="om-cz-swatches">
-              {THEME_PACKS.map((p) => (
-                <Button key={p.id} aria-pressed={packIsActive(p, ctx.prefs)} title={`${p.source}: ${p.note}`} onClick={() => ctx.update(packPatch(p))}>
-                  {p.name} pack
-                </Button>
-              ))}
-            </div>
-          </Section>
+          <PackSection />
           <AccentSection />
           <WallpaperSection />
           <LayoutSection />

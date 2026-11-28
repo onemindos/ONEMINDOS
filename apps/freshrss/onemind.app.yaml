@@ -7,7 +7,7 @@ kind: App
 metadata:
   id: freshrss
   name: "FreshRSS"
-  version: "1.30.4"
+  version: "1.31.0"
   description: "A free, self-hostable news aggregator…"
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (rss) are listed in README.md
   # until the schema has metadata.tags.
@@ -23,7 +23,7 @@ metadata:
     github: "https://github.com/FreshRSS/FreshRSS"
     website: "https://freshrss.org"
     support: "https://github.com/FreshRSS/FreshRSS/issues"
-  upstream: {release: "1.30.4", released_at: "2026-10-21T20:45:47Z", archived: false}
+  upstream: {release: "1.31.0", released_at: "2026-11-23T08:27:04Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVE-2026-111497 in libbrotli1, fix exists (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

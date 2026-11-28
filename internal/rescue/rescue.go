@@ -22,6 +22,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -76,6 +77,8 @@ type Config struct {
 	Now        func() time.Time // tests
 	// Terminal mounts the owner-only web terminal (terminal.go); nil leaves it unmounted.
 	Terminal *Terminal
+	// K3sRecoveryFile is what onemind-k3s-state wrote about its last repair ("" = the image's default path).
+	K3sRecoveryFile string
 	// HelpDir is the offline help pack served read-only under /help/ (help.go); "" serves none.
 	HelpDir string
 }
@@ -106,6 +109,7 @@ func New(cfg Config) *Server {
 	s.mux.HandleFunc("GET /status.json", s.statusJSON)
 	s.mux.HandleFunc("GET /logs", s.logs)
 	s.mux.HandleFunc("POST /rollback", s.rollback)
+	s.mux.HandleFunc("POST /reset-k3s", s.resetK3s)
 	s.mux.HandleFunc("GET /help/{path...}", s.help)
 	if cfg.Terminal != nil {
 		s.mountTerminal()
@@ -154,18 +158,48 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Status is what the console shows.
 type Status struct {
-	Version  string            `json:"onemindd_version"`
-	RAUC     heartbeat.RAUC    `json:"rauc"`
-	K3s      map[string]string `json:"k3s_units"`
-	Errors   []string          `json:"errors,omitempty"`
-	CSRF     string            `json:"csrf"`
-	Terminal bool              `json:"-"`
-	Help     bool              `json:"-"`
+	Version string            `json:"onemindd_version"`
+	RAUC    heartbeat.RAUC    `json:"rauc"`
+	K3s     map[string]string `json:"k3s_units"`
+	Errors  []string          `json:"errors,omitempty"`
+	// K3sRecovery is the last automatic repair of k3s's state ("repaired", "needs-approval", "reset", "partial",
+	// "not-checked") and when; "needs-approval" means the owner's apps are (or may be) in the cluster, nothing was
+	// moved and k3s is held until the owner approves the reset (VM 501 bug 1).
+	K3sRecovery *K3sRecovery `json:"k3s_recovery,omitempty"`
+	CSRF        string       `json:"csrf"`
+	Terminal    bool         `json:"-"`
+	Help        bool         `json:"-"`
+}
+
+// DefaultK3sRecoveryFile is where onemind-k3s-state records its last repair.
+const DefaultK3sRecoveryFile = "/data/onemind/k3s-recovery/last.json"
+
+// K3sRecovery is the part of that record the console shows.
+type K3sRecovery struct {
+	Action string `json:"action"`
+	At     string `json:"at"`
+	Reason string `json:"reason,omitempty"`
+}
+
+func (s *Server) k3sRecovery() *K3sRecovery {
+	path := s.cfg.K3sRecoveryFile
+	if path == "" {
+		path = DefaultK3sRecoveryFile
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var r K3sRecovery
+	if json.Unmarshal(b, &r) != nil || r.Action == "" {
+		return nil
+	}
+	return &r
 }
 
 func (s *Server) status(ctx context.Context) Status {
 	st := Status{Version: s.cfg.Version, RAUC: heartbeat.RAUC{Slots: []heartbeat.Slot{}}, K3s: map[string]string{}, CSRF: s.csrf, Terminal: s.cfg.Terminal != nil && SwitchOn(s.cfg.Terminal.SwitchFile),
-		Help: s.hasHelp()}
+		Help: s.hasHelp(), K3sRecovery: s.k3sRecovery()}
 	if b, err := s.cfg.Runner.Run(ctx, "rauc", "status", "--output-format=json"); err != nil {
 		st.Errors = append(st.Errors, "rauc status: "+err.Error())
 	} else {
@@ -203,6 +237,13 @@ var pageTmpl = template.Must(template.New("p").Parse(`<!doctype html><html lang=
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <label>Type <code>rollback</code> to confirm: <input name="confirm" autocomplete="off" required></label>
 <button type="submit">Roll back and restart</button></form>
+<h2>Reset k3s state</h2>
+{{with .K3sRecovery}}<p{{if eq .Action "needs-approval"}} role="alert"{{end}}>Last k3s state repair: <b>{{.Action}}</b> at {{.At}}.{{with .Reason}} {{.}}.{{end}}{{if eq .Action "needs-approval"}} k3s is held (not started) until you decide, so nothing writes over its old state; your apps do not run meanwhile.{{end}}</p>{{end}}
+<form method="post" action="reset-k3s">
+<p>Use this when Kubernetes (k3s) will not start after a power cut. It moves k3s's generated state (certificates, tokens, node password and its datastore) aside under <code>/data/onemind/k3s-recovery/</code> and starts k3s again, which makes them anew. Your files, the apps' volumes and the gateway database are not touched. Apps that ran in k3s are not set up again on their own: install them again once k3s is back. Their old data stays on the disk under <code>/data/k3s/storage/</code>, but a new install gets new, empty volumes.</p>
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<label>Type <code>reset k3s</code> to confirm: <input name="confirm" autocomplete="off" required></label>
+<button type="submit">Reset k3s state</button></form>
 {{if .Terminal}}<h2>Terminal</h2><p><a href="terminal">Open a shell</a> (owner only, needs a fresh passkey sign-in).</p>{{end}}
 <h2>Logs</h2><p><a href="logs">Download recent logs</a> (onemindd, update, health gate, RAUC, k3s).</p>
 {{if .Help}}<h2>Help</h2><p><a href="help/">Offline help</a>: what to do when the box is in trouble. It works with the gateway down.</p>{{end}}
@@ -265,4 +306,34 @@ func (s *Server) rollback(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.cfg.Runner.Run(context.WithoutCancel(ctx), "systemctl", "reboot"); err != nil {
 		s.cfg.Logger.Error("rescue: systemctl reboot failed", "err", err)
 	}
+}
+
+// ErrResetNotConfirmed is returned for a reset POST without the CSRF token or the typed confirmation.
+var ErrResetNotConfirmed = errors.New("reset needs the page's csrf token and confirm=reset k3s")
+
+// resetK3s is the owner-approved "Reset k3s state": it only starts onemind-k3s-reset.service (the console's own
+// sandbox is read-only); that unit stops k3s, moves its generated state aside and starts it again.
+func (s *Server) resetK3s(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if o := r.Header.Get("Origin"); o != "" && o != "https://"+r.Host && o != "http://"+r.Host {
+		http.Error(w, "cross-site request refused", http.StatusForbidden)
+		return
+	}
+	if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf")), []byte(s.csrf)) != 1 ||
+		strings.Join(strings.Fields(strings.ToLower(r.PostForm.Get("confirm"))), " ") != "reset k3s" {
+		http.Error(w, ErrResetNotConfirmed.Error(), http.StatusForbidden)
+		return
+	}
+	s.cfg.Logger.Warn("rescue: owner approved a k3s state reset", "client", clientIP(r))
+	if out, err := s.cfg.Runner.Run(r.Context(), "systemctl", "start", "--no-block", "onemind-k3s-reset.service"); err != nil {
+		s.cfg.Logger.Error("rescue: starting onemind-k3s-reset failed", "err", err, "out", string(out))
+		http.Error(w, "could not start the reset: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = w.Write([]byte("k3s state reset started. k3s restarts and makes its state again; reload this page in a minute or two. Then install your apps again: their old data stays under /data/k3s/storage/.\n"))
 }

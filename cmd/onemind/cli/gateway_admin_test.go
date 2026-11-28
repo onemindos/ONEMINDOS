@@ -78,7 +78,7 @@ func adminHub(t *testing.T, got *[]string) []byte {
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/shares":
 			jsonOut(w, 200, []map[string]any{{"id": "l1", "name": "holiday", "expires_at": "2026-12-01T00:00:00Z"}})
 		case r.Method == http.MethodDelete && r.URL.Path == "/v1/files/shares/l1":
-			jsonOut(w, 200, map[string]any{"id": "l1", "revoked": true})
+			jsonOut(w, 202, map[string]any{"id": "frq_revoke", "state": "awaiting_approval"})
 		case r.URL.Path == "/v1/network":
 			jsonOut(w, 200, map[string]any{"available": true, "interfaces": []map[string]any{{"name": "eth0", "kind": "ethernet", "state": "up",
 				"mac": nil, "mtu": 1500, "addresses": []string{"192.0.2.10/24"}, "wifi": nil}},
@@ -133,7 +133,8 @@ func TestSharesListStopAndLinks(t *testing.T) {
 	if r = run(t, "", false, "shares", "links", "list"); r.code != 0 || !strings.Contains(r.out, "holiday") {
 		t.Fatalf("%+v", r)
 	}
-	if r = run(t, "", false, "shares", "links", "revoke", "l1"); r.code != 0 || !strings.Contains(r.out, "ended") {
+	if r = run(t, "", false, "shares", "links", "revoke", "l1"); r.code != 0 ||
+		!strings.Contains(r.out, "Requested end share link l1") || !strings.Contains(r.out, "frq_revoke") {
 		t.Fatalf("%+v", r)
 	}
 }

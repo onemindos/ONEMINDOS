@@ -40,7 +40,11 @@ PUBLIC = {
     ("GET", "/v1/instance/name"),              # the box name alone, so the sign-in page can show it
     ("GET", "/v1/protocol"),                   # the protocol generations served (#697); an app too old to sign in must read it
     ("GET", "/openapi.json"),                  # the contract; reveals the version only
-    ("POST", "/v1/auth/setup"),                # first owner; needs the install token in the body
+    ("POST", "/v1/auth/setup"),                # first owner; screen code or headless install token
+    ("GET", "/v1/auth/setup/status"),          # no account fields, just whether the box is ready
+    ("POST", "/v1/auth/setup/options"),        # code stays on the screen
+    ("POST", "/v1/auth/recovery/options"),     # no user data, screen is on the home network
+    ("POST", "/v1/auth/recovery/reset"),       # requires both the screen code and the private kit code
     ("POST", "/v1/auth/login/options"),        # WebAuthn challenge; bounded (MAX_OPEN_LOGIN_CHALLENGES)
     ("POST", "/v1/auth/login"),                # the sign-in itself; rate limited per source
     ("POST", "/v1/auth/enrol"),                # one-time enrolment code in the body; rate limited
@@ -55,6 +59,9 @@ PUBLIC = {
     ("GET", "/{full_path:path}"),              # the dashboard's static files (never the API tree)
     ("GET", "/v1/share/{token}"),              # FILES-02 share link: the 256-bit link secret in the path is the credential
     ("GET", "/v1/share/{token}/items/{index}"),  # FILES-02: one shared item, same secret; expiry, revoke and creator re-checked
+    ("POST", "/v1/legacy/invites/{invite_id}/accept"),  # 25f: a legacy contact's phone; the box-signed single-use invite and a proof by the new key are the credential
+    ("POST", "/v1/auth/recovery"),             # 25e: a locked-out owner starts a recovery; a contact must confirm, or password + code start a 72-hour wait; rate limited
+    ("POST", "/v1/recovery/invites/{invite_id}/accept"),  # 25d: a contact's phone; the box-signed single-use invite and a proof by the new key are the credential; rate limited
 }
 
 

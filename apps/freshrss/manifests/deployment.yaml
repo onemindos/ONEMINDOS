@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# FreshRSS 1.30.4 (github.com/FreshRSS/FreshRSS, Docker/Dockerfile, Docker/entrypoint.sh and
+# Bumped from 1.30.4 to 1.31.0 on 2026-11-27; the upstream files cited here were read at 1.30.4 and not re-read at 1.31.0.
+# FreshRSS 1.31.0 (github.com/FreshRSS/FreshRSS, Docker/Dockerfile, Docker/entrypoint.sh and
 # Docker/FreshRSS.Apache.conf at tag 1.30.4). Debian image: Apache on port 80, logs to stderr.
 # It runs as www-data (UID/GID 33), the user Apache would switch to, so Apache stays on that user; the
 # namespaced safe sysctl lets it bind port 80 in this pod only. As non-root, the entrypoint's root-only
@@ -40,7 +41,7 @@ spec:
           value: '0'
       containers:
       - name: freshrss
-        image: docker.io/freshrss/freshrss:1.30.4@sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
+        image: docker.io/freshrss/freshrss:1.31.0@sha256:31b0acfcb8e11600aa6ce697ff8d9d7ea620c85d766e5e764f487b433d20d066
         imagePullPolicy: IfNotPresent
         env:
         - name: TZ
@@ -92,7 +93,7 @@ spec:
         - name: apache-lock
           mountPath: /var/lock/apache2
       - name: refresh
-        image: docker.io/freshrss/freshrss:1.30.4@sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
+        image: docker.io/freshrss/freshrss:1.31.0@sha256:31b0acfcb8e11600aa6ce697ff8d9d7ea620c85d766e5e764f487b433d20d066
         imagePullPolicy: IfNotPresent
         command:
         - sh

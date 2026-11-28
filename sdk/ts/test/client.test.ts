@@ -261,6 +261,26 @@ describe("network.view", () => {
     expect(calls[0]!.url).toBe("http://localhost:8080/v1/network");
     expect(calls[0]!.init.method).toBe("GET");
   });
+  it("reads GET /v1/network/firewall", async () => {
+    const view = { available: true, exposure: "lan_and_mesh_only", open_to_anywhere: [], rules: [], chains: [], sets: [], other_tables: [], editable: false, dropped: 0 };
+    const { om, calls } = client(() => json(200, view));
+    expect((await om.network.firewall()).exposure).toBe("lan_and_mesh_only");
+    expect(calls[0]!.url).toBe("http://localhost:8080/v1/network/firewall");
+    expect(calls[0]!.init.method).toBe("GET");
+  });
+  it("asks to open a port, confirms it and removes it (P-09 part 2)", async () => {
+    const { om, calls } = client((_url, init) => json(init.method === "DELETE" ? 200 : 202, { id: "act-1", state: "awaiting_approval", removed: true }));
+    expect((await om.network.allow({ proto: "tcp", port: 8123, scope: "lan" })).id).toBe("act-1");
+    expect(calls[0]!.url).toBe("http://localhost:8080/v1/network/firewall/allow");
+    expect(calls[0]!.init.method).toBe("POST");
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ proto: "tcp", port: 8123, scope: "lan" });
+    await om.network.confirmAllow("act 1");
+    expect(calls[1]!.url).toBe("http://localhost:8080/v1/network/firewall/allow/act%201/confirm");
+    expect(calls[1]!.init.method).toBe("POST");
+    await om.network.removeAllow("act-1");
+    expect(calls[2]!.url).toBe("http://localhost:8080/v1/network/firewall/allow/act-1");
+    expect(calls[2]!.init.method).toBe("DELETE");
+  });
 });
 
 describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {
@@ -299,6 +319,53 @@ describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {
   });
 });
 
+describe("agentBrowser", () => {
+  it("reads sites and sessions, and a site request is a keyed POST that only files an action", async () => {
+    const { om, calls } = client((url, init) => {
+      if (init.method === "POST") return json(201, action("awaiting_approval"));
+      if (url.endsWith("/sites/s%2F1")) return json(200, { removed: true, id: "s/1" });
+      return json(200, []);
+    });
+    expect(await om.agentBrowser.sites()).toEqual([]);
+    expect(await om.agentBrowser.sessions()).toEqual([]);
+    const a = await om.agentBrowser.requestSite({ entry: "example.org", agent: "hermes" }, "key-1");
+    expect(a.state).toBe("awaiting_approval");
+    expect(await om.agentBrowser.removeSite("s/1")).toEqual({ removed: true, id: "s/1" });
+    const post = calls.find((c) => c.init.method === "POST")!;
+    expect(post.url).toBe("http://localhost:8080/v1/agent-browser/sites");
+    expect((post.init.headers as Record<string, string>)["Idempotency-Key"]).toBe("key-1");
+    expect(JSON.parse(String(post.init.body))).toEqual({ entry: "example.org", agent: "hermes" });
+  });
+
+  it("keys a site request even when the caller gives no key", async () => {
+    const { om, calls } = client(() => json(201, action("awaiting_approval")));
+    await om.agentBrowser.requestSite({ entry: "example.org", agent: "hermes" });
+    const key = (calls[0]!.init.headers as Record<string, string>)["Idempotency-Key"];
+    expect(key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+describe("maps and subjects", () => {
+  it("reads packs, sites and subjects; a pack removal is a keyed action request, never an approval", async () => {
+    const { om, calls } = client((url, init) => {
+      if (url.endsWith("/v1/instance")) return json(200, { name: "b", version: "0.1.0", hub_node_id: "n" });
+      if (init.method === "POST") return json(201, action("awaiting_approval"));
+      return json(200, url.includes("/check") ? { ok: true, reason: "r" } : []);
+    });
+    await om.maps.packs();
+    await om.maps.sites();
+    await om.subjects.tree();
+    expect((await om.subjects.check("om.sensor.x", "app", "a1")).ok).toBe(true);
+    const a = await om.maps.requestPackRemoval("eu-west", "key-7");
+    expect(a.state).toBe("awaiting_approval");
+    const urls = calls.map((c) => c.url.replace("http://localhost:8080", ""));
+    expect(urls).toContain("/v1/subjects/check?subject=om.sensor.x&publisher=app&owner_id=a1");
+    const post = calls.find((c) => c.init.method === "POST")!;
+    expect(JSON.parse(String(post.init.body))).toMatchObject({ type: "map.pack.remove", params: { pack_id: "eu-west" }, idempotency_key: "key-7" });
+    expect(urls.some((u) => u.includes("/approve"))).toBe(false);
+  });
+});
+
 describe("domains hosts and tips.whatsNew", () => {
   it("sends the typed confirmation, escapes names, and refuses redirects for what's new", async () => {
     const { om, calls } = client((url, init) => {
@@ -318,5 +385,18 @@ describe("domains hosts and tips.whatsNew", () => {
     ]);
     expect(JSON.parse(String(calls[1]!.init.body))).toEqual({ confirm: "ntfy.example.org" });
     expect(calls[3]!.init.redirect).toBe("error");
+  });
+});
+
+describe("call with DELETE (P-06)", () => {
+  it("sends the verb and the token, never retries a DELETE, and returns the filed action", async () => {
+    const { om, calls } = client(() => json(202, { id: "a9", type: "ssh.key.remove", state: "awaiting_approval" }));
+    const got = await om.call<{ id: string }>({ method: "DELETE", path: "/v1/ssh/keys/abc-_def" });
+    expect(got.id).toBe("a9");
+    expect(calls[0]!.init.method).toBe("DELETE");
+    expect(calls[0]!.url).toBe("http://localhost:8080/v1/ssh/keys/abc-_def");
+    const { om: down, calls: n } = client(() => json(503, { error: "unavailable", message: "later" }));
+    await expect(down.call({ method: "DELETE", path: "/v1/ssh/keys/x" })).rejects.toBeInstanceOf(OneMindError);
+    expect(n).toHaveLength(1);
   });
 });

@@ -17,7 +17,12 @@ from urllib.parse import quote
 # of apps, so we take 2^15 and rate-limit logins instead). Parameters are stored with each hash.
 SCRYPT_N, SCRYPT_R, SCRYPT_P = 2**15, 8, 1
 _MAXMEM = 128 * 1024 * 1024
-PASSWORD_MIN, PASSWORD_MAX = 10, 1024
+PASSWORD_MIN, PASSWORD_MAX = 12, 1024
+COMMON_PASSWORDS = frozenset({
+    "123456789012", "1234567890123", "1234567890123456", "111111111111", "qwertyuiop[]",
+    "qwerty123456", "password1234", "password12345", "passwordpassword", "password123!",
+    "adminpassword", "letmeinletmein", "changeme12345", "correct horse battery staple",
+})
 
 
 def sha256_hex(value: str) -> str:
@@ -79,7 +84,7 @@ def totp_code(secret: str, step: int) -> str:
 def totp_match(secret: str, code: str, now: float | None = None, last_step: int | None = None) -> int | None:
     """The time step `code` matches (window ±1), or None. A step at or before last_step is a replay."""
     code = (code or "").strip().replace(" ", "")
-    if len(code) != TOTP_DIGITS or not code.isdigit():
+    if len(code) != TOTP_DIGITS or not code.isascii() or not code.isdigit():
         return None
     current = int((time.time() if now is None else now) // TOTP_STEP)
     for step in (current - 1, current, current + 1):

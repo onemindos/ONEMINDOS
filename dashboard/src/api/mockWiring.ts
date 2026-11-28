@@ -126,7 +126,7 @@ export abstract class MockWiringBase implements W.WiringApi {
   }
   async passkeyRegisterOptions() {
     this.person();
-    return this.loginOptions();
+    return { ...await this.loginOptions(), box_code_if_proven: false };
   }
   async passkeyRegister(credential: Record<string, unknown>, label?: string) {
     this.person();
@@ -147,11 +147,15 @@ export abstract class MockWiringBase implements W.WiringApi {
       { id: 'alex', username: 'alex', display_name: 'Alex', role: 'adult', created_at: this.iso(86400 * 10), last_seen_at: this.iso(3600), disabled: false, enrolled: true, passkeys: 0, totp: true },
     ]);
   }
+  async agents(): Promise<W.AgentInfo[]> {
+    this.owner();
+    return [];
+  }
   async users() {
     this.owner();
     return this.users_().map((u) => ({ ...u }));
   }
-  async createUser(b: { display_name: string; role: W.PersonRole; username?: string }) {
+  async createUser(b: { display_name: string; role: W.PersonRole; username?: string | null }) {
     this.owner();
     if (!['owner', 'adult', 'teen', 'child', 'guest'].includes(b.role)) throw new ApiError(422, 'conflict', 'role must be one of owner, adult, teen, child, guest');
     const u: W.UserInfo = { id: this.id('usr'), username: b.username ?? null, display_name: b.display_name, role: b.role, created_at: this.iso(), last_seen_at: null, disabled: false, enrolled: false, passkeys: 0, totp: false };

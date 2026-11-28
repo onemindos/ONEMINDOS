@@ -73,9 +73,9 @@
       ],
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
+        "android.permission.DETECT_SCREEN_CAPTURE",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.USE_FINGERPRINT",
         "com.google.android.c2dm.permission.RECEIVE",
         "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
       ],
@@ -93,6 +93,12 @@
         }
       ],
       "./plugins/withPrivateDatabaseBackup",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "OneMind uses Face ID to unlock the app and to confirm a Deny from the lock screen."
+        }
+      ],
       [
         "expo-camera",
         {

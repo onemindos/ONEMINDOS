@@ -7,7 +7,7 @@ Movie organizer/manager for usenet and torrent users.
 
 | | |
 |---|---|
-| Version | 6.4.4.10685 (upstream release `v6.4.4.10685`, published 2026-09-16) |
+| Version | 7.0.3.10918 (upstream release `v7.0.3.10918`, published 2026-11-16) |
 | Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
@@ -32,7 +32,7 @@ Storage: PVC `radarr-config` 2Gi, PVC `radarr-downloads` 20Gi, PVC `radarr-movie
 
 Images:
 
-- `ghcr.io/linuxserver/radarr:6.4.4.10685-ls326@sha256:51a9ac2a9eb47afc833541e5fd6c11b86eb9f810694c22fa2429e3078e9194b2`
+- `ghcr.io/linuxserver/radarr:7.0.3.10918-ls328@sha256:044788f5508b7f67a3e0368cdd142c77c4d4cd5aec2efaba53e1a68b6b6231e7`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -73,6 +73,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: the startup failure is fixed above (rerun the gate to confirm); move the image pin to a release with the patched .NET runtime (tag verified with `crane`), and add a licence-matrix row. Then rerun `sdk/tools/app-gate`.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** .NET runtime 8.0.27, CVE-2026-70188 and CVE-2026-88092 (fixed in 8.0.32), gate run 43405572161. The smoke test passes. `6.4.4.10685-ls326` is the newest tag. Unblock: a LinuxServer rebuild with .NET 8.0.32 or newer. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Radarr 6.4.4.10685 to 7.0.3.10918, a major bump. Upstream 7.0.0 notes: .NET 10, a minimum of PostgreSQL 15 when an external PostgreSQL is used (this manifest uses SQLite in the PVC), new OIDC login. Radarr 7.1.0 exists upstream but LinuxServer has only develop/nightly tags for it. The first start of the new major migrates the SQLite database one way (take a backup before an upgrade of an existing install). The smoke result for this major was not available to this change (the ci-apps artifact could not be read from the build sandbox), so it is not smoke-tested here; check `scan.json` "smoke" after the next CI run. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

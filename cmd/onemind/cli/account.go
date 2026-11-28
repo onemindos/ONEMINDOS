@@ -2,28 +2,317 @@
 
 package cli
 
-// `onemind account`: your own sign-in, the CLI side of Settings > Account and security (UI parity M1, #1232).
-// `show` reads GET /v1/auth/methods; `password` and `totp setup|confirm|disable` call POST /v1/auth/password and
-// /v1/auth/totp/*. These change your own credentials, so the gateway accepts them only from a signed-in session
-// (a bearer session from `POST /v1/auth/login` with client "cli"), never from an API token; it checks the current
-// password and audits each change. The CLI adds no check of its own and never takes a password as a flag: it asks
-// without echo, or reads --password-stdin. Passkeys cannot be added here: WebAuthn needs a browser or the phone.
-// D-030: passkeys come first, new people are passkeys-only and an authenticator code is a fallback for people who
-// already sign in with a password; `totp setup` says so before it prints a secret.
-
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 
+	onemind "github.com/onemindos/onemindos/sdk/go"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-
-	onemind "github.com/onemindos/onemindos/sdk/go"
 )
+
+type accountChallenge struct {
+	ID string `json:"challenge_id"`
+}
+
+type accountRecoveryKit struct {
+	Code    string `json:"recovery_code"`
+	DiskKey string `json:"disk_recovery_key,omitempty"`
+}
+
+func (a *App) accountResult(message string, body any) error {
+	if a.G.JSON {
+		return printJSON(a.Stdout, body)
+	}
+	_, err := fmt.Fprintln(a.Stdout, message)
+	return err
+}
+
+func (a *App) selectedAccountClient(anonymous bool) (*onemind.Client, error) {
+	if anonymous && a.G.Hub != "" {
+		return a.accountClient(&target{hub: a.G.Hub})
+	}
+	t, err := a.resolveTarget(!anonymous)
+	if err != nil {
+		return nil, err
+	}
+	return a.accountClient(t)
+}
+
+// writeAccountKit saves a new, private file and confirms it has been flushed before
+// advancing setup. The caller opens the destination before any password reset.
+func writeAccountKit(file *os.File, kit accountRecoveryKit) error {
+	if kit.Code == "" {
+		return fmt.Errorf("the box returned an empty recovery kit")
+	}
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(kit); err != nil {
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		return err
+	}
+	if runtime.GOOS == "windows" {
+		return nil // Opening a directory for fsync is not supported there.
+	}
+	dir, err := os.Open(filepath.Dir(file.Name()))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
+}
+
+func newAccountKitFile(path string) (*os.File, error) {
+	if path == "" {
+		return nil, exitWith(ExitUsage, "usage", "pass --kit PATH for a new private recovery kit file")
+	}
+	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+}
+
+func (a *App) finishAccountSetup(c *onemind.Client, path string, yes bool) error {
+	file, err := newAccountKitFile(path)
+	var kit accountRecoveryKit
+	if yes && errors.Is(err, os.ErrExist) {
+		kit, err = readSavedAccountKit(path)
+	} else if err == nil {
+		err = saveSetupKit(c, file, &kit)
+		if err != nil {
+			os.Remove(path)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(a.Stderr, "Recovery kit at %q. Keep a copy somewhere separate from the box. Without it you may lose access to your data.\n", path)
+	if !yes {
+		yes, err = a.confirm("Did you save the recovery kit somewhere safe?", "--yes")
+		if err != nil {
+			return err
+		}
+		if !yes {
+			return exitWith(ExitConflict, "conflict", "setup is still pending. Run account setup-finish with the saved kit path and --yes when you are ready")
+		}
+	}
+	body := map[string]any{"saved": true, "method": "download", "recovery_code": kit.Code}
+	err = c.Do(bg(), http.MethodPost, "/v1/auth/setup/finish", body, nil)
+	var gatewayErr *onemind.Error
+	if kit.DiskKey != "" && errors.As(err, &gatewayErr) && gatewayErr.Reason == "disk_recovery_key_missing" {
+		body["disk_recovery_key"] = kit.DiskKey
+		err = c.Do(bg(), http.MethodPost, "/v1/auth/setup/finish", body, nil)
+	}
+	if err != nil {
+		return err
+	}
+	return a.accountResult("Setup finished.", map[string]any{"setup_finished": true, "kit": path})
+}
+
+func saveSetupKit(c *onemind.Client, file *os.File, kit *accountRecoveryKit) error {
+	defer file.Close()
+	if err := c.Do(bg(), http.MethodPost, "/v1/auth/setup/kit", nil, kit); err != nil {
+		return err
+	}
+	return writeAccountKit(file, *kit)
+}
+
+func readSavedAccountKit(path string) (accountRecoveryKit, error) {
+	var kit accountRecoveryKit
+	info, err := os.Lstat(path)
+	if err != nil {
+		return kit, err
+	}
+	if !info.Mode().IsRegular() || (runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0) {
+		return kit, fmt.Errorf("use a private regular file for the recovery kit")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return kit, err
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil {
+		return kit, err
+	}
+	if !os.SameFile(info, opened) {
+		return kit, fmt.Errorf("the recovery kit file changed while it was being opened")
+	}
+	if err := json.NewDecoder(io.LimitReader(file, 32*1024)).Decode(&kit); err != nil || kit.Code == "" {
+		return kit, fmt.Errorf("the existing file does not contain a recovery kit")
+	}
+	return kit, nil
+}
+
+func accountCommands(a *App) []*cobra.Command {
+	root := &cobra.Command{Use: "account", Short: "Set up, secure and recover a person’s sign-in"}
+	var secretsStdin bool
+	root.PersistentFlags().BoolVar(&secretsStdin, "secrets-stdin", false, "read requested secrets as separate lines from stdin")
+
+	var displayName, email, setupContext string
+	setup := &cobra.Command{Use: "setup USERNAME", Short: "Use the box’s screen code to start first setup",
+		Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+			c, err := a.selectedAccountClient(true)
+			if err != nil {
+				return err
+			}
+			var ch accountChallenge
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/setup/options", nil, &ch); err != nil {
+				return err
+			}
+			code, err := a.accountSecret("Setup code on the box's screen", secretsStdin)
+			if err != nil {
+				return err
+			}
+			password, err := a.accountSecret("New password (at least 12 characters)", secretsStdin)
+			if err != nil {
+				return err
+			}
+			body := map[string]string{"challenge_id": ch.ID, "box_code": strings.TrimSpace(code),
+				"username": args[0], "display_name": displayName, "password": password, "client": "cli"}
+			if email != "" {
+				body["email"] = email
+			}
+			var session accountSession
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/setup", body, &session); err != nil {
+				return err
+			}
+			name, err := a.saveAccountSession(c.BaseURL(), setupContext, session)
+			if err != nil {
+				return err
+			}
+			return a.accountResult("Setup started. Run onemind account setup-finish --kit PATH to save the recovery kit and finish.",
+				map[string]any{"context": name, "setup_finished": false})
+		}}
+	setup.Flags().StringVar(&displayName, "display-name", "", "name shown to other people")
+	setup.Flags().StringVar(&email, "email", "", "optional address for notices")
+	setup.Flags().StringVar(&setupContext, "name", "", "name for the saved box context")
+	root.AddCommand(setup)
+
+	var kitFile string
+	var kitYes bool
+	finish := &cobra.Command{Use: "setup-finish", Short: "Save the recovery kit privately and confirm first setup",
+		Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
+			c, err := a.selectedAccountClient(false)
+			if err != nil {
+				return err
+			}
+			return a.finishAccountSetup(c, kitFile, kitYes)
+		}}
+	finish.Flags().StringVar(&kitFile, "kit", "", "file to save the kit, or an already saved kit with --yes")
+	finish.Flags().BoolVar(&kitYes, "yes", false, "confirm the saved recovery kit is in a safe place")
+	root.AddCommand(finish)
+
+	var enrolContext string
+	enrol := &cobra.Command{Use: "enrol [USERNAME]", Short: "Redeem a family invitation and choose your password",
+		Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+			c, err := a.selectedAccountClient(true)
+			if err != nil {
+				return err
+			}
+			code, err := a.accountSecret("Invitation link or code", secretsStdin)
+			if err != nil {
+				return err
+			}
+			link := strings.TrimSpace(code)
+			if u, err := url.Parse(link); err == nil && u.Host != "" {
+				hub, err := url.Parse(c.BaseURL())
+				if err != nil || u.User != nil || !strings.EqualFold(u.Host, hub.Host) || u.Scheme != hub.Scheme {
+					return exitWith(ExitUsage, "usage", "the invitation is for a different box")
+				}
+				var ok bool
+				link, ok = strings.CutPrefix(u.Fragment, "enrol=")
+				if !ok || link == "" {
+					return exitWith(ExitUsage, "usage", "the invitation link does not contain a sign-up code")
+				}
+			}
+			password, err := a.accountSecret("New password (at least 12 characters)", secretsStdin)
+			if err != nil {
+				return err
+			}
+			body := map[string]string{"code": link, "password": password, "client": "cli"}
+			if len(args) > 0 {
+				body["username"] = args[0]
+			}
+			var session accountSession
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/enrol", body, &session); err != nil {
+				return err
+			}
+			name, err := a.saveAccountSession(c.BaseURL(), enrolContext, session)
+			if err != nil {
+				return err
+			}
+			return a.accountResult("Invitation accepted. Saved context "+name+".", map[string]string{"context": name})
+		}}
+	enrol.Flags().StringVar(&enrolContext, "name", "", "name for the saved box context")
+	root.AddCommand(enrol)
+
+	var replacementFile string
+	recover := &cobra.Command{Use: "recover USERNAME", Short: "Reset a password using the box’s screen and recovery kit",
+		Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+			c, err := a.selectedAccountClient(true)
+			if err != nil {
+				return err
+			}
+			file, err := newAccountKitFile(replacementFile)
+			if err != nil {
+				return err
+			}
+			saved := false
+			defer func() {
+				file.Close()
+				if !saved {
+					os.Remove(replacementFile)
+				}
+			}()
+			var ch accountChallenge
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/recovery/options", map[string]string{"username": args[0]}, &ch); err != nil {
+				return err
+			}
+			body := map[string]string{"challenge_id": ch.ID}
+			for _, field := range [][2]string{{"box_code", "Code on the box's screen"}, {"recovery_code", "Code from the recovery kit"}, {"new_password", "New password (at least 12 characters)"}} {
+				body[field[0]], err = a.accountSecret(field[1], secretsStdin)
+				if err != nil {
+					return err
+				}
+				if field[0] != "new_password" {
+					body[field[0]] = strings.TrimSpace(body[field[0]])
+				}
+			}
+			var kit accountRecoveryKit
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/recovery/reset", body, &kit); err != nil {
+				return err
+			}
+			if err := writeAccountKit(file, kit); err != nil {
+				// The old code was consumed. Display the replacement only on a real terminal.
+				if f, ok := a.Stderr.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+					fmt.Fprintf(f, "Password reset succeeded. Save this new recovery code now: %s\n", kit.Code)
+				}
+				return fmt.Errorf("password reset succeeded, but writing the replacement recovery code failed: %w", err)
+			}
+			saved = true
+			return a.accountResult("Password reset. Keep the new recovery code and your original disk recovery key somewhere safe.",
+				map[string]string{"kit": replacementFile})
+		}}
+	recover.Flags().StringVar(&replacementFile, "kit", "", "new file for the replacement recovery code")
+	root.AddCommand(recover)
+	root.AddCommand(a.accountSecurityCommands(&secretsStdin)...)
+	return []*cobra.Command{root}
+}
+
+// Sign-in methods, password and authenticator code (UI parity M1, #1232): `account show` reads GET /v1/auth/methods;
+// `password` and `totp setup|confirm|disable` (account_security.go) call POST /v1/auth/password and /v1/auth/totp/*.
+// These change your own credentials, so the gateway accepts them only from a signed-in session, never from an API
+// token; it checks the current password and audits each change. The CLI never takes a password as a flag: it asks
+// without echo, or reads --password-stdin / --secrets-stdin. D-034: passkeys are recommended and optional.
 
 type signInMethods struct {
 	Password       bool `json:"password"`
@@ -39,14 +328,8 @@ type totpSetup struct {
 	} `json:"one_time"`
 }
 
-const totpFallbackNote = "Passkeys are the main way to sign in to OneMind; new people should use a passkey only.\n" +
-	"An authenticator code is a fallback asked after your password, for people who already sign in with one."
-
-func accountCommands(a *App) []*cobra.Command {
-	g := &cobra.Command{Use: "account", Short: "Your own sign-in: password and authenticator code (GET /v1/auth/methods)"}
-	g.AddCommand(accountShowCmd(a), accountPasswordCmd(a), accountTotpCmd(a))
-	return []*cobra.Command{g}
-}
+const totpFallbackNote = "Passkeys are recommended; a password alone, or with an authenticator code, also works (D-034).\n" +
+	"The box asks for the code after your password. From outside your home, sign-in needs the code or a passkey."
 
 // explainAccount adds what to do when the gateway refuses a credential change from a token. The gateway sends
 // reason=session_required; an older one sent a bare 403, which on these commands means the same thing.
@@ -110,7 +393,7 @@ func (a *App) secrets(fromStdin bool, prompts ...string) ([]string, error) {
 	}
 	f, ok := a.Stdin.(*os.File)
 	if !ok || !a.Interactive() {
-		return nil, exitWith(ExitUsage, "usage", "stdin is not a terminal: pass --password-stdin (one line per answer)")
+		return nil, exitWith(ExitUsage, "usage", "stdin is not a terminal: pass --password-stdin or --secrets-stdin (one line per answer)")
 	}
 	for _, p := range prompts {
 		fmt.Fprintf(a.Stderr, "%s: ", p)
@@ -122,119 +405,4 @@ func (a *App) secrets(fromStdin bool, prompts ...string) ([]string, error) {
 		out = append(out, string(raw))
 	}
 	return out, nil
-}
-
-func accountPasswordCmd(a *App) *cobra.Command {
-	var fromStdin bool
-	c := &cobra.Command{
-		Use:   "password",
-		Short: "Change your password (signs you out on every other device)",
-		Long: "Asks for your current password and the new one twice, without echo. With --password-stdin it reads\n" +
-			"two lines instead: the current password, then the new one. Needs a signed-in session, not an API token.",
-		Args: cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			prompts := []string{"Current password", "New password (at least 10 characters)", "New password again"}
-			if fromStdin {
-				prompts = prompts[:2]
-			}
-			got, err := a.secrets(fromStdin, prompts...)
-			if err != nil {
-				return err
-			}
-			if !fromStdin && got[1] != got[2] {
-				return exitWith(ExitUsage, "usage", "the two new passwords are not the same; nothing was changed")
-			}
-			c, _, err := a.client()
-			if err != nil {
-				return err
-			}
-			body := map[string]string{"current_password": got[0], "new_password": got[1]}
-			if err := c.Do(bg(), http.MethodPost, "/v1/auth/password", body, nil); err != nil {
-				return explainAccount(err)
-			}
-			if a.G.JSON {
-				return printJSON(a.Stdout, map[string]any{"schema": "onemind.cli.account/v1", "password_changed": true, "other_sessions_revoked": true})
-			}
-			fmt.Fprintln(a.Stdout, "Password changed. Your other devices were signed out.")
-			return nil
-		},
-	}
-	c.Flags().BoolVar(&fromStdin, "password-stdin", false, "read the current and the new password from stdin, one per line")
-	return c
-}
-
-func accountTotpCmd(a *App) *cobra.Command {
-	g := &cobra.Command{Use: "totp", Short: "Authenticator code (TOTP): a fallback for password sign-in; passkeys come first"}
-	g.AddCommand(&cobra.Command{
-		Use:   "setup",
-		Short: "Start setting up an authenticator code: prints the key once",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			c, _, err := a.client()
-			if err != nil {
-				return err
-			}
-			var s totpSetup
-			if err := c.Do(bg(), http.MethodPost, "/v1/auth/totp/setup", nil, &s); err != nil {
-				return explainAccount(err)
-			}
-			if a.G.JSON {
-				return printJSON(a.Stdout, s)
-			}
-			fmt.Fprintln(a.Stderr, totpFallbackNote)
-			fmt.Fprintf(a.Stdout, "Key (shown once): %s\nLink for a QR code: %s\n", s.OneTime.Secret, s.OneTime.OtpauthURI)
-			fmt.Fprintln(a.Stderr, "Add the key to your authenticator app, then run: onemind account totp confirm <6-digit code>")
-			return nil
-		},
-	})
-	g.AddCommand(&cobra.Command{
-		Use:   "confirm CODE",
-		Short: "Turn the authenticator code on with the 6 digits your app shows now",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			code := strings.TrimSpace(args[0])
-			if len(code) != 6 || strings.Trim(code, "0123456789") != "" {
-				return exitWith(ExitUsage, "usage", "the code is the 6 digits your authenticator app shows")
-			}
-			c, _, err := a.client()
-			if err != nil {
-				return err
-			}
-			if err := c.Do(bg(), http.MethodPost, "/v1/auth/totp/confirm", map[string]string{"code": code}, nil); err != nil {
-				return explainAccount(err)
-			}
-			if a.G.JSON {
-				return printJSON(a.Stdout, map[string]any{"schema": "onemind.cli.account/v1", "totp": true})
-			}
-			fmt.Fprintln(a.Stdout, "Authenticator code on. The box asks for it after your password.")
-			return nil
-		},
-	})
-	var fromStdin bool
-	disable := &cobra.Command{
-		Use:   "disable",
-		Short: "Turn the authenticator code off (asks for your password)",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			got, err := a.secrets(fromStdin, "Your password")
-			if err != nil {
-				return err
-			}
-			c, _, err := a.client()
-			if err != nil {
-				return err
-			}
-			if err := c.Do(bg(), http.MethodPost, "/v1/auth/totp/disable", map[string]string{"password": got[0]}, nil); err != nil {
-				return explainAccount(err)
-			}
-			if a.G.JSON {
-				return printJSON(a.Stdout, map[string]any{"schema": "onemind.cli.account/v1", "totp": false})
-			}
-			fmt.Fprintln(a.Stdout, "Authenticator code off.")
-			return nil
-		},
-	}
-	disable.Flags().BoolVar(&fromStdin, "password-stdin", false, "read your password from stdin")
-	g.AddCommand(disable)
-	return g
 }

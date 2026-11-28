@@ -84,6 +84,8 @@ type Client struct {
 	Status   *StatusService
 	Services *ServicesService
 	Domains  *DomainsService
+	Keyboard *KeyboardService
+	Network  *NetworkService
 }
 
 // Option configures a Client.
@@ -97,6 +99,17 @@ func WithTokenProvider(p TokenProvider) Option { return func(c *Client) { c.toke
 
 // WithHTTPClient replaces the HTTP client (custom TLS roots, a pinned CA, a test server).
 func WithHTTPClient(h *http.Client) Option { return func(c *Client) { c.http = h } }
+
+// WithNoRedirects keeps credentials and request bodies on the selected gateway.
+func WithNoRedirects() Option {
+	return func(c *Client) { c.http = withoutRedirects(c.http) }
+}
+
+func withoutRedirects(client *http.Client) *http.Client {
+	h := *client
+	h.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &h
+}
 
 // WithGatewayCA makes the client verify the gateway's TLS certificate against the given CA
 // (PEM text) instead of the system roots, with TLS 1.2 or later. Verification stays on: this
@@ -175,6 +188,8 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Status = &StatusService{c}
 	c.Services = &ServicesService{c}
 	c.Domains = &DomainsService{c}
+	c.Keyboard = &KeyboardService{c}
+	c.Network = &NetworkService{c}
 	return c, nil
 }
 
@@ -232,11 +247,13 @@ func (c *Client) checkTransport() {
 
 // request is one logical API call.
 type request struct {
-	method  string
-	path    string // with query string
-	body    any
-	retry   bool // safe to retry (GET, or POST with an idempotency key)
-	headers map[string]string
+	method      string
+	path        string // with query string
+	body        any
+	retry       bool // safe to retry (GET, or POST with an idempotency key)
+	oneTime     bool // consuming the response makes a replay unsafe
+	headers     map[string]string
+	noRedirects bool
 }
 
 // Do performs one API call and decodes a 2xx JSON body into out (which may be nil, *any or
@@ -246,11 +263,22 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 	return err
 }
 
-// DoIdempotent is Do for a write that carries an Idempotency-Key header. The gateway answers a repeat of
-// the same key and request with the original result, so a retry is safe and is made like a GET's.
+// DoWithStepUp sends a write with a single-use proof bound to this operation.
+func (c *Client) DoWithStepUp(ctx context.Context, method, path, grant string, body, out any) error {
+	_, err := c.do(ctx, request{method: method, path: path, body: body,
+		headers: map[string]string{"OneMind-Step-Up": grant}, noRedirects: true}, out)
+	return err
+}
+
+// DoIdempotent is Do for a call that changes something (POST, PUT, DELETE) and carries an Idempotency-Key
+// header. The gateway answers a repeat with the same key with the first result instead of acting twice, so the
+// call is retried on a dropped connection or a 503 like a GET. Use it where the key cannot go in the body, such
+// as a DELETE.
 func (c *Client) DoIdempotent(ctx context.Context, method, path, key string, body, out any) error {
-	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: true,
-		headers: map[string]string{"Idempotency-Key": key}}, out)
+	if key == "" {
+		return errors.New("onemind: DoIdempotent needs an idempotency key")
+	}
+	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: true, headers: map[string]string{"Idempotency-Key": key}}, out)
 	return err
 }
 
@@ -261,6 +289,12 @@ func (c *Client) DoIdempotent(ctx context.Context, method, path, key string, bod
 func (c *Client) DoWithHeaders(ctx context.Context, method, path string, headers map[string]string, body, out any) (http.Header, error) {
 	_, keyed := headers["Idempotency-Key"]
 	return c.do(ctx, request{method: method, path: path, body: body, retry: method == http.MethodGet || keyed, headers: headers}, out)
+}
+
+// DoOnceWithHeaders sends a request whose response may consume one-time material.
+func (c *Client) DoOnceWithHeaders(ctx context.Context, method, path string, headers map[string]string, body, out any) error {
+	_, err := c.do(ctx, request{method: method, path: path, body: body, oneTime: true, headers: headers}, out)
+	return err
 }
 
 func (c *Client) do(ctx context.Context, r request, out any) (http.Header, error) {
@@ -294,7 +328,7 @@ func (c *Client) do(ctx context.Context, r request, out any) (http.Header, error
 			return hdr, nil
 		}
 		last = err
-		if status == http.StatusUnauthorized && !refreshed {
+		if status == http.StatusUnauthorized && !refreshed && !r.oneTime {
 			refreshed = true
 			if ok, _ := c.tokens.Refresh(ctx); ok {
 				i--
@@ -337,6 +371,10 @@ func (c *Client) once(ctx context.Context, r request, payload []byte, out any) (
 	if err != nil {
 		return nil, 0, err
 	}
+	if r.oneTime {
+		// The standard transport treats an Idempotency-Key as permission to replay a rewindable body.
+		req.GetBody = nil
+	}
 	token, err := c.tokens.Token(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -353,7 +391,11 @@ func (c *Client) once(ctx context.Context, r request, payload []byte, out any) (
 		req.Header.Set(k, v)
 	}
 	start := time.Now()
-	resp, err := c.http.Do(req)
+	client := c.http
+	if r.noRedirects {
+		client = withoutRedirects(client)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		c.traceCall(r, 0, start)
 		return nil, 0, &Error{Code: "network", Message: redact(err.Error(), token), cause: ErrNetwork}
@@ -465,6 +507,40 @@ type ServicesService struct{ c *Client }
 func (s *ServicesService) List(ctx context.Context) (*ServicesView, error) {
 	var v ServicesView
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/system/services", nil, &v)
+}
+
+// NetworkService is /v1/network: this box's network facts, owner only.
+type NetworkService struct{ c *Client }
+
+// Firewall is operation network.firewall (GET /v1/network/firewall, P-09 part 1): the live firewall checked
+// and explained in plain words, read only. Available is false, with a reason, when the host service cannot
+// be reached; an unknown firewall is never reported as safe.
+func (s *NetworkService) Firewall(ctx context.Context) (*FirewallView, error) {
+	var v FirewallView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/network/firewall", nil, &v)
+}
+
+// Allow is operation network.firewall.allow (POST /v1/network/firewall/allow, P-09 part 2): it files a
+// firewall.allow action for one port from the home network ("lan") or the mesh ("mesh"). It only asks: an owner
+// approves it with a passkey, and the rule then stays pending until it is confirmed. Retried calls carry one
+// idempotency key so a retry never files twice.
+func (s *NetworkService) Allow(ctx context.Context, proto string, port int, scope, reason string) (*Action, error) {
+	body := map[string]any{"proto": proto, "port": port, "scope": scope, "idempotency_key": "sdk-" + strconv.FormatInt(time.Now().UnixNano(), 36)}
+	if reason != "" {
+		body["reason"] = reason
+	}
+	var v Action
+	return &v, s.c.Do(ctx, http.MethodPost, "/v1/network/firewall/allow", body, &v)
+}
+
+// ConfirmAllow is operation network.firewall.allow.confirm: keep a pending rule (owner only).
+func (s *NetworkService) ConfirmAllow(ctx context.Context, id string) error {
+	return s.c.Do(ctx, http.MethodPost, "/v1/network/firewall/allow/"+url.PathEscape(id)+"/confirm", nil, nil)
+}
+
+// RemoveAllow is operation network.firewall.allow.remove: take a rule away, pending or confirmed (owner only).
+func (s *NetworkService) RemoveAllow(ctx context.Context, id string) error {
+	return s.c.Do(ctx, http.MethodDelete, "/v1/network/firewall/allow/"+url.PathEscape(id), nil, nil)
 }
 
 // NodesService is /v1/nodes.

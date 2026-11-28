@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:dc="http://purl.org/dc/terms/"
+      xmlns:opds="https://specs.opds.io/opds-1.2"
+      xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">
+  <id>cefec72a-bb01-a9a2-f1b3-f80e48c423ed</id>
+
+  <link rel="self"
+        href="/catalog/v2/entries?name=ham.stackexchange.com_en_all&amp;count=50"
+        type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  <link rel="start"
+        href="/catalog/v2/root.xml"
+        type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
+  <link rel="up"
+        href="/catalog/v2/root.xml"
+        type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
+
+  <title>Filtered Entries (name=ham.stackexchange.com_en_all&amp;count=50)</title>
+  <updated>2026-11-19T12:56:31Z</updated>
+  <totalResults>1</totalResults>
+  <startIndex>0</startIndex>
+  <itemsPerPage>1</itemsPerPage>
+  <entry>
+    <id>urn:uuid:cf7f72c8-7d6f-74d5-84fd-036ebe3b2031</id>
+    <title>Amateur Radio Q&amp;A</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <summary>Stack Exchange Q&amp;A for amateur radio enthusiasts</summary>
+    <language>eng</language>
+    <name>ham.stackexchange.com_en_all</name>
+    <flavour></flavour>
+    <category>stack_exchange</category>
+    <tags>stack_exchange;_videos:no;_category:stack_exchange;_details:no;_ftindex:yes;_pictures:yes</tags>
+    <articleCount>9294</articleCount>
+    <mediaCount>3663</mediaCount>
+    <link rel="http://opds-spec.org/image/thumbnail"
+          href="/catalog/v2/illustration/cf7f72c8-7d6f-74d5-84fd-036ebe3b2031/?size=48"
+          type="image/png;width=48;height=48;scale=1"/>
+    <link type="text/html" href="https://browse.library.kiwix.org/content/ham.stackexchange.com_en_all_2026-10" />
+    <author>
+      <name>Stack Exchange</name>
+    </author>
+    <publisher>
+      <name>openZIM</name>
+    </publisher>
+    <dc:issued>2026-10-20T00:00:00Z</dc:issued>
+    <link rel="http://opds-spec.org/acquisition/open-access" type="application/x-zim" href="https://lb.download.kiwix.org/zim/stack_exchange/ham.stackexchange.com_en_all_2026-10.zim.meta4" length="77109248" />
+  </entry>
+</feed>

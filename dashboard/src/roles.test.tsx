@@ -43,6 +43,12 @@ describe('role → view', () => {
     expect(showsNav('home', 'simple')).toBe(true);
   });
 
+  it('Files and Photos are in the nav of every person role, simple or pro (#1232)', () => {
+    for (const r of ['owner', 'adult', 'teen', 'child', 'guest']) {
+      for (const id of ['files', 'photos']) expect(showsNav(id, viewFor(r), r), `${r} ${id}`).toBe(true);
+    }
+  });
+
   it('the Network screen is for owners only: an adult is Pro but gets no nav entry or palette command', () => {
     expect(showsNav('network', 'pro', 'owner')).toBe(true);
     expect(showsNav('network', 'pro', 'adult')).toBe(false);
@@ -170,12 +176,15 @@ describe('Role-shaped UI (UX-01)', () => {
     for (const b of install) expect(b).toBeDisabled();
     expect(screen.queryByRole('link', { name: 'Sources' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Import Compose' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Add a source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Compose file' })).not.toBeInTheDocument();
   });
 
-  it('an owner sees the Sources and Compose tabs', async () => {
+  it('an owner sees the Sources and Compose entries in the Market sidebar', async () => {
     renderApp({ token: 'owner-demo', route: '/market' });
-    expect(await screen.findByRole('link', { name: 'Sources' }, T)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Import Compose' })).toBeInTheDocument();
+    const nav = await screen.findByRole('navigation', { name: 'Market' }, T);
+    expect(await within(nav).findByRole('link', { name: 'Add a source' }, T)).toHaveAttribute('href', '/sources');
+    expect(within(nav).getByRole('link', { name: 'Compose file' })).toHaveAttribute('href', '/compose');
   });
 
   it('a child is told Machines is not for their role', async () => {

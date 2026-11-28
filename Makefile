@@ -6,6 +6,7 @@
 #   make repro-check BOARD=x86_64-efi                   -> builds the rootfs twice and compares (reproducible build)
 #   make image   BOARD=x86_64-efi [VERSION=...]         -> out/image-<board>/ (disk .img, .raucb, SHA256SUMS)
 #   make image   BOARD=x86_64-efi SECUREBOOT=1          -> the Secure Boot route (efi backend, signed UKI per slot, dev key; off by default)
+#   make image   BOARD=x86_64-efi VERSION=0.1.0 KEYRING=rauc-ca.pem -> an image that trusts the real RAUC CA (Step 5; public cert only)
 #   make release-image BOARD=x86_64-efi VERSION=... TRUST=<dir>  -> out/image-<board>/ with the release CA as keyring (installer stick)
 #   make fixtures BOARD=x86_64-efi [UPTO=T5] [HW=1]     -> out/fx-<board>/ (battery inputs; HW=1 for founder kits)
 #   make fixtures ... DATA_FS=luks2                      -> data partition left blank, encrypted on first boot
@@ -15,8 +16,10 @@
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB7, CRITERIA-SECUREBOOT.md)
 #   make bootlock  BOARD=x86_64-efi                     -> out/bootlock-<board>/ (B1-B6, CRITERIA-BOOTLOCK.md)
 #   make rollback  BOARD=x86_64-efi                     -> out/rollback-<board>/ (RB0-RB4, CRITERIA-ROLLBACK.md)
+#   make powercut  BOARD=x86_64-efi                     -> out/powercut-<board>/ (F26-F28 and F33, CRITERIA-FIRSTBOOT.md sections 21, 22 and 25)
 #   make edge      BOARD=x86_64-efi                     -> out/edge-<board>/ (EG1-EG7, CRITERIA-EDGE.md; fixtures with EDGE=1)
 #   make sysextguard BOARD=x86_64-efi                   -> out/sysextguard-<board>/ (T-W19-01 X0-X7, CRITERIA-SYSEXT.md)
+#   make update-signed BOARD=x86_64-efi                 -> out/updatesigned-<board>/ (US0-US6, CRITERIA-UPDATE-SIGNED.md; remakes fixtures)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
 #   make jetson-layer [VERSION=...]                     -> out/onemind-layer-jetson-orin-<version>.tar.gz
 #   make hygiene | hygiene-selftest | lint | test | kit LT=LT-X86-01
@@ -28,6 +31,7 @@ HW         ?= 0
 DATA_FS    ?=
 SECUREBOOT ?= 0
 EDGE       ?= 0
+SIGNED     ?= 0
 FUPTO      ?= F4
 VERSION    ?= 0.1.0-dev
 OUT        ?= out
@@ -40,6 +44,7 @@ FIRMWARE   ?= yes
 EPOCH      ?= $(shell git log -1 --format=%ct 2>/dev/null || echo 0)
 LEG_ARGS    = $(shell sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/$(LEG).args)
 TOOLS      ?= onemind-tools:$(ARCH_OF)
+KEYRING_MOUNT = $(if $(KEYRING),-v "$(abspath $(KEYRING))":/keyring.pem:ro -e KEYRING=/keyring.pem)
 ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
 # Reproducible build: the epoch is the pinned snapshot's own timestamp (os/rootfs/source-date-epoch.py), empty on a
 # leg without a snapshot. Build args, tar timestamps and the assembler's mke2fs all take it.
@@ -75,7 +80,7 @@ repro-check: tools
 # A development image, signed with a throwaway CA made here and deleted after use (SB-10).
 image: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e SECUREBOOT=$(SECUREBOOT) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(TOOLS) \
+	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e SECUREBOOT=$(SECUREBOOT) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(if $(KEYRING),$(KEYRING_MOUNT) )$(TOOLS) \
 	  /src/os/assemble/dev-image.sh /out/image-$(BOARD)
 
 # The installer stick's release payload (os/boards/installer-x86_64/UPDATES.md, #234): BOARD's disk image with the
@@ -92,7 +97,8 @@ release-image: tools
 
 fixtures: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -e HW=$(HW) -e DATA_FS=$(DATA_FS) -e EDGE=$(EDGE) $(TOOLS) /src/test/qemu/mkfixtures.sh $(BOARD) /out/$(notdir $(ROOTFS)) /out/fx-$(BOARD) $(UPTO)
+	$(DOCKER_RUN) -e HW=$(HW) -e DATA_FS=$(DATA_FS) -e EDGE=$(EDGE) -e SIGNED=$(SIGNED) -e US_OVERLAY=/out/us-$(BOARD)/overlay \
+	  $(TOOLS) /src/test/qemu/mkfixtures.sh $(BOARD) /out/$(notdir $(ROOTFS)) /out/fx-$(BOARD) $(UPTO)
 
 battery:
 	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD) UPTO=$(UPTO)
@@ -165,6 +171,19 @@ edge:
 	  --log /out/edge-$(BOARD)/serial.log --results /out/edge-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/edge-$(BOARD)/work/disk.img; exit $$rc
 
+# Power cut in the first minute (test/qemu/powercut.py, CRITERIA-FIRSTBOOT.md sections 21, 22 and 25, F26-F28 and F33; VM 501 bug 1):
+# QEMU is killed 25 s after first boot, then again after k3s's files were emptied (with and without an owner's
+# app); k3s must come back healthy (by itself, or after the owner approves the reset) and the owner's data must
+# survive. Copies the fixture disk like `firstboot`.
+.PHONY: powercut
+powercut:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD)
+	mkdir -p $(OUT)/powercut-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/powercut.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/powercut-$(BOARD)/work \
+	  --log /out/powercut-$(BOARD)/serial.log --results /out/powercut-$(BOARD)/results.json $(POWERCUT_ARGS); \
+	  rc=$$?; rm -f $(OUT)/powercut-$(BOARD)/work/disk.img; exit $$rc
+
 # Signed host extensions only (test/qemu/sysextguard.py, T-W19-01 for #186 and founder decision Z-22): unsigned,
 # wrongly signed and directory extensions must never merge after a reboot or an A/B slot switch. Copies the
 # fixture disk like `firstboot`; throwaway keys are made inside the guest and never leave it.
@@ -175,6 +194,25 @@ sysextguard:
 	  --fixtures /out/fx-$(BOARD) --work /out/sysextguard-$(BOARD)/work \
 	  --log /out/sysextguard-$(BOARD)/serial.log --results /out/sysextguard-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/sysextguard-$(BOARD)/work/disk.img; exit $$rc
+
+# A signed update through the real update path (test/qemu/updatesigned.py, CRITERIA-UPDATE-SIGNED.md US0-US6): a
+# throwaway TUF root of the ceremony's shape is baked into fixtures made here with SIGNED=1, the channels are published
+# on this host with os/update/tuf-repo.py (pinned python-tuf in $(TUF_VENV); the private keys are deleted right after),
+# and the guest's updater fetches them over QEMU's user network. Always remakes the fixtures: run it on its own.
+TUF_VENV ?= $(OUT)/tuf-venv
+.PHONY: update-signed
+update-signed: tools
+	test -x $(TUF_VENV)/bin/python || { python3 -m venv $(TUF_VENV) && \
+	  $(TUF_VENV)/bin/pip install -q --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt; }
+	rm -rf $(OUT)/us-$(BOARD)
+	$(TUF_VENV)/bin/python -I test/qemu/usrepo.py keys $(OUT)/us-$(BOARD)
+	$(MAKE) fixtures BOARD=$(BOARD) SIGNED=1
+	$(TUF_VENV)/bin/python -I test/qemu/usrepo.py channels $(OUT)/us-$(BOARD) $(OUT)/fx-$(BOARD)/us $(BOARD)
+	mkdir -p $(OUT)/updatesigned-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/updatesigned.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --channels /out/us-$(BOARD)/channels --work /out/updatesigned-$(BOARD)/work \
+	  --log /out/updatesigned-$(BOARD)/serial.log --results /out/updatesigned-$(BOARD)/results.json; \
+	  rc=$$?; rm -rf $(OUT)/updatesigned-$(BOARD)/work; exit $$rc
 
 # Memory pressure (test/qemu/memorypressure.py, CRITERIA-MEMORY.md): a 6 GiB hog on an 8 GiB hub VM; the gateway
 # /healthz must stay up. Copies the fixture disk like `firstboot`; needs KVM and 8 GiB free for the VM.

@@ -38,6 +38,30 @@ func writeErr(w http.ResponseWriter, status int, code, msg string) {
 	fmt.Fprintf(w, `{"error":%q,"message":%q}`, code, msg)
 }
 
+func TestDoIdempotentSendsTheKeyAndRetriesWithIt(t *testing.T) {
+	var keys []string
+	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {
+		keys = append(keys, r.Method+" "+r.Header.Get("Idempotency-Key"))
+		if len(keys) == 1 {
+			w.WriteHeader(503)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(202)
+		fmt.Fprint(w, `{"id":"a1"}`)
+	})
+	var out map[string]any
+	if err := c.DoIdempotent(context.Background(), http.MethodDelete, "/v1/ssh/keys/x", "k-1", nil, &out); err != nil || out["id"] != "a1" {
+		t.Fatalf("%v %v", out, err)
+	}
+	if strings.Join(keys, "|") != "DELETE k-1|DELETE k-1" {
+		t.Fatalf("the retry carries the same key: %v", keys)
+	}
+	if err := c.DoIdempotent(context.Background(), http.MethodDelete, "/v1/ssh/keys/x", "", nil, nil); err == nil || len(keys) != 2 {
+		t.Fatalf("an empty key is refused before any call: %v %v", err, keys)
+	}
+}
+
 func TestNewRejectsBadURL(t *testing.T) {
 	for _, u := range []string{"", "hub.local", "ftp://x", "http://"} {
 		if _, err := New(u); err == nil {
@@ -241,6 +265,35 @@ func TestApproveNeverBlindRetryAndReadBack(t *testing.T) {
 	c := newTest(t, func(w http.ResponseWriter, r *http.Request) { writeErr(w, 409, "expired", "too late") })
 	if _, err := c.Actions.Deny(context.Background(), "a1"); !errors.Is(err, ErrExpired) {
 		t.Fatalf("clear 409 must pass through: %v", err)
+	}
+}
+
+func TestApproveWithAuthenticatorBindsProofAndDoesNotRetry(t *testing.T) {
+	var posts atomic.Int32
+	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			posts.Add(1)
+			var body struct {
+				Plan  string            `json:"plan_sha256"`
+				Box   string            `json:"box_code"`
+				Proof map[string]string `json:"password_totp"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode approval: %v", err)
+			}
+			if r.URL.Path != "/v1/actions/a1/approve" || body.Plan != "reviewed-plan" || body.Box != "665544" ||
+				body.Proof["challenge"] != "challenge" || body.Proof["password"] != "sample password" || body.Proof["totp"] != "112233" {
+				t.Errorf("incorrectly bound action approval: %+v", body)
+			}
+			w.WriteHeader(502) // the response was lost after the gateway applied the action
+			return
+		}
+		fmt.Fprint(w, actionJSON("succeeded", "owner"))
+	}, WithPrincipal("owner"))
+	proof := ApprovalAuthenticator{Challenge: "challenge", Password: "sample password", TOTP: "112233", BoxCode: "665544"}
+	action, err := c.Actions.ApproveWithAuthenticator(context.Background(), "a1", "reviewed-plan", "", proof)
+	if err != nil || posts.Load() != 1 || action.State != "succeeded" {
+		t.Fatalf("read-back: %+v %v, sends %d", action, err, posts.Load())
 	}
 }
 

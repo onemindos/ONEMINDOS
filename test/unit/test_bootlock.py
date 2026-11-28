@@ -211,5 +211,76 @@ class Harness(unittest.TestCase):
         self.assertLessEqual(self.h.ANSWER_TIMEOUT, 60)   # CRITERIA-BOOTLOCK.md §1: each GRUB prompt 60 s
 
 
+GATE_LINE = "HEALTH-GATE: onemind-health-gate RESULT committed-boot slot=A version=1\n"
+ALREADY_LINE = "ONEMIND-FIRSTBOOT: already configured role=hub node_id=0123456789ab\n"
+
+
+def reboot_vm(h, after_reboot):
+    """run-tests.py's real VM (expect, wait_gate) with no QEMU: B1's boot is in the buffer and already read;
+    "systemctl reboot" makes the next boot's lines arrive 0.1 s later, in the order given."""
+    import threading
+    vm = h.battery.VM.__new__(h.battery.VM)
+    vm.buf = "boot one\n" + GATE_LINE + "ONEMIND-FIRSTBOOT: configured role=hub source=nocloud\nroot@onemind:~# __RC=0__\n"
+    vm.pos, vm.lock, vm.failfast, vm._watch = len(vm.buf), threading.Lock(), False, None
+
+    def emit():
+        with vm.lock:
+            vm.buf += after_reboot
+
+    class Stdin:
+        def write(self, b):
+            if b.decode().strip() == "systemctl reboot":
+                threading.Timer(0.1, emit).start()
+
+        def flush(self):
+            pass
+    vm.proc = type("P", (), {"stdin": Stdin(), "returncode": None, "poll": lambda self: None})()
+    return vm
+
+
+class B2Reboot(unittest.TestCase):
+    """B2's reboot (#1150, #1159): the committed-boot gate line can come before "already configured"."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.h = _load_harness()
+
+    def test_gate_line_before_already_is_found(self):
+        vm = reboot_vm(self.h, "reboot\n" + GATE_LINE + ALREADY_LINE)
+        t0 = time.time()
+        seg, al, gate = self.h.reboot_and_wait(vm, timeout=5, gate_timeout=5)
+        self.assertEqual(gate, ("committed-boot", "A", "1"))
+        self.assertTrue(al.startswith("ONEMIND-FIRSTBOOT: already configured role=hub"))
+        self.assertLess(time.time() - t0, 4)
+
+    def test_gate_line_after_already_is_found(self):
+        vm = reboot_vm(self.h, "reboot\n" + ALREADY_LINE + GATE_LINE)
+        self.assertEqual(self.h.reboot_and_wait(vm, timeout=5, gate_timeout=5)[2], ("committed-boot", "A", "1"))
+
+    def test_the_old_order_of_waits_misses_an_early_gate_line(self):
+        vm = reboot_vm(self.h, "reboot\n" + GATE_LINE + ALREADY_LINE)
+        vm.send("systemctl reboot")
+        vm.expect(self.h.fb.ALREADY, 5)
+        with self.assertRaises(TimeoutError):
+            vm.wait_gate(1)
+
+    def test_b1_s_gate_line_does_not_count_for_b2(self):
+        vm = reboot_vm(self.h, "reboot\n" + ALREADY_LINE)
+        with self.assertRaises(TimeoutError):
+            self.h.reboot_and_wait(vm, timeout=5, gate_timeout=1)
+
+    def test_already_configured_is_still_required(self):
+        vm = reboot_vm(self.h, "reboot\n" + GATE_LINE)
+        with self.assertRaises(TimeoutError):
+            self.h.reboot_and_wait(vm, timeout=1, gate_timeout=1)
+
+    def test_b2_uses_the_helper(self):
+        with open(os.path.join(ROOT, "test", "qemu", "bootlock.py")) as f:
+            src = f.read()
+        b2 = src[src.index('vm.mark("B2 a normal boot needs nothing")'):src.index('record("B2"')]
+        self.assertIn("reboot_and_wait(vm)", b2)
+        self.assertNotIn("fb.ALREADY", b2)
+
+
 if __name__ == "__main__":
     unittest.main()

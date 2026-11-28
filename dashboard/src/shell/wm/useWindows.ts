@@ -50,6 +50,7 @@ export function useWindows() {
   const lastLayout = useRef<Layout>('halves');
   const order = useRef<string[]>([]);
   const loaded = useRef<string | undefined>(undefined);
+  const pendingRestore = useRef<string | undefined>(undefined);
   const allowed = useCallback((path: string) => {
     const route = routeFor(path);
     if (!route || (route.owner && role !== 'owner') || !showsNav(route.screen.id, view, role)) return;
@@ -94,21 +95,22 @@ export function useWindows() {
         if (isLayout(layout)) lastLayout.current = layout;
       } catch { wsRef.current = 0; }
       setWorkspaceState(wsRef.current);
+      pendingRestore.current = pathname === '/' ? top(next, wsRef.current)?.path : undefined;
     } else {
       next = next.filter(w => allowed(w.path));
     }
     const match = routeFor(path);
+    if (pathname !== '/') pendingRestore.current = undefined;
     if (pathname !== '/' && match) {
       if (next.length === LIMIT && !next.some(w => w.id === match.screen.id)) {
         toast.show({ title: `Closed ${routeFor(next[0]!.path)?.screen.title} to make room` });
       }
       next = open(next, match.screen.id, path, wsRef.current);
-    } else if (pathname === '/' && first && top(next, wsRef.current)) {
-      navigate(top(next, wsRef.current)!.path, { replace: true });
-    } else if (pathname === '/') {
-      // Only this workspace goes to the desktop; the others keep their windows as they were.
-      next = next.map(w => w.ws === wsRef.current ? { ...w, minimised: true } : w);
+    } else if (pathname === '/' && (!pendingRestore.current || !allowed(pendingRestore.current))) {
+      // A saved window this person may no longer open is not restored.
+      pendingRestore.current = undefined;
     }
+    // At "/" the desktop has focus: the windows stay where they are over it (Atlas), none of them active.
     if (narrow) {
       const visible = top(next, wsRef.current);
       next = visible ? [{ ...visible, ws: wsRef.current }] : next.slice(-1);
@@ -117,6 +119,15 @@ export function useWindows() {
   // URL transitions, view changes and display size drive the stack. Frame changes leave the URL alone.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, pathname, person, view, role, narrow, storage, allowed, update]);
+
+  // A parent router subscribes during its layout effect. Navigate after that
+  // subscription and keep the saved windows open until the restored URL commits.
+  useEffect(() => {
+    const target = pendingRestore.current;
+    if (pathname === '/' && person && role !== undefined && target) {
+      navigate(target, { replace: true });
+    }
+  }, [navigate, pathname, person, role, view]);
 
   function dismiss(id: string, minimiseOnly = false) {
     const next = (minimiseOnly ? minimise : close)(latest.current, id);

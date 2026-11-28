@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
-import type { Action } from '../api/types';
+import type { Action, NodeRecord } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
+import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, principalNamer, toInstalled, toJob, toStoreApp, toHomeNode } from './adapters';
 import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -119,6 +119,18 @@ describe('actions → approvals, progress, notifications, activity', () => {
     expect(toActionSummary({ ...actions[0]!, params: { app_id: 'ollama' } }).target_name).toBeUndefined();
   });
 
+  it('carries the key level approving needs, so the card shows it before the owner tries (D-028)', () => {
+    expect(toActionSummary({ ...actions[0]!, required_level: 'L2' }).required_level).toBe('L2');
+    expect(toActionSummary(actions[0]!).required_level).toBeUndefined();
+  });
+
+  it('keeps why a request needs a hold: physical, or (without physical) cannot be undone', () => {
+    const card = (physical: boolean) => ({ ...actions[0]!, approval: { hold: true, hold_ms: 2000, physical } }) as unknown as Action;
+    expect(toActionSummary(card(true))).toMatchObject({ hold: { duration: 2000 }, physical: true });
+    expect(toActionSummary(card(false)).physical).toBeUndefined();
+    expect(toActionSummary(card(false)).hold).toBeDefined();
+  });
+
   it('maps action states onto the install progress track', () => {
     expect(jobState('awaiting_approval')).toBe('awaiting_approval');
     expect(jobState('accepted')).toBe('pulling');
@@ -230,5 +242,43 @@ describe('tainted agent request (AIG-04, #168)', () => {
   it('adds nothing when the requester read nothing from outside', () => {
     const p = toActionPlan({ ...base, plan: { summary: 'Remove whoami.', warnings: [] } } as unknown as Action)!;
     expect(p.effects.map((e) => e.label)).toEqual(['Remove whoami.']);
+  });
+  it('shows the physical print job and printer on the approval plan', () => {
+    const a = { ...base, type: 'print.job.release', plan: {}, approval: {
+      physical: true, hold: true, hold_ms: 2000, limits: [],
+      preview: { kind: 'text', text: 'Print report.pdf on Office' },
+    } } as unknown as Action;
+    expect(toActionPlan(a)?.effects).toEqual([{ kind: 'note', risk: 'high', label: 'Print report.pdf on Office' }]);
+  });
+});
+
+describe('names on approvals', () => {
+  const nameOf = principalNamer([{ id: 'usr_1', display_name: 'Alex' }], [{ id: 'ops-agent' }]);
+  it('uses the display name of a person and the name of an agent, and nothing for the unknown', () => {
+    expect(nameOf({ id: 'usr_1', kind: 'person' })).toBe('Alex');
+    expect(nameOf({ id: 'usr_2', kind: 'person' })).toBeUndefined();
+    expect(nameOf({ id: 'agent:ops-agent', kind: 'agent' })).toBe('ops-agent');
+    expect(nameOf({ id: 'ops-agent', kind: 'agent' })).toBe('ops-agent');
+    expect(nameOf({ id: 'plugin:x', kind: 'plugin' })).toBeUndefined();
+  });
+  it('puts the names on the summary and leaves the ids intact', () => {
+    const a: Action = { id: 'a1', type: 'app.restart', params: {}, idempotency_key: 'k', expires_at: '2026-11-12T13:00:00Z', state: 'succeeded', requested_by: { id: 'usr_1', kind: 'person', role: 'owner' }, decided_by: { id: 'usr_1', kind: 'person', role: 'owner' } } as Action;
+    const s = toActionSummary(a, undefined, nameOf);
+    expect(s.requested_by).toMatchObject({ id: 'usr_1', name: 'Alex' });
+    expect(s.decided_by).toMatchObject({ id: 'usr_1', name: 'Alex' });
+    expect(toActionSummary(a).requested_by?.name).toBeUndefined();
+  });
+});
+
+describe('node heartbeat → Home node (CPU and temperature)', () => {
+  const [base] = makeNodes(NOW) as [NodeRecord];
+  it('lifts the heartbeat metrics object into the flat fields Home reads', () => {
+    const n = toHomeNode({ ...base, metrics: { cpu_pct: 37.5, load1: 0.4, temp_c: 51 } });
+    expect(n.cpu_percent).toBe(37.5);
+    expect(n.temp_c).toBe(51);
+  });
+  it('keeps a figure the node did not report null, never 0', () => {
+    expect(toHomeNode({ ...base, metrics: { cpu_pct: null, temp_c: null } })).toMatchObject({ cpu_percent: null, temp_c: null });
+    expect(toHomeNode({ ...base, metrics: undefined })).toMatchObject({ cpu_percent: null, temp_c: null });
   });
 });

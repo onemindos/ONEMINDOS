@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -102,7 +103,7 @@ func actionsCommands(a *App) []*cobra.Command {
 			Short: map[string]string{"approve": "Approve a waiting action (owners only)", "deny": "Deny a waiting action (owners only)"}[verb],
 			Args:  cobra.ExactArgs(1),
 			RunE: func(_ *cobra.Command, args []string) error {
-				c, _, err := a.client()
+				c, t, err := a.client()
 				if err != nil {
 					return err
 				}
@@ -115,6 +116,9 @@ func actionsCommands(a *App) []*cobra.Command {
 				}
 				if x.State != "awaiting_approval" {
 					return exitWith(ExitConflict, "conflict", fmt.Sprintf("action is %s, not awaiting approval", x.State))
+				}
+				if verb == "approve" && (x.Type == "users.invite" || x.Type == "users.reinvite") {
+					return exitWith(ExitPending, "pending", "Open Approvals in the dashboard to verify the invitation request and collect its link")
 				}
 				if !yes {
 					target, _ := x.Params["app_id"].(string)
@@ -133,7 +137,7 @@ func actionsCommands(a *App) []*cobra.Command {
 				}
 				var got *onemind.Action
 				if verb == "approve" {
-					got, err = a.approveOrConfirmLicence(c, x, acceptLicence, yes)
+					got, err = a.approveOrConfirmLicence(c, x, acceptLicence, yes, t)
 				} else {
 					got, err = c.Actions.Deny(bg(), args[0])
 				}
@@ -147,7 +151,7 @@ func actionsCommands(a *App) []*cobra.Command {
 				return nil
 			},
 		}
-		cmd.Flags().BoolVar(&yes, "yes", false, "do not ask (v0 owner tokens; passkey step-up replaces this, §12.3)")
+		cmd.Flags().BoolVar(&yes, "yes", false, "skip the yes/no prompt; required identity checks still apply")
 		if verb == "approve" {
 			cmd.Flags().StringVar(&acceptLicence, "accept-licence", "", "APP_ID: accept a blocked or unknown licence class for this install (the owner, in person)")
 		}
@@ -162,7 +166,7 @@ func actionsCommands(a *App) []*cobra.Command {
 		},
 	}
 	watch.Flags().BoolVar(&pending, "pending", false, "only new requests waiting for approval")
-	acts.AddCommand(list, info, watch, decide("approve"), decide("deny"))
+	acts.AddCommand(list, info, watch, decide("approve"), decide("deny"), policiesCommand(a))
 	return []*cobra.Command{acts}
 }
 
@@ -269,7 +273,7 @@ func (a *App) pollActions(ctx context.Context, c *onemind.Client, emit func(stri
 // approveOrConfirmLicence approves; when the gateway answers licence_unconfirmed (#173: a blocked or
 // unknown licence class needs the owner to type the app id) it asks for that confirmation and
 // approves again with accept_licence. A script passes --accept-licence APP_ID instead.
-func (a *App) approveOrConfirmLicence(c *onemind.Client, x *onemind.Action, accept string, yes bool) (*onemind.Action, error) {
+func (a *App) approveOrConfirmLicence(c *onemind.Client, x *onemind.Action, accept string, yes bool, actor *target) (*onemind.Action, error) {
 	appID, _ := x.Params["app_id"].(string)
 	// Bind the approval to the plan this command showed (AIG-04 tainted requests and physical actions
 	// refuse an approval without it); an action without a fingerprint approves as before.
@@ -277,10 +281,21 @@ func (a *App) approveOrConfirmLicence(c *onemind.Client, x *onemind.Action, acce
 	if x.PlanSha256 != nil {
 		plan = *x.PlanSha256
 	}
-	if accept != "" {
-		return c.Actions.ApproveBound(bg(), x.Id, plan, accept)
+	approve := func(licence string) (*onemind.Action, error) {
+		got, err := c.Actions.ApproveBound(bg(), x.Id, plan, licence)
+		var e *onemind.Error
+		if !errors.As(err, &e) || e.Reason != "step_up_required" {
+			return got, err
+		}
+		if actor == nil || !a.Interactive() {
+			return nil, explainGateway(err)
+		}
+		return a.approveWithAuthenticator(actor, x.Id, plan, licence)
 	}
-	got, err := c.Actions.ApproveBound(bg(), x.Id, plan, "")
+	if accept != "" {
+		return approve(accept)
+	}
+	got, err := approve("")
 	var e *onemind.Error
 	if err == nil || !errors.As(err, &e) || e.Reason != "licence_unconfirmed" || appID == "" {
 		return got, err
@@ -296,5 +311,40 @@ func (a *App) approveOrConfirmLicence(c *onemind.Client, x *onemind.Action, acce
 	if !ok {
 		return nil, exitWith(ExitPending, "pending", "licence not accepted; the action still waits")
 	}
-	return c.Actions.ApproveBound(bg(), x.Id, plan, appID)
+	return approve(appID)
+}
+
+func (a *App) approveWithAuthenticator(actor *target, id, plan, licence string) (*onemind.Action, error) {
+	c, err := a.accountClient(actor)
+	if err != nil {
+		return nil, err
+	}
+	var options struct {
+		Challenge   string `json:"challenge"`
+		Plan        string `json:"plan_sha256"`
+		BoxRequired bool   `json:"box_code_required"`
+	}
+	path := "/v1/actions/" + url.PathEscape(id) + "/approve-options"
+	if err := c.Do(bg(), http.MethodPost, path, map[string]any{"method": "password+totp", "at_box": true}, &options); err != nil {
+		return nil, err
+	}
+	if options.Plan != plan || options.Challenge == "" {
+		return nil, exitWith(ExitConflict, "conflict", "the approval plan changed or the box did not give a challenge. Review the action again")
+	}
+	var proof onemind.ApprovalAuthenticator
+	proof.Challenge = options.Challenge
+	if proof.Password, err = a.accountSecret("Password", false); err != nil {
+		return nil, err
+	}
+	if proof.TOTP, err = a.accountSecret("Fresh authenticator code", false); err != nil {
+		return nil, err
+	}
+	proof.TOTP = strings.TrimSpace(proof.TOTP)
+	if options.BoxRequired {
+		if proof.BoxCode, err = a.accountSecret("Code on the box's screen", false); err != nil {
+			return nil, err
+		}
+		proof.BoxCode = strings.TrimSpace(proof.BoxCode)
+	}
+	return c.Actions.ApproveWithAuthenticator(bg(), id, plan, licence, proof)
 }

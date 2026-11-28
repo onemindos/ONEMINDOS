@@ -30,9 +30,18 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/operations/{id}   one operation by action id
 //	GET  /v1/plans/factory-reset  what a factory reset would erase, keep and warn (read-only)
 //	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
+//	GET  /v1/ssh, POST /v1/ssh/keys, POST /v1/ssh/keys/remove, PUT /v1/ssh/enabled   the owner's SSH keys and switch (ssh.go)
+//	GET  /v1/storage/housekeeping  TRIM status, smartd warnings, removable drives (read-only; 404 when Media is nil)
+//	GET  /v1/flatpak, GET /v1/flatpak/search, POST|DELETE /v1/flatpak/apps/{id}[/install|update|launch]   Flathub desktop apps (flatpak.go)
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
+//	GET  /v1/time              time zone and clock synchronisation (timedatectl; 404 when Time is nil)
+//	GET  /v1/keyboard          the keyboard layout now and the layouts the image offers (read-only; 404 when Keymap is nil)
+//	GET  /v1/firewall          the live nftables ruleset in a structured form (internal/firewall; 404 when Firewall is nil)
+//	POST /v1/firewall/allow, POST .../allow/{id}/confirm, DELETE .../allow/{id}   owner allow rules with automatic revert (firewall_allow.go)
+//	GET  /v1/network/changes, PUT /v1/network/{iface}, POST /v1/network/{iface}/confirm   wired address change with automatic rollback (netset.go)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 //	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
+//	GET  /v1/journal?unit=&priority=&boot=0&lines=200&follow=1   the whole-system journal as text lines (404 when SystemJournal is nil)
 type Server struct {
 	S        *Service
 	AllowUID int // besides root; -1 none
@@ -44,8 +53,15 @@ type Server struct {
 	PeerCred func(*net.UnixConn) (uid, gid int, ok bool)
 	// Network answers GET /v1/network (NET-UI-01). It only reads; nil leaves the route off.
 	Network func() (any, error)
+	// Firewall answers GET /v1/firewall (P-09 part 1). It only reads (nft -j list ruleset); nil leaves the route off.
+	Firewall func(ctx context.Context) (any, error)
+	// FirewallAllow keeps the owner allow rules (P-09 part 2): POST /v1/firewall/allow, POST
+	// /v1/firewall/allow/{id}/confirm, DELETE /v1/firewall/allow/{id}. Nil leaves the routes off.
+	FirewallAllow AllowManager
 	// Services answers GET /v1/services (#623). It only reads (systemctl show); nil leaves the route off.
 	Services func(ctx context.Context) (any, error)
+	// Time answers GET /v1/time: the zone and the clock's sync state (timezone.go). It only reads; nil leaves the route off.
+	Time func(ctx context.Context) (any, error)
 	// Hostname names the box in GET /v1/status (#875; default os.Hostname): the harmless read the gateway
 	// and the boot battery use to prove the socket reaches this service. An error leaves the field out.
 	Hostname func() (string, error)
@@ -53,6 +69,9 @@ type Server struct {
 	// unredacted (the gateway redacts every line before anyone sees it). It returns svcregistry.ErrUnknownUnit
 	// before writing anything for an unlisted unit; nil leaves the route off.
 	ServiceLogs func(ctx context.Context, unit string, lines int, follow bool, w io.Writer) error
+	// SystemJournal answers GET /v1/journal (P-07): the whole-system journal filtered by unit, priority and
+	// boot, text lines like ServiceLogs (404 when nil).
+	SystemJournal func(ctx context.Context, q svcregistry.JournalQuery, w io.Writer) error
 }
 
 // Capability is one kind in GET /v1/status.
@@ -163,6 +182,35 @@ func (s *Server) Handler() http.Handler {
 			writeJSON(w, http.StatusOK, v)
 		})
 	}
+	if s.S != nil && s.S.Media != nil {
+		mux.HandleFunc("GET /v1/storage/housekeeping", func(w http.ResponseWriter, r *http.Request) {
+			if why := s.S.Media.Unavailable(); why != "" {
+				apiError(w, http.StatusServiceUnavailable, "unavailable", "unavailable", why)
+				return
+			}
+			writeJSON(w, http.StatusOK, s.S.Media.View(r.Context()))
+		})
+	}
+	if s.S != nil && s.S.Keymap != nil {
+		mux.HandleFunc("GET /v1/keyboard", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.S.Keymap.View()
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "keyboard", "the keyboard layouts could not be read")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
+	if s.Firewall != nil {
+		mux.HandleFunc("GET /v1/firewall", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.Firewall(r.Context())
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "firewall", "the firewall rules could not be read")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
 	if s.Services != nil {
 		mux.HandleFunc("GET /v1/services", func(w http.ResponseWriter, r *http.Request) {
 			v, err := s.Services(r.Context())
@@ -173,8 +221,21 @@ func (s *Server) Handler() http.Handler {
 			writeJSON(w, http.StatusOK, v)
 		})
 	}
+	if s.Time != nil {
+		mux.HandleFunc("GET /v1/time", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.Time(r.Context())
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "time", "the clock could not be read")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
 	if s.ServiceLogs != nil {
 		mux.HandleFunc("GET /v1/services/{unit}/logs", s.serviceLogs)
+	}
+	if s.SystemJournal != nil {
+		mux.HandleFunc("GET /v1/journal", s.systemJournal)
 	}
 	mux.HandleFunc("POST /v1/operations", func(w http.ResponseWriter, r *http.Request) {
 		var req Request
@@ -243,6 +304,10 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, s.S.Reset.Plan(r.Context()))
 	})
 	s.smbRoutes(mux)
+	s.sshRoutes(mux)
+	s.firewallAllowRoutes(mux)
+	s.flatpakRoutes(mux)
+	s.netRoutes(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.peerAllowed(r) {
 			apiError(w, http.StatusForbidden, "permission_denied", "peer", "this socket serves root and the gateway only")
@@ -270,6 +335,46 @@ func (s *Server) serviceLogs(w http.ResponseWriter, r *http.Request) {
 		return // the stream is under way: an error now just ends it
 	case errors.Is(err, svcregistry.ErrUnknownUnit):
 		apiError(w, http.StatusNotFound, "not_found", "unknown_unit", err.Error())
+	case err != nil:
+		apiError(w, http.StatusInternalServerError, "internal", "journal", "the journal could not be read")
+	default:
+		fw.start()
+	}
+}
+
+// systemJournal streams the whole-system journal as text/plain. Every query value is validated by
+// svcregistry.JournalQuery before journalctl runs.
+func (s *Server) systemJournal(w http.ResponseWriter, r *http.Request) {
+	v := r.URL.Query()
+	q := svcregistry.JournalQuery{Unit: v.Get("unit"), Priority: v.Get("priority"), Lines: 200, Follow: v.Get("follow") == "1"}
+	bad := func(msg string) { apiError(w, http.StatusBadRequest, "bad_request", "invalid", msg) }
+	if x := v.Get("lines"); x != "" {
+		n, err := strconv.Atoi(x)
+		if err != nil {
+			bad("lines must be a number")
+			return
+		}
+		q.Lines = n
+	}
+	if x := v.Get("boot"); x != "" {
+		n, err := strconv.Atoi(x)
+		if err != nil {
+			bad("boot must be a number such as 0 or -1")
+			return
+		}
+		q.Boot = n
+	}
+	if err := q.Validate(); err != nil {
+		bad(err.Error())
+		return
+	}
+	fw := &flushWriter{w: w}
+	err := s.SystemJournal(r.Context(), q, fw)
+	switch {
+	case fw.started:
+		return
+	case errors.Is(err, svcregistry.ErrBadJournalQuery):
+		bad(err.Error())
 	case err != nil:
 		apiError(w, http.StatusInternalServerError, "internal", "journal", "the journal could not be read")
 	default:

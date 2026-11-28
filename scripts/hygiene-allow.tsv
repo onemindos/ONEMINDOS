@@ -24,6 +24,7 @@ docs/*	/home/(layout|types|fixtures|shoot\.mjs|edit|offline|loading|errors|fresh
 # B-FP-9: the FB-3 mesh lab ran in an isolated, deleted VM; its logs carry the mesh range Headscale assigns (100.64.0.0/10, the documented default), the k3s default pod/service ranges and the lab VM user home. Mesh code and tests use that documented default prefix. None of it describes a real network.
 research-output/evidence/lab/fb3-mesh-nat/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+|/home/runner)	B-FP-9
 cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+cmd/onemind/cli/root_test.go	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/ca.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/tests/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 internal/mesh/*	(100\.64\.[0-9]+\.[0-9]+|p@control\.onemind\.internal)	B-FP-9
@@ -100,3 +101,14 @@ os/rootfs/layers/onemind/*	/home/admin	B-FP-6
 test/unit/*	/home/admin	B-FP-6
 os/rootfs/Containerfile	/home/admin	B-FP-6
 scripts/release/cli-packages.py	noreply@users\.noreply\.github\.com	B-FP-deb-maintainer
+# B-FP-ssh-keytype: OpenSSH names its two security-key public key types with an at-sign and a domain; they are algorithm names, not e-mail addresses (P-06).
+core/onemind_core/sshaccess.py	sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com	B-FP-ssh-keytype
+# B-FP-16 (same reason): the firewall view names the private ranges as ranges, in the code that classifies them and in its fixtures.
+core/onemind_core/hostfw.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+core/tests/test_firewall_view.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+internal/firewall/firewall_test.go	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+dashboard/src/pages/Network.test.tsx	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+internal/firewall/testdata/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+# QEMU user-network (slirp) guest-side forward address: exists only inside the test VM, never a real host (CRITERIA-UPDATE-SIGNED.md)
+test/qemu/updatesigned.py	10\.0\.2\.100	B-FP-qemu-slirp
+test/qemu/usrelay.py	10\.0\.2\.100	B-FP-qemu-slirp

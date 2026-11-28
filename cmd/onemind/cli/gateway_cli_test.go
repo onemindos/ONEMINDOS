@@ -19,7 +19,7 @@ type recGW struct {
 	mu  sync.Mutex
 	log []rec
 	srv *httptest.Server
-	// stepUp makes POST /v1/users answer the passkey step-up error.
+	// stepUp makes the direct owner creation route answer the step-up error.
 	stepUp bool
 	// noAISchedule makes GET /v1/update-policy leave ai_schedule out.
 	noAISchedule bool
@@ -110,11 +110,20 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		jsonOut(w, 201, map[string]any{"id": "usr_9", "display_name": body["display_name"], "role": body["role"],
 			"one_time": map[string]any{"enrolment_code": "CODE", "enrolment_url": "https://box.example/signin#enrol=CODE", "expires_at": "2026-11-26T00:00:00Z"}})
+	case p == "/v1/users/usr_2/invite" && r.Method == http.MethodPost:
+		if denyAgent() {
+			return
+		}
+		jsonOut(w, 202, waiting("users.reinvite", map[string]string{"user_id": "usr_2"}))
 	case p == "/v1/users/usr_2/disable":
 		jsonOut(w, 200, map[string]any{"id": "usr_2", "disabled": true})
 	case p == "/v1/backups/status":
 		jsonOut(w, 200, map[string]any{"health": "ok", "last_success_at": "2026-11-25T02:00:00Z", "last_verified_restore_at": nil,
 			"next_run_at": "2026-11-26T02:00:00Z", "copies": 2, "agent": "ok", "reason": nil, "kit": map[string]any{"state": "confirmed"}})
+	case p == "/v1/backups/snapshots" && r.URL.Query().Get("app_id") == "nodest":
+		// a hub with no backup destination yet answers 200 with an empty list, not an error or a wait
+		w.Header().Set("OneMind-Reason", "no backup destination yet")
+		jsonOut(w, 200, []any{})
 	case p == "/v1/backups/snapshots":
 		jsonOut(w, 200, []any{map[string]any{"id": "abcd1234", "taken_at": "2026-11-25T02:00:00Z", "unit": "app:photos"}})
 	case p == "/v1/backups/runs", p == "/v1/backups/verify":
@@ -188,15 +197,27 @@ func TestUsersListInviteDisable(t *testing.T) {
 		t.Fatalf("list json %+v", r)
 	}
 	r = run(t, "", false, "users", "invite", "Sam", "--role", "child", "--username", "sam")
-	if r.code != 0 || !strings.Contains(r.out, "https://box.example/signin#enrol=CODE") {
+	if r.code != 0 || !strings.Contains(r.out, "Invited Sam") || !strings.Contains(r.out, "#enrol=CODE") {
 		t.Fatalf("invite %+v", r)
 	}
 	post := g.requests("POST", "/v1/users")
 	if len(post) != 1 || post[0].body["display_name"] != "Sam" || post[0].body["role"] != "child" || post[0].body["username"] != "sam" {
 		t.Fatalf("invite body %+v", post)
 	}
-	if r := run(t, "", false, "users", "invite", "Sam", "--json"); r.code != 0 || obj(obj(mustJSON2(t, r.out))["one_time"])["enrolment_code"] != "CODE" {
+	r = run(t, "", false, "users", "invite", "Sam", "--json")
+	if r.code != 0 {
 		t.Fatalf("invite json %+v", r)
+	}
+	invite := obj(mustJSON2(t, r.out))
+	if invite["id"] != "usr_9" || invite["role"] != "adult" || obj(invite["one_time"])["enrolment_code"] != "CODE" {
+		t.Fatalf("unexpected invitation: %+v", invite)
+	}
+	if r := run(t, "", false, "users", "invite", "Sam", "--quiet"); r.code != 0 || r.out != "https://box.example/signin#enrol=CODE\n" {
+		t.Fatalf("invite quiet %+v", r)
+	}
+	if r := run(t, "", false, "users", "invite", "Alex", "--role", "owner", "--quiet"); r.code != 0 ||
+		r.out != "https://box.example/signin#enrol=CODE\n" {
+		t.Fatalf("invite another owner %+v", r)
 	}
 	// Disabling needs --yes, and files nothing without it.
 	if r := run(t, "", false, "users", "disable", "usr_2"); r.code != ExitUsage || len(g.requests("POST", "/v1/users/usr_2/disable")) != 0 {
@@ -210,17 +231,20 @@ func TestUsersListInviteDisable(t *testing.T) {
 func TestUsersAgentTokenIsRefusedByTheGateway(t *testing.T) {
 	asOwner(t)
 	t.Setenv("ONEMIND_TOKEN", agentTok)
-	for _, args := range [][]string{{"users", "list"}, {"users", "invite", "X"}, {"care", "checkup"}, {"update", "policy", "set", "--cool-off-hours", "1"}} {
+	for _, args := range [][]string{
+		{"users", "list"}, {"users", "invite", "X"}, {"users", "reinvite", "usr_2", "--yes"},
+		{"care", "checkup"}, {"update", "policy", "set", "--cool-off-hours", "1"},
+	} {
 		if r := run(t, "", false, args...); r.code != ExitPermissionDenied {
 			t.Errorf("%v: exit %d, want %d (%s)", args, r.code, ExitPermissionDenied, r.errOut)
 		}
 	}
 }
 
-func TestUsersInviteExplainsPasskeyStepUp(t *testing.T) {
+func TestUsersInviteAnotherOwnerExplainsPasskeyStepUp(t *testing.T) {
 	g := asOwner(t)
 	g.stepUp = true
-	r := run(t, "", false, "users", "invite", "Sam")
+	r := run(t, "", false, "users", "invite", "Sam", "--role", "owner")
 	if r.code != ExitUnauthenticated || !strings.Contains(r.errOut, "passkey") || !strings.Contains(r.errOut, "dashboard") {
 		t.Fatalf("%+v", r)
 	}
@@ -236,6 +260,9 @@ func TestBackupReadsAndRequestsWaitForAnOwner(t *testing.T) {
 	}
 	if q := g.requests("GET", "/v1/backups/snapshots"); len(q) != 1 || q[0].query != "app_id=photos" {
 		t.Fatalf("snapshots query %+v", q)
+	}
+	if r := run(t, "", false, "backup", "snapshots", "--app", "nodest"); r.code != 0 || !strings.Contains(r.out, "No snapshots yet") || strings.Contains(r.out, "SNAPSHOT") {
+		t.Fatalf("empty snapshots %+v", r)
 	}
 
 	if r := run(t, "", false, "backup", "run"); r.code != 0 || !strings.Contains(r.out, "onemind actions approve act_1") {

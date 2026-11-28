@@ -39,7 +39,7 @@ describe('sign-in', () => {
     await u.type(screen.getByLabelText('Username'), 'owner');
     await u.type(screen.getByLabelText(/^Password/), 'a-long-passphrase');
     await u.click(screen.getByRole('button', { name: 'Create the owner' }));
-    expect(await screen.findByRole('heading', { name: 'Name your box' }, T)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Name your place and box' }, T)).toBeInTheDocument();
     expect(window.sessionStorage.getItem('onemind.wizard')).toBeNull();
     // Opening the wizard installs nothing: every request on the hub is still waiting for a person.
     expect((await getApi().actions()).filter((a) => a.state === 'succeeded' && a.type === 'app.install').every((a) => a.id !== 'new')).toBe(true);
@@ -100,6 +100,8 @@ describe('People', () => {
     await u.click(screen.getByRole('button', { name: 'Create invite' }));
     const dialog = await screen.findByRole('dialog', { name: 'Invite a person' }, T);
     expect(within(dialog).getByText(MOCK_ENROL_CODE)).toBeInTheDocument();
+    expect((within(dialog).getByLabelText('Invite link') as HTMLInputElement).value).toContain(`#enrol=${MOCK_ENROL_CODE}`);
+    expect(within(dialog).getByRole('img', { name: 'Invite QR code' })).toBeVisible();
     expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(MOCK_ENROL_CODE);
   });
 

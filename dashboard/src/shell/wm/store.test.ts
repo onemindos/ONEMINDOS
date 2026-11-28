@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, it } from 'vitest';
-import { close, focus, minimise, onWorkspace, open, position, restore, save, sendTo, toggleMax, top, type Windows } from './store';
+import { HOME_COLUMN, close, focus, minimise, onWorkspace, open, position, restore, save, sendTo, toggleMax, top, type Windows } from './store';
 
 it('focus orders windows and the ninth distinct screen evicts the least recently focused', () => {
   let windows: Windows = [];
@@ -42,4 +42,15 @@ it('keeps each workspace’s windows apart, moves a window between them and save
   const back = restore(save(windows), path => path.slice(1));
   expect(back.map(w => [w.id, w.ws])).toEqual([['market', 3], ['nodes', 1]]);
   expect(restore(JSON.stringify([{ path: '/market', rect: windows[0]!.rect, ws: 9 }]), path => path.slice(1))[0]?.ws).toBe(0);
+});
+
+it('opens new windows right of Home’s tile column and inside the stage, cascading', () => {
+  let windows: Windows = [];
+  for (let i = 0; i < 6; i++) windows = open(windows, String(i), '/' + i);
+  for (const { rect } of [...windows, ...open([], 'backups', '/backups')]) {
+    expect(rect.x).toBeGreaterThanOrEqual(HOME_COLUMN);
+    expect(rect.x + rect.width).toBeLessThanOrEqual(100);
+    expect(rect.y + rect.height).toBeLessThanOrEqual(100);
+  }
+  expect(new Set(windows.map(w => w.rect.x)).size).toBeGreaterThan(1);
 });

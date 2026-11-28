@@ -39,6 +39,8 @@ export interface NodeHeartbeat {
   uptime_s: number;
   agent_version: string;
   observed_at: string;
+  /** Live load from the node agent (contract 12.10): each figure is null when the node cannot read it (CPU is null on the first heartbeat after a start). Absent from older agents. */
+  metrics?: { cpu_pct?: number | null; load1?: number | null; temp_c?: number | null };
 }
 
 /** §3 freshness computed by the gateway: stale after 30 s, offline after 120 s. */
@@ -269,8 +271,10 @@ export interface ActionResult {
  * expectation (see README "Known gaps"); every one is optional so the UI degrades
  * to "unknown" instead of crashing if the gateway names them differently.
  */
-export interface Action extends ActionRequest {
+export interface Action extends Omit<ActionRequest, 'type' | 'params'>, Pick<components['schemas']['Action'], 'type' | 'params'> {
   approval?: components['schemas']['Action']['approval'];
+  /** D-028: the key level approving needs now (awaiting_approval, read by a person). */
+  required_level?: components['schemas']['Action']['required_level'];
   plan?: PlanPreview['plan'] | null;
   progress?: { step: string; pct: number } | null;
   id: string;
@@ -295,6 +299,7 @@ export type ApiErrorCode =
   | 'rate_limited'
   | 'payload_too_large'
   | 'policy_refused'
+  | 'unavailable'
   /** The hub no longer serves this dashboard's protocol generation (sdk/contracts/protocol-versions.md). */
   | 'upgrade_required';
 
@@ -310,12 +315,14 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode | 'network' | 'unknown';
   readonly reason: string | undefined;
+  readonly details?: unknown[];
 
-  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null) {
+  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null, details?: unknown[]) {
     super(message);
     this.reason = reason ?? undefined;
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }

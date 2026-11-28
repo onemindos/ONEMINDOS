@@ -342,9 +342,47 @@ def test_app_metrics(mclient, clock):
     k.pods_by_ns["app-uptime-kuma"] = [pod("web-1", restarts=2), pod("db-0", component="db")]
     body = mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()
     assert body["components"][0] == {"name": "db", "cpu_millicores": None, "mem_mb": None, "restarts": 0}
+    assert "metrics-server did not answer" in body["reason"]
     k.usage = {"web-1": {"main": (12.5, 100.0)}, "db-0": {"main": (3.0, 50.0)}}
     web = mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()["components"][1]
     assert web == {"name": "web", "cpu_millicores": 12.5, "mem_mb": 100.0, "restarts": 2}
+    assert mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()["reason"] is None
+
+
+def test_app_metrics_says_why_a_figure_is_missing(mclient, clock):
+    install(mclient, clock)
+    k = mon(mclient).kube
+    # the runtime cannot list the pods at all
+    k.pods_by_ns["app-uptime-kuma"] = None
+    body = mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()
+    assert body["components"] == [] and "could not read this app's pods" in body["reason"]
+    # metrics-server answers but has no reading for one pod: that part is null, never 0
+    k.pods_by_ns["app-uptime-kuma"] = [pod("web-1"), pod("db-0", component="db")]
+    k.usage = {"web-1": {"main": (12.5, 100.0)}}
+    comps = {c["name"]: c for c in mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()["components"]}
+    assert comps["db"]["cpu_millicores"] is None and comps["db"]["mem_mb"] is None
+    assert comps["web"]["cpu_millicores"] == 12.5
+    assert "no reading yet for some parts" in mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()["reason"]
+
+
+def test_app_metrics_partial_container_reading_gets_a_reason(mclient, clock):
+    install(mclient, clock)
+    k = mon(mclient).kube
+    k.pods_by_ns["app-uptime-kuma"] = [pod("web-1")]
+    k.usage = {"web-1": {"main": (12.5, 100.0), "side": (None, None)}}
+    body = mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()
+    assert body["components"][0]["cpu_millicores"] == 12.5
+    assert "no reading yet for some parts" in body["reason"]
+
+
+def test_app_metrics_pod_without_reading_beside_one_with_gets_a_reason(mclient, clock):
+    install(mclient, clock)
+    k = mon(mclient).kube
+    k.pods_by_ns["app-uptime-kuma"] = [pod("web-1"), pod("web-2")]
+    k.usage = {"web-1": {"main": (12.5, 100.0)}}
+    body = mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()
+    assert body["components"][0]["cpu_millicores"] == 12.5
+    assert "no reading yet for some parts" in body["reason"]
 
 
 # ---- logs ---------------------------------------------------------------------------------
@@ -385,7 +423,8 @@ def test_logs_without_kubernetes(settings, clock, executor, tmp_path):
         assert mon(c).kube is None  # noop executor, kube=auto
         assert c.get("/v1/apps/uptime-kuma/logs", headers=OWNER).status_code == 404
         assert c.get("/v1/apps/uptime-kuma", headers=OWNER).json()["health"]["state"] == "unknown"
-        assert c.get("/v1/apps/uptime-kuma/metrics", headers=OWNER).json()["components"] == []
+        body = c.get("/v1/apps/uptime-kuma/metrics", headers=OWNER).json()
+        assert body["components"] == [] and "no Kubernetes runtime" in body["reason"]
 
 
 def test_redactor():

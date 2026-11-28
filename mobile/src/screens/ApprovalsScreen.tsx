@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useContext, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContext, NavigationRouteContext } from '@react-navigation/native';
 import type { TabParams } from '../nav';
@@ -10,7 +10,9 @@ import { approvalKeyNative, type ApprovalKeyNative } from '../../modules/onemind
 import { forget } from '../approvalKey';
 import { ApprovalKeySection, useApprovalKey } from '../approvalKey/ApprovalKeySection';
 import { Pressable, Text, View } from 'react-native';
-import type { Action, ApproveBody, Risk } from '../api/types';
+import type { Action, AppSecrets, ApproveBody, Risk, SecretValues } from '../api/types';
+import { sealInstallSecrets, secretsToAsk } from '../lib/installSecrets';
+import { InstallSecretsForm } from './InstallSecretsForm';
 import { useHubData, useNow } from '../data';
 import { actionTitle, decide, isPending, keyCovers, principalLabel, sortByRecent, type Decision, type StepUp } from '../lib/approvals';
 import { platformPasskeys } from '../lib/passkeys';
@@ -30,6 +32,12 @@ const SYSTEM_TITLES: Record<string, string> = {
 
 function requestTitle(a: Action): string {
   return a.plan?.summary || (Object.hasOwn(SYSTEM_TITLES, a.type) ? SYSTEM_TITLES[a.type]! : actionTitle(a));
+}
+
+/** The request behind an open secrets form is still waiting and not expired (hub clock). */
+function formStillOpen(id: string, actions: Action[] | undefined, hubNow: number): boolean {
+  const a = actions?.find((x) => x.id === id);
+  return !!a && isPending(a) && Date.parse(a.expires_at) > hubNow;
 }
 
 const SEGMENTS = ['Waiting', 'Decided', 'Agents'] as const;
@@ -238,21 +246,54 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
   const nav = useContext(NavigationContext);
   useLayoutEffect(() => nav?.setOptions({ headerShown: false }), [nav]);
   const route = useContext(NavigationRouteContext);
-  const reviewId = (route?.params as TabParams['Approvals'])?.id;
+  const { id: reviewId, reviewKey } = (route?.params as TabParams['Approvals']) ?? {};
   const deciding = useRef(false);
   const [busy, setBusy] = useState<string>();
   const [msg, setMsg] = useState<{ text: string; ok: boolean }>();
   const hubNow = now + (hubOffsetMs ?? 0);
-  const [selection, setSelection] = useState<{ reviewId?: string; segment: Segment; id?: string }>();
+  const [selection, setSelection] = useState<{ reviewId?: string; reviewKey?: number; segment: Segment; id?: string }>();
   const canSign = features.has(OP.approveOptions);
   const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
   const key = useApprovalKey(keyNative, hubUrl);
   const hasCredential = (me?.passkeys ?? 0) > 0 || !!key.signer;
   const ctx: StepUp = { features, passkeys: platformPasskeys(), ownerHasPasskey: true, hubUrl, approvalKey: key.signer };
+  // #528: the install secrets form, open for one request (the typed values live only inside the form).
+  const [secretsForm, setSecretsForm] = useState<{ action: Action; secrets: AppSecrets; holdMs?: number; error?: string }>();
+  const [sealing, setSealing] = useState(false);
 
-  async function onDecide(a: Action, d: Decision, holdMs?: number) {
-    if (deciding.current || error || canDecide === 'no' || !(Date.parse(a.expires_at) > Date.now() + (hubOffsetMs ?? 0))) return;
-    if (d === 'approve' && (!canSign || !hasCredential || (requiresHold(a) && holdMs === undefined))) return;
+  /** Approve: an install whose app needs owner-typed secrets opens the form first; everything else goes straight on. */
+  async function onApprove(a: Action, holdMs?: number) {
+    if (deciding.current || busy !== undefined || !canSign || !hasCredential || (requiresHold(a) && holdMs === undefined)) return;
+    let secrets: AppSecrets | undefined;
+    try {
+      secrets = await secretsToAsk(api, features, a);
+    } catch (e) {
+      setMsg({ text: `Could not read what ${requestTitle(a)} needs: ${e instanceof Error ? e.message : String(e)}. Nothing was approved.`, ok: false });
+      return;
+    }
+    if (secrets) setSecretsForm({ action: a, secrets, holdMs });
+    else await onDecide(a, 'approve', holdMs);
+  }
+
+  async function submitSecrets(values: SecretValues) {
+    if (!secretsForm) return;
+    const { action, secrets, holdMs } = secretsForm;
+    setSealing(true);
+    try {
+      const sealed = await sealInstallSecrets(api, secrets, values);
+      if (await onDecide(action, 'approve', holdMs, sealed)) setSecretsForm(undefined);
+      else setSecretsForm((f) => f && { ...f, error: 'Nothing was approved. Type the secrets again to retry.' });
+    } catch (e) {
+      // Never echo the values: only the sealing step's own message.
+      setSecretsForm((f) => f && { ...f, error: `Could not seal the secrets: ${e instanceof Error ? e.message : String(e)}` });
+    } finally {
+      setSealing(false);
+    }
+  }
+
+  async function onDecide(a: Action, d: Decision, holdMs?: number, sealed?: ApproveBody['sealed']): Promise<boolean> {
+    if (deciding.current || error || canDecide === 'no' || !(Date.parse(a.expires_at) > Date.now() + (hubOffsetMs ?? 0))) return false;
+    if (d === 'approve' && (!canSign || !hasCredential || (requiresHold(a) && holdMs === undefined))) return false;
     // The gateway requires the hold duration alongside the signed approval. Leave the challenge,
     // plan binding and signer untouched. Only decorate the final write after the completed hold.
     const decisionApi = holdMs === undefined ? api : Object.assign(Object.create(api) as OneMindApi, {
@@ -266,7 +307,7 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
     deciding.current = true;
     setBusy(a.id);
     setMsg(undefined);
-    const r = await decide(decisionApi, a, d, ctx);
+    const r = await decide(decisionApi, a, d, sealed ? { ...ctx, sealed } : ctx);
     if (!r.ok && r.forbidden) markForbidden();
     // A new fingerprint or face killed the key: revoke it on the hub (best effort) and offer set-up again.
     if (!r.ok && r.reason === 'invalidated' && key.rec) {
@@ -277,22 +318,31 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
     await reload();
     deciding.current = false;
     setBusy(undefined);
+    return r.ok;
   }
+
+  // A form stays open only while its request is still waiting and not expired. When the request is decided
+  // elsewhere, expires or drops on reload, the form closes, so the other cards are usable again.
+  useEffect(() => {
+    if (secretsForm && !formStillOpen(secretsForm.action.id, actions, hubNow)) setSecretsForm(undefined);
+  }, [secretsForm, actions, hubNow]);
+  const openForm = secretsForm && formStillOpen(secretsForm.action.id, actions, hubNow) ? secretsForm : undefined;
 
   if (loading && !actions) return <Loading what="requests" />;
   const latest = sortByRecent(actions ?? []);
   const pending = latest.filter(isPending);
   const review = pending.find((a) => a.id === reviewId);
   const visible = review ? [review, ...pending.filter((a) => a.id !== reviewId)] : pending;
-  const selectedId = selection?.reviewId === reviewId ? selection?.id : undefined;
-  const expandedId = visible.find((a) => a.id === selectedId)?.id ?? visible[0]?.id;
-  const selectedSegment = selection?.reviewId === reviewId ? selection?.segment ?? 'Waiting' : 'Waiting';
+  const currentSelection = selection?.reviewId === reviewId && selection?.reviewKey === reviewKey ? selection : undefined;
+  const selectedId = currentSelection?.id;
+  const expandedId = visible.find((a) => a.id === selectedId)?.id ?? (reviewId ? review?.id : visible[0]?.id);
+  const selectedSegment = currentSelection?.segment ?? 'Waiting';
   const decided = latest.filter((a) => !isPending(a) && a.state !== 'requested');
   const agents = summarizeAgents(latest, undefined);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <Screen key={reviewId} testID="approvals">
+      <Screen key={reviewKey ?? reviewId} testID="approvals">
         <H1>Approvals</H1>
         <View accessibilityRole="tablist" style={{
           flexDirection: 'row', padding: 2, borderRadius: 12, borderWidth: 1, borderColor: t.border, backgroundColor: t.sunken,
@@ -300,7 +350,7 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
           {SEGMENTS.map((tab) => (
             <Pressable key={tab} testID={`segment-${tab}`} accessibilityRole="tab"
               accessibilityState={{ selected: selectedSegment === tab }}
-              onPress={() => setSelection({ reviewId, segment: tab, id: expandedId })}
+              onPress={() => setSelection({ reviewId, reviewKey, segment: tab, id: expandedId })}
               style={{ flex: 1, minHeight: touchTarget, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
                 backgroundColor: selectedSegment === tab ? t.card : t.sunken }}>
               <Text style={{ fontSize: font.sm, fontWeight: font.semibold, color: selectedSegment === tab ? t.accent : t.muted }}>
@@ -319,10 +369,17 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
             {canDecide !== 'no' && !canSign && !!pending.length && <Notice text="This hub cannot sign phone approvals." />}
             {!visible.length && <P muted>Nothing is waiting.</P>}
             {visible.map((a) => (
-              <PendingCard key={a.id} a={a} now={hubNow} canDecide={canDecide} busy={busy !== undefined} offline={!!error}
-                keyed={!!key.signer} canSign={canSign} hasCredential={hasCredential} expanded={a.id === expandedId}
-                onExpand={() => setSelection({ reviewId, segment: 'Waiting', id: a.id })}
-                onDecide={(x, d, holdMs) => void onDecide(x, d, holdMs)} />
+              <Fragment key={a.id}>
+                <PendingCard a={a} now={hubNow} canDecide={canDecide} busy={busy !== undefined || !!openForm} offline={!!error}
+                  keyed={!!key.signer} canSign={canSign} hasCredential={hasCredential} expanded={a.id === expandedId}
+                  onExpand={() => setSelection({ reviewId, reviewKey, segment: 'Waiting', id: a.id })}
+                  onDecide={(x, d, holdMs) => void (d === 'approve' ? onApprove(x, holdMs) : onDecide(x, d, holdMs))} />
+                {openForm?.action.id === a.id && (
+                  <InstallSecretsForm appName={openForm.secrets.app_id} secrets={openForm.secrets}
+                    busy={sealing || busy !== undefined} error={openForm.error} submitLabel="Seal and approve"
+                    onSubmit={(v) => void submitSecrets(v)} onCancel={() => setSecretsForm(undefined)} />
+                )}
+              </Fragment>
             ))}
             <ApprovalKeySection api={api} features={features} native={keyNative} hubUrl={hubUrl} state={key} owner={canDecide !== 'no'} />
           </>

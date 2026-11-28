@@ -23,6 +23,17 @@ export interface EmergencyKitProps {
   makeDownload?: (text: string) => string;
 }
 
+/** Says which printed page holds the disk key when this kit does not (the box cannot show it again). */
+function DiskKeyPointer({ kit, here }: { kit: KitState; here: boolean }) {
+  if (here || !kit.disk_key_kit) return null;
+  return (
+    <p className="om-hint" role="note">
+      The disk recovery key is not on this page. It was printed once, on the kit issued {kit.disk_key_kit.issued_at}
+      {' '}(fingerprint {kit.disk_key_kit.fingerprint}). Keep that page: this box cannot show the disk key again.
+    </p>
+  );
+}
+
 type Phase = 'start' | 'show' | 'check' | 'done';
 
 export function EmergencyKit(p: EmergencyKitProps) {
@@ -71,6 +82,7 @@ export function EmergencyKit(p: EmergencyKitProps) {
     return (
       <Card title="Emergency kit saved" level={2} aside={<StatusPill tone="ok" label="Confirmed" />}>
         <p>Keep it offline. With it and a backup disk, your data can be restored on any computer, with or without OneMind.</p>
+        <DiskKeyPointer kit={kit} here={false} />
         <Button variant="primary" onClick={p.onDone}>Continue</Button>
       </Card>
     );
@@ -83,6 +95,7 @@ export function EmergencyKit(p: EmergencyKitProps) {
           Your backups are encrypted. The kit holds a recovery key that only you will have. If this box is lost or broken, the
           kit and a backup disk bring everything back. OneMind does not keep a copy, so nobody else can open your backups.
         </p>
+        <DiskKeyPointer kit={kit} here={false} />
         <Button variant="primary" icon="lock" busy={busy} onClick={issue}>Show my recovery key</Button>
         {error && <p className="omb-error" role="alert">{error}</p>}
       </Card>
@@ -99,6 +112,13 @@ export function EmergencyKit(p: EmergencyKitProps) {
           ))}
         </ol>
         <p className="om-hint">Check group: <code>{one.check}</code> · fingerprint {kit.fingerprint}</p>
+        {one.disk_recovery_key && (
+          <>
+            <p className="om-hint">Disk recovery key, for unlocking this box's encrypted data disk at its own console. Shown once.</p>
+            <pre className="om-code" aria-label="Disk recovery key"><code>{one.disk_recovery_key}</code></pre>
+          </>
+        )}
+        <DiskKeyPointer kit={kit} here={!!one.disk_recovery_key} />
         <div className="omb-actions">
           {href && (
             <a className="omb-link" href={href} download={kitFileName(p.boxName, kit.issued_at ?? '')}>

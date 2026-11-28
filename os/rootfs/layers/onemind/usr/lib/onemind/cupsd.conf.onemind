@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind OS printing (Step 3): the seed for /etc/cups/cupsd.conf. The image keeps a copy of /etc/cups in
+# /usr/lib/onemind/cups-default; the first boot copies it to /data/state/etc-cups, which is bind-mounted on
+# /etc/cups (onemind-data-layout drop-in print.conf), so printers and settings live on /data and survive reboots
+# and A/B updates. The service installs the image's operation policy before starting.
+#
+# Defaults, all off until the owner decides: remote administration, printer sharing, DNS-SD advertising, browsing
+# for network printers (cups-browsed is not installed: a printer is added by the owner, never by itself).
+# cupsd listens on every address for IPP and the web page; host.nft decides who can reach 631 (LAN and mesh only,
+# never a public address). LAN and mesh clients can discover shared queues and query status.
+# @LOCAL leaves out point-to-point interfaces, so the mesh device is named with @IF(tailscale0)
+# (UNVERIFIED in a VM: prove it from a mesh peer on the Dell). /admin never gets it:
+# it is for localhost and a member of lpadmin (or root) only.
+LogLevel warn
+MaxLogSize 1m
+PageLogFormat
+ErrorPolicy retry-job
+Listen /run/cups/cups.sock
+Listen *:631
+Browsing No
+BrowseLocalProtocols none
+DefaultShared No
+DefaultAuthType Basic
+WebInterface Yes
+# The service stays up: the firewall opens 631, so a daemon that exits when idle would leave the port closed.
+IdleExitTimeout 0
+
+<Location />
+  Order allow,deny
+  Allow localhost
+  Allow @LOCAL
+  Allow @IF(tailscale0)
+</Location>
+<Location /admin>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+<Location /admin/conf>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+<Location /admin/log>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+
+<Policy default>
+  JobPrivateAccess default
+  JobPrivateValues default
+  SubscriptionPrivateAccess default
+  SubscriptionPrivateValues default
+  # These operations only read printer attributes and job status.
+  <Limit CUPS-Get-Classes CUPS-Get-Default CUPS-Get-Printers CUPS-Get-PPD CUPS-Get-PPDs Get-Printer-Attributes Get-Printer-Supported-Values Get-Job-Attributes Get-Jobs Validate-Job>
+    Order deny,allow
+  </Limit>
+  # Adding, changing or removing a printer or a class requires a local administrator.
+  <Limit CUPS-Add-Modify-Printer CUPS-Delete-Printer CUPS-Add-Modify-Class CUPS-Delete-Class CUPS-Set-Default CUPS-Get-Devices Resume-Printer CUPS-Accept-Jobs Cancel-Job>
+    AuthType Default
+    Require user @SYSTEM
+    Order allow,deny
+    Allow localhost
+  </Limit>
+  # The OS staging helper submits an indefinite hold as the gateway account.
+  # Only that account can release a job, through the gateway's physical action.
+  <Limit Print-Job Create-Job Send-Document Release-Job>
+    AuthType Basic
+    Require user onemind
+    Order allow,deny
+    Allow localhost
+  </Limit>
+  # In particular, job edits, moves, restarts and bulk releases are denied.
+  <Limit All>
+    AuthType Basic
+    Require user onemind-print-disabled
+    Order allow,deny
+    Deny all
+  </Limit>
+</Policy>

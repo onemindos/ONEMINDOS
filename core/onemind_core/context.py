@@ -45,10 +45,14 @@ Hook = Callable[[], Awaitable[None] | None]
 Authenticator = Callable[[Request, str | None], Principal | None]
 # Runs before an owner approval; raises ApiError to refuse it (identity: passkey step-up, F-2).
 ApprovalGuard = Callable[[Principal, str, dict, Request], None]
+# Runs once after the queue accepts a decision, for effects bound to the approving session.
+ApprovalObserver = Callable[[Request, Principal, dict], None]
 # Given the id an approval guard was called with, who asked for it ({"id", "kind", ...}), or None
 # when the id is not this feature's. Every feature with its own approvable requests (files: frq_...)
 # registers one, so a guard can judge the requester, not only the approver (CORE-SEC-6).
 RequesterLookup = Callable[[str], dict | None]
+# Resolves a feature's approval request for the shared step-up challenge.
+ApprovalLookup = Callable[[Principal, str], dict | None]
 # Whether this principal may see and open an installed app (identity: per-app sharing, §12.6).
 AppFilter = Callable[[Request, Principal, str], bool]
 # (request, principal, value) -> may this caller see that asset value? `value` is a fanout.AssetValue:
@@ -87,7 +91,11 @@ class Gateway:
     jetstream: Any = None
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
+    approval_observers: list[ApprovalObserver] = field(default_factory=list)
+    # Read-time facts added to an action a person reads (identity: the key level approving needs, D-028).
+    action_views: list[Callable[[dict], dict]] = field(default_factory=list)
     requester_lookups: list[RequesterLookup] = field(default_factory=list)
+    approval_lookups: list[ApprovalLookup] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
     asset_filters: list[AssetFilter] = field(default_factory=list)
     # #606: the current asset values from the hub's asset-state bucket (fanout.AssetState), set by routers/events.py.
@@ -97,6 +105,9 @@ class Gateway:
     disabled_apps: Callable[[], frozenset[str]] = lambda: frozenset()
     people_sources: list[PeopleSource] = field(default_factory=list)
     principal_guards: list[PrincipalGuard] = field(default_factory=list)
+    # Per event domain: adds display fields (a task title) to an ids-only event when the notifier renders it.
+    # Events and the audit log carry ids only, because every adult can read the audit log.
+    notify_enrichers: dict[str, Callable[[dict], dict]] = field(default_factory=dict)
     _startup: list[Hook] = field(default_factory=list)
     _shutdown: list[Hook] = field(default_factory=list)
 

@@ -10,6 +10,7 @@ import { Card } from './Card';
 import { HoldToApprove } from './HoldToApprove';
 import { Icon } from './Icon';
 import { StatusPill } from './StatusPill';
+import { VerificationBadge, type VerificationLevel } from './VerificationBadge';
 
 export type ActionState =
   | 'requested'
@@ -29,8 +30,9 @@ export interface ActionSummary {
   state: ActionState;
   expires_at: string;
   created_at?: string;
-  requested_by?: { id: string; kind: 'person' | 'agent'; role?: string };
-  decided_by?: { id: string; kind: 'person' | 'agent' };
+  /** 'name' is the display name (Alex, not usr_8f2c); the id is shown when absent. */
+  requested_by?: { id: string; kind: 'person' | 'agent'; role?: string; name?: string };
+  decided_by?: { id: string; kind: 'person' | 'agent'; name?: string };
   /** Why the requester wants it (agents must say). */
   reason?: string;
   /** Plain-language consequence, e.g. "Downloads 120 MB and starts a web app on port 80". */
@@ -40,6 +42,10 @@ export interface ActionSummary {
   /** What the target is called in the catalog ("Ollama", not its id "ollama"); the id is shown when absent. */
   target_name?: string;
   hold?: { duration: number; plan?: string };
+  /** The key level approving needs (approve-options' required_level, D-028). */
+  required_level?: VerificationLevel;
+  /** The hold is for something physical (the gateway's approval.physical); without it a hold means it cannot be undone. */
+  physical?: boolean;
 }
 
 export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = {
@@ -54,23 +60,69 @@ export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = 
   cancelled: { tone: 'neutral', label: 'Denied' },
 };
 
-const VERB: Record<string, string> = {
+/**
+ * One table: action type -> the request in plain words. A target (an app, a node) is appended when
+ * the request has one. A type not listed here gets a readable fallback (actionWords), never the dotted name.
+ */
+export const ACTION_WORDS: Record<string, string> = {
   'app.install': 'Install',
   'app.remove': 'Remove',
   'app.update': 'Update',
   'app.restart': 'Restart',
+  'app.start': 'Start',
+  'app.stop': 'Stop',
+  'app.configure': 'Change settings of',
+  'app.delete_data': 'Delete the data of',
   'os.update': 'Update the OS on',
+  'os.update.install': 'Install the OS update',
+  'os.rollback': 'Roll the OS back',
+  'os.rollout.start': 'Start rolling out the OS update',
+  'os.rollout.resume': 'Resume rolling out the OS update',
+  'backup.run': 'Back up now',
+  'backup.verify': 'Check a backup',
   'backup.restore': 'Restore',
+  'backup.content.set': 'Change what is backed up',
+  'backup.destination.add': 'Add a backup destination',
+  'backup.destination.remove': 'Remove a backup destination',
+  'backup.kit.issue': 'Make a recovery kit',
   'node.join': 'Let join',
   'node.drain': 'Drain',
+  'node.wake': 'Wake up',
+  'node.remove': 'Remove',
   'repair.apply': 'Fix',
   'exposure.enable': 'Expose to the internet',
+  'legacy.contact.add': 'Add legacy contact',
+  'machine.attach_device': 'Attach a device to a machine',
+  'machine.detach_device': 'Detach a device from a machine',
+  'plugin.configure': 'Change the settings of a plugin',
+  'plugin.invoke': 'Let a plugin act',
+  'plugin.key.enroll': 'Trust a new plugin key',
+  'plugin.key.revoke': 'Stop trusting a plugin key',
+  'tls.acme.set': 'Change automatic certificates',
+  'files.grant.create': 'Give access to files',
+  'system.restart': 'Restart the hub',
+  'system.shutdown': 'Shut the hub down',
+  'system.factory_reset': 'Erase the hub and start over',
+  'service.restart': 'Restart a hub service',
+  'users.invite': 'Invite',
+  'users.reinvite': 'Replace invite for',
 };
+
+/** Plain words for an action type; an unknown one reads as its dotted name spaced out ("Backup destination add"). */
+export function actionWords(type: string): string {
+  const known = ACTION_WORDS[type];
+  if (known) return known;
+  const spaced = type.replace(/[._-]+/g, ' ').trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : 'A request';
+}
 
 export function actionTitle(a: Pick<ActionSummary, 'type' | 'params'> & { target_name?: string }): string {
   const target = a.target_name ?? ((a.params.app_id ?? a.params.node_id ?? a.params.target ?? '') as string);
-  return `${VERB[a.type] ?? a.type} ${target}`.trim();
+  return (actionWords(a.type) + ' ' + target).trim();
 }
+
+/** Who, for people: the display name when the hub told us, else the id. */
+export const principalName = (who: { id: string; name?: string }): string => who.name || who.id;
 
 /**
  * The same decision without the UI (contract §3). Headless and GUI are equal front doors
@@ -125,13 +177,16 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
           <div className="om-decide">
             {action.hold && !blocked && !busy && onApprove ? (
               <HoldToApprove key={`${action.id}:${action.hold.plan}:${action.hold.duration}`} label={`Hold to approve ${title}`}
-                duration={action.hold.duration} onApprove={(ms) => onApprove(action, ms)} />
+                duration={action.hold.duration} requiredLevel={action.required_level} onApprove={(ms) => onApprove(action, ms)} />
             ) : <Button variant="primary" icon="check" disabled={!!blocked || !!action.hold} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
               Approve
             </Button>}
             <Button variant="secondary" icon="x" disabled={!!blocked || busy} aria-label={`Deny ${title}`} onClick={() => onDeny?.(action)}>
               Deny
             </Button>
+            {action.required_level && !(action.hold && !blocked && !busy && onApprove) && (
+              <VerificationBadge level={action.required_level} required />
+            )}
             {blocked && (
               <span id={detailsId} className="om-hint">
                 {blocked}
@@ -145,7 +200,7 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
         {who ? (
           <>
             <StatusPill {...requesterPill(who)} dot={false} />{' '}
-            <strong>{who.id}</strong> asked{action.created_at ? ` ${formatAgo(secondsSince(action.created_at, now))}` : ''}
+            <strong>{principalName(who)}</strong> asked{action.created_at ? ` ${formatAgo(secondsSince(action.created_at, now))}` : ''}
           </>
         ) : (
           'Requester unknown'
@@ -170,7 +225,7 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
       </details>
       {action.decided_by && (
         <p className="om-hint">
-          Decided by {action.decided_by.kind} <strong>{action.decided_by.id}</strong>
+          Decided by {action.decided_by.kind} <strong>{principalName(action.decided_by)}</strong>
         </p>
       )}
       {extra}

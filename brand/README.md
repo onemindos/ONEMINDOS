@@ -85,7 +85,7 @@ The favicon (`favicon.svg`) is generated from the logo paths: the colour variant
 |---|---|---|
 | `os-release` | merge its keys into `/usr/lib/os-release` | In `os/assemble/assemble.py` `finalize()`, next to the existing `ONEMIND_VERSION` lines: drop existing `NAME=`, `PRETTY_NAME=`, `HOME_URL=`, `ANSI_COLOR=` lines and append these. Keep Debian's `ID=` and `VERSION_ID=` (tools such as apt and k3s read them) |
 | `motd` | `/etc/motd` | copy (replaces Debian's default text) |
-| `plymouth/onemind/onemind.plymouth`, `onemind.script` | `/usr/share/plymouth/themes/onemind/` | copy, then copy the PNG named by `ONEMIND_BRAND_BOOT_LOGO` in `brand.env` there as `logo.png`; install `plymouth` + `plymouth-themes`, run `plymouth-set-default-theme onemind` and rebuild the initramfs; add `splash quiet` to the kernel command line in `os/assemble/grub.cfg.in` |
+| `plymouth/onemind/onemind.plymouth`, `onemind.script`, `track.png`, `fill.png` (the bar's two colours, `os.boot.track` and `os.boot.progress`; the progress colour may not be the logo red) | `/usr/share/plymouth/themes/onemind/` | copy, then copy the PNG named by `ONEMIND_BRAND_BOOT_LOGO` in `brand.env` there as `logo.png`; install `plymouth` + `plymouth-themes`, run `plymouth-set-default-theme onemind` and rebuild the initramfs; add `splash quiet` to the kernel command line in `os/assemble/grub.cfg.in` |
 | `grub/onemind-brand.cfg` | `/boot/grub/onemind-brand.cfg` (or inline) | `source` it from `os/assemble/grub.cfg.in` before the first `menuentry`. For a logo, load `gfxterm` + `png` and use `ONEMIND_BRAND_GRUB_LOGO` as `background_image` |
 | `brand.env` | build-time only | shell-sourceable names, colour and the repo paths of the boot/GRUB logos |
 

@@ -18,11 +18,43 @@ from ..auth import Principal
 from ..context import Gateway
 
 
+class PluginSlot(BaseModel):
+    """One of the five defined places a plugin can show up. `declared` is false when its manifest names nothing for it."""
+    slot: Literal["home_tile", "map_layer", "settings_panel", "commands", "dock_item"]
+    declared: bool
+    names: list[str] = Field(default_factory=list, description="Ids or names the plugin declares for this slot.")
+    approval: Literal["none", "each_time"] = Field(
+        default="none", description="each_time when a command can change something: a person approves every call.")
+
+
 class PluginSummary(BaseModel):
     id: str
     name: str
     installed_version: str | None = Field(description="Persisted installed version; null when no runtime receipt exists.")
-    status: Literal["installed", "stopped"]
+    status: Literal["installed", "stopped", "failed"]
+    slots: list[PluginSlot] = Field(default_factory=list, description="The five defined places, in a fixed order.")
+
+
+def _names(items, key: str) -> list[str]:
+    return [str(x[key]) for x in items if isinstance(x, dict) and isinstance(x.get(key), str)] if isinstance(items, list) else []
+
+
+def plugin_slots(spec: dict, settings_schema: dict | None) -> list[PluginSlot]:
+    """Project the manifest into the design's five places. Names only: no schema, backend or secret leaves."""
+    ext = spec.get("extensions") or {}
+    tools = [t for t in ext.get("tools", []) if isinstance(t, dict)]
+    widgets = _names(ext.get("widgets"), "id")
+    layers = _names(spec.get("mapLayers"), "id")
+    props = (settings_schema or {}).get("properties") if isinstance((settings_schema or {}).get("properties"), dict) else {}
+    asks = any(t.get("effect") in ("write", "destructive") for t in tools)
+    return [
+        PluginSlot(slot="home_tile", declared=bool(widgets), names=widgets),
+        PluginSlot(slot="map_layer", declared=bool(layers), names=layers),
+        PluginSlot(slot="settings_panel", declared=bool(props), names=sorted(str(k) for k in props)),
+        PluginSlot(slot="commands", declared=bool(tools), names=_names(tools, "name"),
+                   approval="each_time" if asks else "none"),
+        PluginSlot(slot="dock_item", declared=bool(spec.get("web")), names=[]),
+    ]
 
 
 def installed_plugins(gw: Gateway, request: Request, principal: Principal) -> list[PluginSummary]:
@@ -31,10 +63,12 @@ def installed_plugins(gw: Gateway, request: Request, principal: Principal) -> li
     rows = []
     catalog = gw.catalog.load()
     with gw.db.session() as session:
-        receipts = {row.app_id: row.manifest for row in session.scalars(select(PluginInstallRow))}
+        installs = list(session.scalars(select(PluginInstallRow)))
+        receipts = {row.app_id: row.manifest for row in installs}
+        schemas = {row.app_id: row.settings_schema for row in installs}
     for app_id in sorted(catalog.keys() | receipts.keys()):
         state = states.get(app_id)
-        if state is None or state.status not in {"installed", "stopped"}:
+        if state is None or state.status not in {"installed", "stopped", "failed"}:
             continue
         manifest = receipts.get(app_id) or catalog[app_id].manifest
         spec = manifest.get("spec") or {}
@@ -57,6 +91,6 @@ def installed_plugins(gw: Gateway, request: Request, principal: Principal) -> li
         runtime = gw.repo.get_runtime(app_id)
         rows.append(PluginSummary(
             id=app_id, name=str(metadata["name"]), installed_version=runtime.version if runtime else None,
-            status=state.status,
+            status=state.status, slots=plugin_slots(spec, schemas.get(app_id)),
         ))
     return rows

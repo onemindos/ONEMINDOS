@@ -29,8 +29,10 @@ def test_installed_registry_tracks_real_state(client, settings, clock):
     path = declare_plugin(client, settings, clock)
     row = client.get("/v1/plugins/uptime-kuma", headers=OWNER)
     assert row.status_code == 200
-    assert row.json() == {"id": "uptime-kuma", "name": "Uptime Kuma", "installed_version": "2.0.2",
-                          "status": "installed"}
+    body = row.json()
+    slots = body.pop("slots")
+    assert body == {"id": "uptime-kuma", "name": "Uptime Kuma", "installed_version": "2.0.2", "status": "installed"}
+    assert [x["slot"] for x in slots] == ["home_tile", "map_layer", "settings_panel", "commands", "dock_item"]
     assert client.get("/v1/plugins", headers=OWNER).json() == [row.json()]
     manifest = yaml.safe_load(path.read_text())
     manifest["metadata"]["version"] = "2.0.0"
@@ -41,10 +43,30 @@ def test_installed_registry_tracks_real_state(client, settings, clock):
     assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["installed_version"] is None
     repo.set_app_state("uptime-kuma", "stopped", clock.now)
     assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["status"] == "stopped"
-    for status in ("removed", "installing", "failed", "unknown", None):
+    repo.set_app_state("uptime-kuma", "failed", clock.now)
+    assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["status"] == "failed"
+    assert [r["status"] for r in client.get("/v1/plugins", headers=OWNER).json()] == ["failed"]
+    for status in ("removed", "installing", "unknown", None):
         repo.set_app_state("uptime-kuma", status, clock.now)
         assert client.get("/v1/plugins", headers=OWNER).json() == []
         assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).status_code == 404
+
+
+def test_slots_show_the_five_places_from_the_manifest(client, settings, clock):
+    path = declare_plugin(client, settings, clock)
+    by = lambda: {x["slot"]: x for x in client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["slots"]}
+    slots = by()
+    assert slots["commands"] == {"slot": "commands", "declared": True, "names": ["status"], "approval": "none"}
+    assert not slots["home_tile"]["declared"] and not slots["map_layer"]["declared"]
+    manifest = yaml.safe_load(path.read_text())
+    manifest["spec"]["extensions"]["widgets"] = [{"id": "overview"}]
+    manifest["spec"]["extensions"]["tools"].append({"name": "run", "title": "Run", "effect": "write", "description": "Run",
+                                                    "input": {"type": "object", "additionalProperties": False}})
+    manifest["spec"]["mapLayers"] = [{"id": "lines", "title": "Lines", "source": "emits"}]
+    path.write_text(yaml.safe_dump(manifest))
+    slots = by()
+    assert slots["home_tile"]["names"] == ["overview"] and slots["map_layer"]["names"] == ["lines"]
+    assert slots["commands"]["approval"] == "each_time"
 
 
 def test_registry_requires_authentication_and_preserves_sharing(client, settings, clock):
@@ -74,9 +96,9 @@ def test_registry_never_exposes_raw_manifest(client, settings, clock):
 def test_identity_tokens_need_apps_read(settings, clock, executor):
     from fastapi.testclient import TestClient
     from onemind_core.app import create_app
-    from test_identity import csrf, id_settings, setup_owner
+    from test_identity import LOCAL_PEER, csrf, id_settings, setup_owner
 
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as client:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as client:
         setup_owner(client)
         declare_plugin(client, settings, clock)
         for scopes, expected in ((["apps:read"], 200), (["instance:read"], 403)):

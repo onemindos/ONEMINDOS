@@ -18,7 +18,7 @@ from conftest import AGENT, OWNER
 from onemind_core.app import create_app
 from onemind_core.identity import IdentitySettings
 from test_hostlink import NODE, ROLLBACK_RAUC, FakeHost, link_settings
-from test_identity import ORIGIN, RP_ID, SoftAuthenticator, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, ORIGIN, RP_ID, SoftAuthenticator, at_box, register_passkey, setup_owner
 from test_os_updates import HB
 
 
@@ -33,8 +33,9 @@ def host():
 @pytest.fixture
 def passkey_box(settings, clock, executor, host):
     s = link_settings(settings, host.path)
-    s = replace(s, sections={**s.sections, "identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False)})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    s = replace(s, sections={**s.sections, "identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False,
+                                                                         box_code_file=settings.audit_path.parent / "box-code.json")})
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         setup_owner(c)
         c.key = SoftAuthenticator()
         register_passkey(c, c.key)
@@ -52,7 +53,7 @@ def file(c, headers=OWNER):
 
 def sign(c, action_id, headers=OWNER):
     opts = c.post(f"/v1/actions/{action_id}/approve-options", headers=headers).json()
-    return {"webauthn": c.key.assert_(opts["challenge"], flat=True)}
+    return {"webauthn": c.key.assert_(opts["challenge"], flat=True), **at_box(c, opts)}
 
 
 def test_a_bare_owner_token_or_session_never_approves_a_rollback(passkey_box, host):

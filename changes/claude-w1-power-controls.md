@@ -1,0 +1,5 @@
+---
+pr: 1105
+branch: claude/w1-power-controls
+---
+Approved restart, shutdown and factory reset now reach the box. The gateway built its system service without a host path, so every approved control ended failed; it now sends the approved action id and kind through the existing host link (the one OS updates use), and the ledger action closes from the host's journal. A factory reset request stores the hash of the plan the host showed, and the host refuses a wipe whose plan changed. A host that is missing, refuses or fails still ends the action failed with a plain message. The onemind CLI gains system restart, shutdown and reset, which only file an approval request (a reset needs the typed phrase and an owner passkey to approve), and system diagnostics, which exports the redacted support bundle. The first-boot QEMU battery gains F13 (F20 after the round-2 integration renumbering), pre-registered, which approves a restart in a booted hub VM and checks that the box reboots and the action ends succeeded.

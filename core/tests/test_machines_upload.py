@@ -131,7 +131,12 @@ def test_proxy_uses_cdi_service_certificate_and_volume_token_without_redirects(m
     import httpx
 
     cdi = CDIUpload("kubectl")
-    ca = ssl.DER_cert_to_PEM_cert(ssl.create_default_context().get_ca_certs(binary_form=True)[0])
+    # Any real CA certificate will do. The system store can be empty on a CI runner (lazy capath),
+    # so take the first one from certifi's bundle, which httpx always ships with.
+    import certifi
+    bundle = open(certifi.where(), encoding="ascii").read()
+    end = "-----END CERTIFICATE-----"
+    ca = bundle[bundle.index("-----BEGIN CERTIFICATE-----"):bundle.index(end) + len(end)] + "\n"
     def objects(ns, *args, body=None):
         if args[0] == "create":
             assert ns == "machines" and body["spec"] == {"pvcName": "guest-disk"}

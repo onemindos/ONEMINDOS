@@ -91,6 +91,15 @@ class KitRow(Base):
     attempts: Mapped[int] = mapped_column(default=0)
 
 
+class KitLockRow(Base):
+    """Wrong tries of the printed kit at the box's console (D-028). One row, id "console"; a new table, so
+    create_all adds it to an existing database. A lock only ever delays the next try: it deletes nothing."""
+    __tablename__ = "backups_kit_lock"
+    id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    fails: Mapped[int] = mapped_column(default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class ContentTierRow(Base):
     """An app whose re-downloadable content (spec.backup.content) the owner chose to back up (BAK-03).
 
@@ -204,6 +213,14 @@ class BackupsRepository(SqlRepository):
     def put_kit(self, row: KitRow) -> None:
         with self.db.session.begin() as s:
             s.merge(row)
+
+    def kit_lock(self) -> KitLockRow | None:
+        with self.db.session() as s:
+            return s.get(KitLockRow, "console")
+
+    def put_kit_lock(self, fails: int, locked_until: datetime | None) -> None:
+        with self.db.session.begin() as s:
+            s.merge(KitLockRow(id="console", fails=fails, locked_until=locked_until))
 
     def update_kit(self, **fields) -> None:
         with self.db.session.begin() as s:

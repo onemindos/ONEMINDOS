@@ -18,12 +18,12 @@ it('keeps the leaving card hidden until the next step has rendered, so it never 
       return {
         finished: Promise.resolve(),
         finish: vi.fn(),
-        cancel: vi.fn(() => { if (leaving) exitCancelledWhen.push(!!screen.queryByRole('heading', { level: 2, name: 'Create the owner' })); }),
+        cancel: vi.fn(() => { if (leaving) exitCancelledWhen.push(!!screen.queryByRole('heading', { level: 2, name: 'Where is your place?' })); }),
       };
     }),
   });
   render(<Onboarding apps={[]} initial={{ ...emptyDraft('UTC'), boxName: 'home-hub' }} onFinish={() => {}} />);
   await user.click(screen.getByRole('button', { name: 'Continue' }));
-  await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Create the owner' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Where is your place?' })).toBeInTheDocument());
   await waitFor(() => expect(exitCancelledWhen).toEqual([true]));
 });

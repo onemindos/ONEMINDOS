@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Golden-path harness: bring up a REAL hub in a fresh Debian 13 VM with deploy/install.sh --role hub,
-# then run the Playwright suite (tests/e2e) from the host and deploy/verify/verify.sh on the hub.
+# then run deploy/verify/verify.sh on the hub and the Playwright suite (tests/e2e) from the host.
 #
 #   tests/e2e/harness/run.sh --backend lima   # macOS / Linux with Lima (local runs)
 #   tests/e2e/harness/run.sh --backend qemu   # Linux with QEMU/KVM (GitHub ubuntu-24.04 runners)
@@ -239,9 +239,18 @@ log "gateway reachable from the host at $HUB"
 chmod 0700 "$WORK/fetch-audit.sh"
 
 # ------------------------------------------------------------------------------------------
-# 3. Playwright from the host, then verify.sh on the hub (it re-checks the whole audit chain)
+# 3. Installer verification on the unclaimed hub, then Playwright (which claims the hub)
 # ------------------------------------------------------------------------------------------
 PW_RC=0 VERIFY_RC=0
+if [ "$VERIFY" = 1 ]; then
+  # The verifier checks the install owner's unsigned approval path, which ends at first-owner setup.
+  log "deploy/verify/verify.sh on the hub before first-owner setup"
+  set +e
+  vm_sh "cd ~/onemind && sudo deploy/verify/verify.sh http://127.0.0.1:8080 --app $APP --token-file /root/e2e/owner.token --agent-token-file /root/e2e/agent.token --audit-file /var/lib/onemind/audit.jsonl" > "$OUT/verify.txt" 2>&1
+  VERIFY_RC=$?
+  set -e
+  tail -n 3 "$OUT/verify.txt"
+fi
 if [ "$PLAYWRIGHT" = 1 ]; then
   log "Playwright: dashboard + MCP agent + audit against $HUB"
   (cd "$E2E" && { [ -d node_modules ] || npm ci --ignore-scripts --no-audit --no-fund; } \
@@ -256,14 +265,6 @@ if [ "$PLAYWRIGHT" = 1 ]; then
   PW_RC=$?
   set -e
 fi
-if [ "$VERIFY" = 1 ]; then
-  log "deploy/verify/verify.sh on the hub"
-  set +e
-  vm_sh "cd ~/onemind && sudo deploy/verify/verify.sh http://127.0.0.1:8080 --app $APP --token-file /root/e2e/owner.token --agent-token-file /root/e2e/agent.token --audit-file /var/lib/onemind/audit.jsonl" > "$OUT/verify.txt" 2>&1
-  VERIFY_RC=$?
-  set -e
-  tail -n 3 "$OUT/verify.txt"
-fi
 
 # ------------------------------------------------------------------------------------------
 # 4. Evidence
@@ -277,8 +278,8 @@ vm_sh 'sudo k3s kubectl get nodes,pods,ns -A -o wide' > "$OUT/k8s.txt" 2>&1 || t
   printf 'guest: %s\n' "$(vm_sh '. /etc/os-release; printf "%s, kernel %s, %s" "$PRETTY_NAME" "$(uname -r)" "$(dpkg --print-architecture)"')"
   printf 'commit: %s%s\n' "$(git -C "$ROOT" rev-parse --short HEAD)" "$(git -C "$ROOT" diff --quiet HEAD -- . ':!tests/e2e/out' || echo ' (+ uncommitted changes)')"
   printf 'install.sh: rc %s in %ss\n' "$INSTALL_RC" "$INSTALL_S"
-  [ "$PLAYWRIGHT" = 1 ] && printf 'playwright: rc %s\n' "$PW_RC"
   [ "$VERIFY" = 1 ] && printf 'verify.sh: rc %s, %s\n' "$VERIFY_RC" "$(grep -E '^Summary:' "$OUT/verify.txt" | tail -n1)"
+  [ "$PLAYWRIGHT" = 1 ] && printf 'playwright: rc %s\n' "$PW_RC"
   printf 'total: %ss\n' "$((SECONDS - START))"
 } | tee "$OUT/summary.txt"
 

@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { HttpApi } from './client';
+import { getPasskey } from '../lib/webauthn';
+
+vi.mock('../lib/webauthn', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../lib/webauthn')>(),
+  getPasskey: vi.fn(),
+}));
 
 function rig(body: unknown = {}, status = 200) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
@@ -44,7 +50,7 @@ describe('approve', () => {
   it('sends the plan fingerprint so a tainted agent request can be approved', async () => {
     const { api, calls } = rig({ id: 'a1' });
     await api.approve('a1', { plan_sha256: 'sha256:abc' });
-    expect(calls[0]!.url).toBe('/v1/actions/a1/approve');
+    expect(new URL(calls[0]!.url).pathname).toBe('/v1/actions/a1/approve');
     expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ plan_sha256: 'sha256:abc' });
   });
   it('sends no body when the action has no fingerprint', async () => {
@@ -52,4 +58,51 @@ describe('approve', () => {
     await api.approve('a1');
     expect(calls[0]!.init.body).toBeUndefined();
   });
+});
+
+it.each(['issued', 'delivery unavailable', 'assertion unavailable'])(
+  'requests, approves and claims the recovery kit from this session only (%s)', async (outcome) => {
+  const path = '/v1/backups/kit';
+  const assertion = { id: 'passkey' };
+  vi.mocked(getPasskey).mockResolvedValue(assertion);
+  const kit = { state: 'issued', fingerprint: '0123456789abcdef', positions: [1, 3] };
+  const one_time = { text: 'OFFLINE KIT', groups: ['ABCD', 'EFGH', 'JKLM'], check: 'QRST' };
+  let approved = false;
+  const fetchFn = vi.fn(async (url: string, init?: RequestInit) => {
+    expect(init?.method).toBe('POST');
+    const pathname = new URL(url).pathname; // the SDK resolves the absolute base URL
+    // Option A (founder, 2026-11-28): no private delivery token is ever sent.
+    expect(String(init?.body ?? '')).not.toContain('delivery_token');
+    if (pathname === '/v1/actions/a1/approve-options') return Response.json({ publicKey: {}, plan_sha256: 'sha256:abc' });
+    if (pathname === '/v1/actions/a1/approve') {
+      const body = JSON.parse(String(init?.body));
+      if (!body.webauthn) return Response.json({ error: 'unauthenticated', message: 'Sign in', reason: 'step_up_required' }, { status: 401 });
+      expect(body).toEqual({ webauthn: assertion, plan_sha256: 'sha256:abc' });
+      if (outcome === 'assertion unavailable') return Response.json({ error: 'unavailable', message: 'Try again' }, { status: 503 });
+      approved = true;
+      return Response.json({ id: 'a1', type: 'backup.kit.issue', state: 'succeeded' });
+    }
+    if (pathname === `${path}/confirm`) return Response.json({ ...kit, state: 'confirmed' });
+    if (pathname === `${path}/request`) return Response.json({ id: 'a1', type: 'backup.kit.issue', state: 'awaiting_approval' }, { status: 202 });
+    expect(pathname).toBe(`${path}/a1/claim`);
+    expect(approved).toBe(true);
+    return outcome === 'issued' ? Response.json({ action: { id: 'a1', state: 'succeeded' }, kit, one_time }) :
+      Response.json({ error: 'unavailable', message: 'The reply was interrupted' }, { status: 503 });
+  });
+  const api = new HttpApi({ token: 'owner', fetchFn });
+  if (outcome === 'issued') {
+    await expect(api.issueKit()).resolves.toMatchObject({ kit, one_time });
+    await api.confirmKit({ '1': 'ABCD', '3': 'JKLM' }, kit.fingerprint);
+    const confirm = fetchFn.mock.calls.at(-1)!;
+    expect(new URL(confirm[0]).pathname).toBe(`${path}/confirm`);
+    expect(JSON.parse(String(confirm[1]?.body))).toEqual({ answers: { '1': 'ABCD', '3': 'JKLM' }, fingerprint: kit.fingerprint });
+  } else {
+    await expect(api.issueKit()).rejects.toMatchObject({ status: 503 });
+  }
+  expect(fetchFn.mock.calls.filter(([url]) => url.endsWith('/approve-options'))).toHaveLength(1);
+  expect(fetchFn.mock.calls.filter(([url]) => url.endsWith('/approve'))).toHaveLength(2);
+  expect(fetchFn.mock.calls.filter(([url]) => new URL(url).pathname === path)).toHaveLength(0);
+  const claims = fetchFn.mock.calls.filter(([url]) => url.endsWith('/claim'));
+  // A lost reply is never retried: the page is shown once.
+  expect(claims).toHaveLength(outcome === 'assertion unavailable' ? 0 : 1);
 });

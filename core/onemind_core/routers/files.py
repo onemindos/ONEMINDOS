@@ -21,13 +21,15 @@ from starlette.requests import ClientDisconnect
 from ..auth import Principal
 from ..context import Gateway
 from ..guard import reads_body
-from ..files import errors as ferrors
+from ..identity.scopes import ALL, register_route_scope
+from ..files import errors as ferrors, paths
 from ..files.errors import FilesError
 from ..files.preview import INLINE_SAFE, guess_mime
 from ..files.service import FilesService
 from ..files.store import aware
 from ..files.uploads import TUS_EXTENSIONS, TUS_VERSION, Uploads, parse_metadata, parse_repr_digest
 from ..files.watch import IndexWatcher
+from .identity import PasswordTotpProof
 
 TAG = ["files"]
 STREAM_CHUNK = 256 * 1024
@@ -145,6 +147,8 @@ class ApproveBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     plan_sha256: str | None = Field(default=None, max_length=80)
     webauthn: dict | None = None
+    password_totp: PasswordTotpProof | None = None
+    box_code: str | None = Field(default=None, max_length=12)
 
 
 class DenyBody(BaseModel):
@@ -284,6 +288,18 @@ def http_date(dt: datetime | None) -> str:
 
 # ---- routes -------------------------------------------------------------------------------
 # Route order in the app and in /openapi.json (routers/__init__.py).
+# #1232: every person role reaches Files for their own data. The scope only opens the route: the handlers
+# (files/access.py) give a person their own Home, the household folder by role, and never another Home.
+# Owner-only routes (quota set, approve, deny) stay unregistered, so they ask for every scope.
+register_route_scope("GET,HEAD", r"/v1/files/(roots|list|stat|preview|download|trash|requests|grants)", ("files:use",))
+register_route_scope("GET,HEAD", r"/v1/files/requests/[^/]+", ("files:use",))
+register_route_scope("POST", r"/v1/files/(ops|grants|requests/[^/]+/cancel)", ("files:use",))
+# Keep filing owner-scoped until owner passkey approval works for Files requests.
+register_route_scope("POST", r"/v1/files/trash/empty", (ALL,))
+register_route_scope("DELETE", r"/v1/files/grants/[^/]+", ("files:use",))
+register_route_scope("OPTIONS,POST", r"/v1/files/uploads", ("files:use",))
+register_route_scope("GET,HEAD,PATCH,DELETE", r"/v1/files/uploads/[^/]+", ("files:use",))
+
 ORDER = 300
 
 
@@ -294,6 +310,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.files_service = svc
     uploads = Uploads(svc)
     gw.requester_lookups.append(svc.requester)  # agent kill switch: an agent's frq_ cannot be approved
+    gw.approval_lookups.append(svc.approval_request)
     principal = gw.principal
     app.add_exception_handler(FilesError, ferrors.handle)
 
@@ -353,14 +370,22 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return file_response(request, svc.open_file(p, root, path), inline)
 
     # -- data-plane writes --
-    @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503))
+    @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG,
+              responses={202: {"description": "Person's rename awaiting owner approval"},
+                         **errs(401, 403, 404, 409, 413, 422, 429, 503)})
     def ops(body: OpBody, p: Principal = Depends(principal)):
         if isinstance(body, MkdirOp):
             return svc.mkdir(p, body.root, body.path)
         if isinstance(body, MoveOp):
+            if p.kind == "person" and (body.to_root or body.root) == body.root:
+                source, destination = paths.split_path(body.path), paths.split_path(body.to_path)
+                if source and destination and source[:-1] == destination[:-1] and source != destination:
+                    return filed(svc.request_rename(p, body.root, body.path, destination[-1]))
             return svc.move(p, body.root, body.path, body.to_root, body.to_path)
         if isinstance(body, RenameOp):
-            return svc.rename(p, body.root, body.path, body.name)
+            if p.kind == "agent":
+                return svc.rename(p, body.root, body.path, body.name)
+            return filed(svc.request_rename(p, body.root, body.path, body.name))
         if isinstance(body, TrashOp):
             return svc.trash(p, body.root, body.path)
         return svc.restore_trash(p, body.trash_id, body.to_root, body.to_path)

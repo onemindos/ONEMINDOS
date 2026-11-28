@@ -4,6 +4,7 @@
 // `components` types. Responses are checked at the edge: the spec leaves most of them as `unknown`.
 import { OneMind, OneMindError, PROTOCOL_HEADER, PROTOCOL_VERSION, type components, type paths } from '@onemind/sdk';
 import { ApiError } from '../api/types';
+import { approveWithStepUp } from '../lib/approve';
 
 const P = {
   roots: '/v1/files/roots',
@@ -17,25 +18,41 @@ const P = {
   grant: '/v1/files/grants/{grant_id}',
   requests: '/v1/files/requests',
   approve: '/v1/files/requests/{request_id}/approve',
+  approveOptions: '/v1/actions/{action_id}/approve-options',
   deny: '/v1/files/requests/{request_id}/deny',
   cancel: '/v1/files/requests/{request_id}/cancel',
   uploads: '/v1/files/uploads',
   quotas: '/v1/files/quotas',
   quota: '/v1/files/quotas/{person_id}',
+  shares: '/v1/files/shares',
+  share: '/v1/files/shares/{share_id}',
 } as const satisfies Record<string, keyof paths>;
+
+const SHARE = { targets: '/v1/share/targets', send: '/v1/share' } as const satisfies Record<string, keyof paths>;
 
 type Json = Record<string, unknown>;
 export type GrantBody = components['schemas']['GrantBody'];
+/** An app that accepts a shared object of one type (GET /v1/share/targets). */
+export type ShareTarget = components['schemas']['ShareTarget'];
+export type ShareTargets = components['schemas']['ShareTargetsOut'];
+export type ShareBody = components['schemas']['ShareIn'];
+export type ShareResult = components['schemas']['ShareOut'];
 
 export interface FileRoot { root: string; kind: string; name: string; path: string; access: string; writable: boolean; used_bytes: number | null; quota_bytes: number | null; free_bytes: number | null }
 export interface Entry { name: string; path: string; type: 'file' | 'dir' | string; size: number | null; mtime: string; mime?: string }
 export interface TrashItem { id: string; trash: 'home' | 'shared'; root: string; path: string; name: string; type: string; size: number; trashed_at: string; purge_at: string }
 export interface Grant { id: string; subject: { kind: string; id: string }; slot: string | null; root: string; path: string; access: string; revoked_at: string | null }
-export interface FileRequest { id: string; type: string; plan: { summary?: string }; risk: string; state: string; reason: string | null; requested_by: { id: string; kind: string }; expires_at: string; plan_sha256: string; deny_reason: string | null }
+export interface FileRequest { id: string; type: string; plan: { summary?: string; password?: boolean; items?: { root?: string; path?: string; hash?: string; kind?: string }[] }; risk: string; state: string; reason: string | null; requested_by: { id: string; kind: string }; expires_at: string; plan_sha256: string; deny_reason: string | null }
 /** One space's limit: a person's home, or the shared space (person_id null). limit_bytes null means no limit.
  *  Hand-written because GET/PUT /v1/files/quotas declare no response_model, so the spec has no schema to
  *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
 export interface Quota { person_id: string | null; root: string; limit_bytes: number | null; used_bytes: number }
+/** One share link as the list returns it: never the secret (that comes once, at creation).
+ *  Hand-written because GET/POST /v1/files/shares declare no response_model, so the spec has no schema to
+ *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
+export interface ShareLink { id: string; name: string; created_by: string; state: 'active' | 'expired' | 'revoked' | string; items: { kind: string; root?: string; path?: string; hidden?: boolean }[]; password: boolean; created_at: string; expires_at: string; opened_count: number }
+export interface CreatedShare { id: string; state: 'awaiting_approval'; one_time: { token: string; path: string; url: string } }
+type ShareLinkBody = Omit<components['schemas']['ShareBody'], 'items'> & { items: components['schemas']['ShareFileItem'][] };
 export interface Preview { mime: string; kind: string; size: number; inline_safe: boolean; image?: { width: number; height: number } | null; text?: { excerpt: string; truncated: boolean } }
 
 function obj(v: unknown, what: string): Json {
@@ -50,7 +67,7 @@ const str = (v: unknown) => typeof v === 'string';
 const fill = (path: string, key: string, id: string) => path.replace(`{${key}}`, encodeURIComponent(id));
 
 export function toApiError(e: unknown): unknown {
-  if (e instanceof OneMindError) return new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : e.status === 409 ? 'stale_precondition' : 'unknown', e.message, e.reason);
+  if (e instanceof OneMindError) return new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : e.status === 409 ? 'stale_precondition' : 'unknown', e.message, e.reason, e.details);
   return e;
 }
 async function failure(res: Response): Promise<ApiError> {
@@ -80,8 +97,8 @@ export class FilesApi {
     this.sdk = new OneMind({ baseUrl: window.location.origin, token, retries: 1, fetch: (...a) => this.fetchImpl(...a) });
   }
   private async get(path: string) { try { return await this.sdk.call<unknown>({ method: 'GET', path }); } catch (e) { throw toApiError(e); } }
-  private async post(path: string, body: unknown, key?: string) {
-    try { return await this.sdk.call<unknown>({ method: 'POST', path, body, retry: key !== undefined, headers: key ? { 'Idempotency-Key': key } : undefined }); } catch (e) { throw toApiError(e); }
+  private async post<T = unknown>(path: string, body: unknown, key?: string) {
+    try { return await this.sdk.call<T>({ method: 'POST', path, body, retry: key !== undefined, headers: key ? { 'Idempotency-Key': key } : undefined }); } catch (e) { throw toApiError(e); }
   }
   private auth = (extra: Record<string, string> = {}) => ({ Authorization: `Bearer ${this.token}`, [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), ...extra });
 
@@ -94,17 +111,58 @@ export class FilesApi {
   async setQuota(personId: string, limitBytes: number | null) {
     try { return obj(await this.sdk.call<unknown>({ method: 'PUT', path: fill(P.quota, 'person_id', personId), body: { limit_bytes: limitBytes } }), 'quota') as unknown as Quota; } catch (e) { throw toApiError(e); }
   }
+  async rename(root: string, path: string, name: string) {
+    return this.pendingRequest(await this.post(P.ops, { op: 'rename', root, path, name }));
+  }
+  async shares() { return list<ShareLink>(await this.get(P.shares), 'share link', (j) => str(j.id) && str(j.state) && str(j.expires_at)); }
+  /** The URL comes back once when the request is filed. A retry could file a second request. */
+  async createShare(body: ShareLinkBody) {
+    const out = this.pendingRequest(await this.post(P.shares, body));
+    const one = obj(out.one_time, 'share link secret');
+    if (!str(one.url)) throw new Error('The hub returned an invalid share link.');
+    return out as unknown as CreatedShare;
+  }
+  async revokeShare(id: string) {
+    try {
+      return this.pendingRequest(await this.sdk.call<unknown>({ method: 'DELETE', path: fill(P.share, 'share_id', id), retry: false }));
+    } catch (e) { throw toApiError(e); }
+  }
+  private pendingRequest(data: unknown): Json & { id: string } {
+    const r = obj(data, 'file request');
+    if (typeof r.id !== 'string' || r.state !== 'awaiting_approval') throw new Error('The hub did not return a pending file request.');
+    return { ...r, id: r.id };
+  }
   async mkdir(root: string, path: string) { await this.post(P.ops, { op: 'mkdir', root, path }); }
   async trash(root: string, path: string) { await this.post(P.ops, { op: 'trash', root, path }); }
   async restore(trashId: string) { await this.post(P.ops, { op: 'restore_trash', trash_id: trashId }); }
+  /** The "Send to" list for one type: switched-on apps you can see that accept it and hold its data grant. */
+  async shareTargets(type: string) {
+    const v = obj(await this.get(SHARE.targets + q({ type })), 'share targets') as unknown as ShareTargets;
+    return list<ShareTarget>(v.targets, 'share target', (j) => str(j.app_id) && str(j.name) && Array.isArray(j.verbs));
+  }
+  /** Hand one object to one app: a reference, never the content. A repeated key replays the first share. */
+  async shareSend(body: ShareBody, key: string) {
+    return obj(await this.post(SHARE.send, body, key), 'share') as unknown as ShareResult;
+  }
   async trashList(which: 'home' | 'shared') { return list<TrashItem>(await this.get(P.trash + q({ trash: which, limit: '500' })), 'trash item', (j) => str(j.id) && str(j.name)); }
   async grants() { return list<Grant>(await this.get(P.grants), 'grant', (j) => str(j.id) && str(j.root)); }
   async requests() { return list<FileRequest>(await this.get(P.requests), 'request', (j) => str(j.id) && str(j.state) && str(j.plan_sha256)); }
   /** Files an approval request (approve stays false: a person decides it in the list). One key per logical request. */
   async requestGrant(body: Omit<GrantBody, 'approve'>, key: string) { return this.post(P.grants, { ...body, approve: false }, key); }
   async requestTrashEmpty(which: 'home' | 'shared', key: string) { return this.post(P.trashEmpty, { trash: which, approve: false }, key); }
-  /** Approve exactly the plan that was shown (409 plan_changed when it moved). */
-  async approve(r: FileRequest) { return this.post(fill(P.approve, 'request_id', r.id), { plan_sha256: r.plan_sha256 }); }
+  /** Approve the reviewed plan, confirming the sign-in when the request needs it. */
+  async approve(r: FileRequest) {
+    const path = fill(P.approve, 'request_id', r.id);
+    try {
+      return await this.post(path, { plan_sha256: r.plan_sha256 });
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.reason !== 'step_up_required') throw e;
+      return approveWithStepUp({
+        approve: (_id, body) => this.post(path, body),
+        approveOptions: (id, body) => this.post<components['schemas']['ApprovalChallenge']>(fill(P.approveOptions, 'action_id', id), body),
+      }, r, { forceProof: true });
+    }
+  }
   async deny(id: string) { return this.post(fill(P.deny, 'request_id', id), {}); }
   async cancel(id: string) { return this.post(fill(P.cancel, 'request_id', id), undefined); }
   async revoke(id: string) {

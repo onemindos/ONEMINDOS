@@ -1,27 +1,50 @@
 // SPDX-License-Identifier: Apache-2.0
 import { render, screen, waitFor, act } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { FirstRun, useWizardPending } from './FirstRun';
+import { FirstRun, firstSite, landingAfterSetup, placeOf, useWizardPending } from './FirstRun';
 
 const h = vi.hoisted(() => ({
   get: vi.fn(), save: vi.fn(), state: vi.fn(), issue: vi.fn(), confirm: vi.fn(), plan: vi.fn(), request: vi.fn(), destinations: vi.fn(), done: vi.fn(), navigate: vi.fn(),
+  setupStatus: vi.fn(),
   props: {} as Record<string, unknown>,
 }));
 vi.mock('../session', () => {
   const api = { onboardingSettings: h.get, saveOnboardingSettings: h.save, backupDestinations: h.destinations, onboardingState: h.state,
     issueKit: h.issue, confirmKit: h.confirm, appPlan: h.plan };
-  return { useSignedIn: () => ({ api }) };
+  const anon = { setupStatus: h.setupStatus };
+  return { useSignedIn: () => ({ api, anon, token: 'owner-token', mock: false }) };
 });
+// The real gateway client: the place is saved through it (POST /v1/sites below); the recovery screen that also uses it is mocked.
+vi.mock('./SignInKeys', () => ({ RecoverRemoteApprovals: () => <div>Remote approval recovery</div> }));
 vi.mock('../data/hub', () => ({ useHub: () => ({ apps: { data: [] }, request: h.request }) }));
 vi.mock('react-router', () => ({ useNavigate: () => h.navigate }));
-vi.mock('@onemind/ui', () => ({
+vi.mock('@onemind/ui', async (actual) => ({
+  ...(await actual<typeof import('@onemind/ui')>()),
   useToast: () => ({ show: vi.fn() }), applyTheme: vi.fn(),
-  Onboarding: (props: Record<string, unknown>) => { h.props = props; return <div>Existing wizard</div>; },
+  Onboarding: (props: Record<string, unknown>) => {
+    h.props = props;
+    return <div>Existing wizard{props.backupRecoveryAction as ReactNode}</div>;
+  },
 }));
 const noKit = { state: 'missing', confirmed_at: null, fingerprint: null, positions: [] };
 h.state.mockResolvedValue({ complete: false, settings_saved: false, backups_enabled: true, destinations: 0, kit: noKit });
+h.setupStatus.mockResolvedValue({ state: 'ready', screen: true });
 const values = { box_name: 'home-hub', time_zone: 'UTC', backup_choice: 'usb', backup_destination_id: 'dst_0123456789abcdef' };
+
+it('opens recovery from the headless wizard when a backup kit is still required', async () => {
+  h.setupStatus.mockResolvedValueOnce({ state: 'ready', screen: false });
+  h.state.mockResolvedValueOnce({ complete: false, settings_saved: true, backups_enabled: true, destinations: 1, kit: noKit });
+  h.get.mockResolvedValueOnce({ ...values, saved: true });
+  h.destinations.mockResolvedValueOnce([{ id: values.backup_destination_id, kind: 'usb', label: 'Existing disk' }]);
+  const user = userEvent.setup();
+  render(<FirstRun onDone={h.done} />);
+  await user.click(await screen.findByRole('button', { name: 'Set up a proven key for the backup kit' }));
+  expect(screen.getByText('Remote approval recovery')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Back to setup' }));
+  expect(screen.getByText('Existing wizard')).toBeInTheDocument();
+});
 
 it('loads durable settings and actual destinations, then awaits save and verified readback before allowing completion', async () => {
   let release!: (value: unknown) => void;
@@ -31,6 +54,7 @@ it('loads durable settings and actual destinations, then awaits save and verifie
   render(<FirstRun onDone={h.done} />);
   expect(screen.getByRole('status')).toHaveTextContent(/Loading/);
   await screen.findByText('Existing wizard');
+  expect(h.props.ownerConfigured).toBe(true);
   expect(h.props.initial).toMatchObject({ boxName: 'home-hub', timeZone: 'UTC', backup: { destinationId: values.backup_destination_id, kitSaved: false } });
   expect(h.props.backupDestinations).toEqual([{ id: values.backup_destination_id, kind: 'usb', label: 'Existing disk' }]);
   const save = h.props.onSaveSettings as (d: unknown) => Promise<void>;
@@ -70,12 +94,21 @@ it('offers the recovery kit only when a destination exists, and the key goes thr
   expect(JSON.stringify({ ...window.sessionStorage })).not.toContain('AAAA');
 });
 
-it('does not offer a kit without any backup destination', async () => {
+it('offers a kit with no backup destination and passes the disk key through, once', async () => {
   h.get.mockResolvedValue({ ...values, saved: true });
   h.destinations.mockResolvedValue([]);
+  h.issue.mockResolvedValue({ kit: { ...noKit, state: 'issued', positions: [1, 3] },
+    one_time: { groups: ['AAAA'], check: 'ZZZZ', text: 'KIT TEXT', disk_recovery_key: 'cbdefghi-jklnrtuv' } });
   render(<FirstRun onDone={h.done} />);
   await screen.findByText('Existing wizard');
-  expect(h.props.kit).toBeUndefined();
+  const kit = h.props.kit as { issue: () => Promise<unknown> };
+  expect(kit).toBeDefined();
+  expect(await kit.issue()).toMatchObject({ disk_recovery_key: 'cbdefghi-jklnrtuv', positions: [1, 3] });
+  const marker = { fingerprint: 'cafe1234cafe1234', issued_at: '2026-11-20T08:00:00Z' };
+  h.issue.mockResolvedValue({ kit: { ...noKit, state: 'issued', positions: [1, 3], disk_key_kit: marker },
+    one_time: { groups: ['AAAA'], check: 'ZZZZ', text: 'KIT TEXT' } });
+  expect(await kit.issue()).toMatchObject({ disk_key_kit: marker });
+  expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain('cbdefghi');
 });
 
 it('previews each starter plan and files the install bound to the previewed plan hash', async () => {
@@ -90,7 +123,12 @@ it('previews each starter plan and files the install bound to the previewed plan
   const finish = h.props.onFinish as (d: unknown, r: unknown[]) => Promise<void>;
   await act(async () => { await finish({}, [{ type: 'app.install', params: { app_id: 'notes' } }]); });
   expect(h.request).toHaveBeenCalledWith('app.install', 'notes', {}, 'sha-1');
+  // Filing is done before the hand-off plays; leaving (after it) closes the wizard and opens the landing.
+  expect(h.done).not.toHaveBeenCalled();
+  h.navigate.mockClear();
+  act(() => (h.props.onLeave as () => void)());
   expect(h.done).toHaveBeenCalled();
+  expect(h.navigate).toHaveBeenCalledWith(landingAfterSetup(1));
 });
 
 it('refuses to file an install whose plan changed after the owner saw it', async () => {
@@ -147,4 +185,54 @@ it('files each selected reviewed plan once and refuses an app with no preview', 
     ['app.install', 'notes', {}, 'sha-notes'],
     ['app.install', 'photos', {}, 'sha-photos'],
   ]);
+});
+
+const place = { placeName: 'Rivera Home', address: '12 Orchard Lane', location: { lat: 40.7128, lon: -74.006, source: 'typed' as const } };
+
+it('builds the first site from the place: its name, the owner\'s address text and three grid points', () => {
+  expect(firstSite({ ...place, location: undefined })).toBeUndefined();
+  const site = firstSite(place)!;
+  expect(site).toMatchObject({ id: 'rivera-home', name: 'Rivera Home', address: '12 Orchard Lane', floors: [], areas: [] });
+  expect(site.anchors).toHaveLength(3);
+  expect(site.anchors[0]).toEqual({ x: 0, y: 0, lat: 40.7128, lon: -74.006 });
+  expect(firstSite({ placeName: ' ', address: ' ', location: place.location })).not.toHaveProperty('address');
+  expect(firstSite({ placeName: ' ', address: '', location: place.location })).toMatchObject({ id: 'home', name: 'Home' });
+  expect(firstSite({ ...place, address: ' Lane\u0000 1\u202e ' })).toMatchObject({ address: 'Lane  1' });
+  expect(placeOf('saved', { ...site, anchors: site.anchors.slice(1) })).toEqual({ status: 'saved', name: 'Rivera Home', address: '12 Orchard Lane' });
+});
+
+it('ends on the desktop Map when this build has it, otherwise on Approvals or Home', () => {
+  expect(landingAfterSetup(2, [{ path: '/map' }, { path: '/approvals' }])).toBe('/map');
+  expect(landingAfterSetup(0, [{ path: '/map' }])).toBe('/map');
+  expect(landingAfterSetup(2, [{ path: '/approvals' }])).toBe('/approvals');
+  expect(landingAfterSetup(0, [{ path: '/approvals' }])).toBe('/');
+});
+
+it('saves the place through POST /v1/sites with the owner token, and keeps an existing site as it is', async () => {
+  h.get.mockResolvedValue({ ...values, saved: true });
+  h.destinations.mockResolvedValue([]);
+  const calls: Array<{ url: string; method: string; body: unknown; auth: string | null }> = [];
+  const older = { ...firstSite({ ...place, address: 'Old Mill Road', location: { lat: 10.5, lon: 20.25, source: 'typed' } })!, id: 'rivera-home' };
+  const replies = [Response.json(firstSite(place), { status: 201 }), Response.json({ error: 'conflict', message: 'Site ID already exists' }, { status: 409 }),
+    Response.json([older]),
+    Response.json({ error: 'permission_denied', message: 'Only an owner can write map records' }, { status: 403 })];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const req = new Request(input, init);
+    calls.push({ url: new URL(req.url).pathname, method: req.method, body: await req.clone().json().catch(() => undefined), auth: req.headers.get('authorization') });
+    return replies.shift()!;
+  }));
+  try {
+    render(<FirstRun onDone={h.done} />);
+    await screen.findByText('Existing wizard');
+    const saveLocation = h.props.onSaveLocation as (d: unknown) => Promise<unknown>;
+    await expect(saveLocation(place)).resolves.toEqual({ status: 'saved', name: 'Rivera Home', address: '12 Orchard Lane', location: { lat: 40.7128, lon: -74.006 } });
+    expect(calls[0]).toMatchObject({ url: '/v1/sites', method: 'POST', auth: 'Bearer owner-token', body: firstSite(place) });
+    // 409: what is shown is the site already on the box, read back with GET /v1/sites.
+    await expect(saveLocation(place)).resolves.toEqual({ status: 'exists', name: 'Rivera Home', address: 'Old Mill Road', location: { lat: 10.5, lon: 20.25 } });
+    expect(calls[2]).toMatchObject({ url: '/v1/sites', method: 'GET' });
+    await expect(saveLocation(place)).rejects.toThrow('Only an owner can write map records');
+    expect(calls).toHaveLength(4);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

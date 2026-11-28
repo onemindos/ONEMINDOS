@@ -9,7 +9,7 @@ kind: App
 metadata:
   id: mealie
   name: "Mealie"
-  version: "3.30.0"
+  version: "3.31.0"
   description: "Recipe manager and meal planner with shopping lists; imports recipes from a URL."
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
@@ -26,7 +26,7 @@ metadata:
     github: "https://github.com/mealie-recipes/mealie"
     website: "https://docs.mealie.io"
     support: "https://github.com/mealie-recipes/mealie/issues"
-  upstream: {release: "v3.30.0", released_at: "2026-10-31T23:57:31Z", archived: false}
+  upstream: {release: "v3.31.0", released_at: "2026-11-13T01:57:56Z", archived: false}
   # blocked by the CI app gate: 45 secret findings in the image and CRITICAL findings (details in the CI job log) (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

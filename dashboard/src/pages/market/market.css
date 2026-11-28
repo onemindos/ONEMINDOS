@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Atlas Market (prototypes 04 and 05). Tokens only: colour values come from ui/ tokens (#1336). */
+.dash-mkt { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--om-space-6); align-items: start; }
+.dash-mkt-main { min-width: 0; display: flex; flex-direction: column; gap: var(--om-space-4); }
+@media (max-width: 760px) { .dash-mkt { grid-template-columns: minmax(0, 1fr); } }
+
+.dash-mkt-nav { display: flex; flex-direction: column; gap: var(--om-space-2); padding-right: var(--om-space-3); border-right: 1px solid var(--om-color-border); }
+@media (max-width: 760px) { .dash-mkt-nav { border-right: 0; padding-right: 0; border-bottom: 1px solid var(--om-color-border); padding-bottom: var(--om-space-3); } }
+.dash-mkt-nav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.dash-mkt-nav-head { margin: var(--om-space-3) 0 var(--om-space-1); padding: 0 var(--om-space-3); font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-semibold); color: var(--om-color-text-muted); }
+.dash-mkt-nav-item { display: flex; align-items: center; gap: var(--om-space-3); min-height: 36px; padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); color: var(--om-color-text); text-decoration: none; font-size: var(--om-font-size-sm); }
+a.dash-mkt-nav-item:hover { background: var(--om-color-surface-sunken); }
+.dash-mkt-nav-item[aria-current='page'] { background: var(--om-color-surface-sunken); box-shadow: inset 3px 0 0 var(--om-color-accent); font-weight: var(--om-font-weight-semibold); }
+.dash-mkt-nav-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.dash-mkt-nav-n { color: var(--om-color-text-muted); font-variant-numeric: tabular-nums; }
+.dash-mkt-dot { width: 10px; height: 10px; border-radius: var(--om-radius-pill); background: var(--om-color-ok-fg); flex: none; }
+.dash-mkt-dot-warn { background: var(--om-color-warn-fg); }
+
+.dash-mkt-byo-title { font-size: var(--om-font-size-lg); margin: 0 0 var(--om-space-3); }
+.dash-mkt-byo-title .om-hint { font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-regular); margin-left: var(--om-space-2); }
+.dash-mkt-byo-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--om-space-3); }
+.dash-mkt-byo-card { display: flex; gap: var(--om-space-3); padding: var(--om-space-4); border: 1px dashed var(--om-color-border-strong); border-radius: var(--om-radius-lg); background: var(--om-color-surface); }
+.dash-mkt-byo-card h3 { margin: 0 0 var(--om-space-1); font-size: var(--om-font-size-md); }
+.dash-mkt-byo-card p { margin: 0 0 var(--om-space-2); font-size: var(--om-font-size-sm); color: var(--om-color-text-muted); }
+.dash-mkt-byo-card code { display: inline-block; padding: 2px var(--om-space-2); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-sm); font-size: var(--om-font-size-xs); overflow-wrap: anywhere; }
+.dash-mkt-byo-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: var(--om-radius-md); background: var(--om-color-surface-sunken); border: 1px solid var(--om-color-border); }
+
+.dash-mkt-requests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--om-color-border); border-radius: var(--om-radius-lg); background: var(--om-color-surface); }
+.dash-mkt-request { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-3); padding: var(--om-space-3) var(--om-space-4); }
+.dash-mkt-request + .dash-mkt-request { border-top: 1px solid var(--om-color-border); }
+.dash-mkt-request > div { flex: 1; min-width: 200px; }
+.dash-mkt-request-title { font-weight: var(--om-font-weight-semibold); }
+.dash-mkt-request .om-hint { margin: 0; }
+
+.dash-mkt-wait { display: flex; flex-direction: column; gap: var(--om-space-3); padding: var(--om-space-5); border: 1px solid var(--om-color-bad-border); border-radius: var(--om-radius-lg); background: var(--om-color-bad-bg); }
+.dash-mkt-wait-title { display: flex; align-items: center; gap: var(--om-space-2); margin: 0; font-size: var(--om-font-size-lg); }
+.dash-mkt-wait-mark { width: 14px; height: 14px; transform: rotate(45deg); background: var(--om-color-action); border-radius: 2px; flex: none; }
+.dash-mkt-wait .om-hint { margin: 0; }
+.dash-mkt-track { list-style: none; margin: var(--om-space-2) 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--om-space-2); }
+@media (max-width: 760px) { .dash-mkt-track { grid-template-columns: minmax(0, 1fr); } }
+.dash-mkt-step { position: relative; display: flex; flex-direction: column; gap: 2px; padding-top: var(--om-space-5); font-size: var(--om-font-size-sm); }
+.dash-mkt-step::before { content: ''; position: absolute; top: 6px; left: 0; right: 0; height: 2px; background: var(--om-color-border-strong); }
+.dash-mkt-step-done::before { background: var(--om-color-ok-fg); }
+.dash-mkt-step-dot { position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: var(--om-radius-pill); border: 2px solid var(--om-color-border-strong); background: var(--om-color-surface); }
+.dash-mkt-step-done .dash-mkt-step-dot { background: var(--om-color-ok-fg); border-color: var(--om-color-ok-fg); }
+.dash-mkt-step-current .dash-mkt-step-dot { background: var(--om-color-action); border-color: var(--om-color-action); transform: rotate(45deg); border-radius: 2px; }
+.dash-mkt-step-current strong { color: var(--om-color-action); }
+.dash-mkt-step-problem .dash-mkt-step-dot { background: var(--om-color-warn-fg); border-color: var(--om-color-warn-fg); }
+.dash-mkt-step-detail { color: var(--om-color-text-muted); }
+.dash-mkt-wait-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-3); }
+.dash-mkt-undo { display: inline-flex; align-items: center; gap: var(--om-space-1); margin-left: auto; padding: var(--om-space-1) var(--om-space-3); border: 1px solid var(--om-color-ok-border); border-radius: var(--om-radius-pill); background: var(--om-color-ok-bg); color: var(--om-color-ok-fg); font-size: var(--om-font-size-sm); }
+.dash-mkt-wait-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--om-space-2); margin: 0; font-size: var(--om-font-size-sm); color: var(--om-color-text-muted); }
+.dash-mkt-wait-foot code { overflow-wrap: anywhere; }

@@ -53,8 +53,9 @@ def register(app: FastAPI, gw: Gateway):
     def step_up(principal, action_id, body, request):
         action = gw.repo.get(action_id)
         if (principal.is_owner and action and action.type in {"plugin.key.enroll", "plugin.key.revoke"}
-                and app.state.identity.passkeys_active() and body.get("webauthn") is None):
-            raise ApiError(401, "unauthenticated", "signing trust changes require an action-bound passkey",
+                and app.state.identity.account_setup_exists()
+                and not (body.get("webauthn") or body.get("password_totp"))):
+            raise ApiError(401, "unauthenticated", "signing trust changes require an action-bound sign-in check",
                            reason="step_up_required")
     gw.approval_guards.insert(0, step_up)  # the existing identity guard verifies any supplied assertion
 

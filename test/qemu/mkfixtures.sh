@@ -3,6 +3,9 @@
 # Build the battery's fixtures for one board from a rootfs tar (brief 30 B13; port of the variant
 # and bundle steps of evidence/lab/rauc-1152/scripts/build.sh). Runs as root in the tools container:
 #   mkfixtures.sh <board> <rootfs.tar> <outdir> [T5|T10]      (EDGE=1 adds bad-leaf.raucb for make edge)
+#   SIGNED=1 US_OVERLAY=<dir>: make update-signed (CRITERIA-UPDATE-SIGNED.md): the tree also carries <dir> (a throwaway
+#   TUF root at /usr/lib/onemind/tuf/security/root.json, test/qemu/usrepo.py keys), and <outdir>/us/ gets good.raucb,
+#   us-wrongca.raucb (V3, wrong CA) and us-old.raucb (V1) for the host to publish; they are not on bundles.img.
 # Outputs in <outdir>: disk.img (slot A = v1 + test overlay), bundles.img (ext4 "onemind-test"
 # holding bundles/*.raucb), seed.img (vm-do: NoCloud seed), t0.json (T0 checks), dev-ca.cert.pem
 # (public), SHA256SUMS. Throwaway keys live only in this container's /tmp and are deleted.
@@ -14,7 +17,7 @@ A="python3 -I $SRC/${ASM:-os/assemble/assemble.py}"
 W=${WORK:-/work/fx-$BOARD}; K=$(mktemp -d /tmp/keys.XXXXXX)
 trap 'rm -rf "$K"' EXIT
 log() { echo "[mkfixtures $(date -u +%T)] $*"; }
-rm -rf "$W"; mkdir -p "$W/bundles" "$OUT"
+rm -rf "$W" "$OUT/us"; mkdir -p "$W/bundles" "$OUT"
 
 log "throwaway PKI (dev CA + signer, and a wrong CA); never leaves this container"
 for ca in dev wrong; do
@@ -30,6 +33,7 @@ cp "$K/dev-ca.pem" "$OUT/dev-ca.cert.pem"
 log "tree v1 with the test overlay (HW=${HW:-0})"
 OVL="--overlay $SRC/test/qemu/overlay"
 [ "${HW:-0}" = 1 ] && OVL="$OVL --overlay $SRC/test/qemu/overlay-hw"   # founder kits: autologin on tty1
+[ "${SIGNED:-0}" = 1 ] && OVL="$OVL --overlay ${US_OVERLAY:?SIGNED=1 needs US_OVERLAY (test/qemu/usrepo.py keys)}"
 $A tree --board "$BOARD" --rootfs "$ROOTFS" --work "$W" --version 1 --keyring "$K/dev-ca.pem" $OVL
 T=$W/tree
 SIZE=$(( ( $(du -s -B1M --apparent-size "$T" | cut -f1) * 13 / 10 + 384 + 63 ) / 64 * 64 ))
@@ -72,6 +76,12 @@ if [ "${EDGE:-0}" = 1 ]; then   # make edge (CRITERIA-EDGE.md EG6), opt-in so th
   chmod 755 "$T/usr/bin/onemindd"
   setver 8; ext4 v; bundle v 8 bad-leaf dev                                          # onemindd exits at start
   mv -f "$W/onemindd.real" "$T/usr/bin/onemindd"
+fi
+if [ "${SIGNED:-0}" = 1 ]; then   # make update-signed: published by the host over HTTP, so kept off bundles.img (and T0)
+  setver 3; ext4 v; bundle v 3 us-wrongca wrong                                      # US4: the channel lists it, RAUC refuses
+  setver 1; ext4 v; bundle v 1 us-old dev                                            # US5: older than the booted V2
+  mkdir -p "$OUT/us"; mv "$W/bundles/us-wrongca.raucb" "$W/bundles/us-old.raucb" "$OUT/us/"
+  cp "$W/bundles/good.raucb" "$OUT/us/"
 fi
 rm -f "$W/v.ext4"
 

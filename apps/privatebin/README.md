@@ -45,7 +45,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** upstream `docker.io/privatebin/nginx-fpm-alpine:2.1.1` (nginx and php-fpm under s6), run as UID 65534 on port 8080.
+- **Image:** upstream `docker.io/privatebin/nginx-fpm-alpine:edge` (nginx and php-fpm under s6), run as UID 65534 on port 8080.
 - **State:** PVC `privatebin-data` (1 Gi) on `/srv/data` (encrypted pastes, server salt, rate-limiter data). `fsGroup` is 82 because the image's data directory belongs to group 82.
 - **Health:** startup, readiness and liveness probes on `GET /`, which answers 200 without a login.
 - **Security:** `runAsNonRoot`, read-only root filesystem (writable emptyDirs only for `/tmp`, `/run` and `/var/lib/nginx/tmp`), `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token. One replica with the `Recreate` strategy.
@@ -63,6 +63,8 @@ From the upstream documentation, https://github.com/PrivateBin/PrivateBin/wiki: 
 ## Why this app is blocked
 
 Founder decision D25 (2026-11-13, `docs/leap/LANES.md`): PrivateBin ships only behind the OneMind login, so that household members can create pastes and people outside can only read a paste whose link they were given. PrivateBin itself has no accounts, and per-app login gating at the edge (forward-auth, CORE-NET-5, `docs/architecture/NETWORKING.md` §9.3) is not built yet. Until it is, the app is tier **blocked**: the gateway lists it in the Market but refuses to install it (§10.3, §11.1). The packaging is kept as it is. When forward-auth lands, the manifest gets its access setting and the app goes through the CI app gate again.
+
+**Hold (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** not bumped in this change: the image is pinned to the upstream rolling edge tag, so there is no newer release tag to move to. The CI gate decides the tier.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

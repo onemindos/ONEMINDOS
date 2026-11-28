@@ -1,10 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """FILES service: browse, metadata, moves, trash, quotas, folder grants and their approvals.
 
-Data plane vs control plane (docs/umbrel2/files-backups.md §4.1, decision D-F1): a person
-reading or changing files inside a space they already hold is a direct, audited write. What
-changes who can reach what (a folder grant to an app or agent) or destroys data for good
-(emptying a trash) is a request that only an owner approves (§12.1, §12.3).
+Folder grants, emptying trash, person-initiated renames and public link changes use the
+owner approval queue. An agent can rename inside a folder with an approved read-write grant.
 
 Every write appends to the audit log through `publish_event("files", ...)`, which also tells
 NATS and in-process subscribers. Agent reads are audited as well (§4.6).
@@ -23,6 +21,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import cached_property
 from typing import Any
 
 from ..auth import Principal
@@ -33,6 +32,7 @@ from .errors import FilesError, conflict, denied, not_found
 from .index import FileIndex
 from .preview import describe, guess_mime
 from .settings import FilesSettings
+from .shares import ShareService, file_identity
 from .store import FilesRepository, GrantRow, RequestRow, TrashRow, aware, new_id
 
 log = logging.getLogger("onemind.files")
@@ -85,6 +85,10 @@ class FilesService:
         self.clock: Callable[[], datetime] = gw.clock
         self._lock = threading.RLock()
         self.index = FileIndex(self.repo.db, self.clock)
+
+    @cached_property
+    def shares(self) -> ShareService:
+        return ShareService(self, self.gw)
 
     # ---- events and audit ---------------------------------------------------------------
     def event(self, name: str, p: Principal | None, payload: dict, *, severity: str = "info",
@@ -383,7 +387,7 @@ class FilesService:
         return entry
 
     def move(self, p: Principal, root: str | None, path: str | None, to_root: str | None, to_path: str | None,
-             *, op: str = "move") -> dict:
+             *, op: str = "move", identity: list[int] | None = None) -> dict:
         src = self.target(p, root, path, "entry")
         dst = self.target(p, to_root or root, to_path, "entry")
         if not src.parts or not dst.parts:
@@ -393,6 +397,8 @@ class FilesService:
         with self._lock, self._space(src.root) as s_space, self._space(dst.root) as d_space:
             with paths.dir_at(s_space, src.parts[:-1]) as sd, paths.dir_at(d_space, dst.parts[:-1]) as dd:
                 st = paths.lstat_at(sd, src.parts[-1])
+                if identity is not None and identity != file_identity(st):
+                    raise FilesError(409, "stale_precondition", "the entry has changed since the rename was requested")
                 if paths.exists_at(dd, dst.parts[-1]):
                     raise conflict("something with that name already exists at the destination", "exists")
                 if src.root.id != dst.root.id:
@@ -413,12 +419,26 @@ class FilesService:
         })
         return entry | {"root": dst.root.id}
 
-    def rename(self, p: Principal, root: str | None, path: str | None, name: str) -> dict:
+    def rename(self, p: Principal, root: str | None, path: str | None, name: str,
+               *, identity: list[int] | None = None) -> dict:
         parts = paths.split_path(path)
         if not parts:
             raise conflict("a space itself cannot be renamed", "space_root")
         paths.validate_name(name)
-        return self.move(p, root, path, root, paths.join(parts[:-1] + (name,)), op="rename")
+        return self.move(p, root, path, root, paths.join(parts[:-1] + (name,)), op="rename", identity=identity)
+
+    def request_rename(self, p: Principal, root: str, path: str, name: str) -> tuple[dict, bool]:
+        t = self.target(p, root, path, "entry")
+        if not t.parts:
+            raise conflict("a space itself cannot be renamed", "space_root")
+        paths.validate_name(name)
+        with self._space(t.root) as space, paths.dir_at(space, t.parts[:-1]) as parent:
+            identity = file_identity(paths.lstat_at(parent, t.parts[-1]))
+            if paths.exists_at(parent, name):
+                raise conflict("something with that name already exists at the destination", "exists")
+        params = {"root": t.root.id, "path": t.path, "name": name, "identity": identity}
+        summary = f"Rename {t.path} to {name} in Shared" if t.root.kind == "shared" else "Rename an entry in the requester's Home"
+        return self.create_request(p, "files.rename", params, plan_and_risk=({"summary": summary}, "write"))
 
     # ---- trash --------------------------------------------------------------------------
     @staticmethod
@@ -561,12 +581,30 @@ class FilesService:
         return {"person_id": person_id, "root": root.id, "limit_bytes": limit_bytes, "used_bytes": self.usage(root)}
 
     # ---- requests: changes that need an owner approval ----------------------------------
-    def _request_json(self, row: RequestRow) -> dict:
+    @staticmethod
+    def _owns_request(p: Principal, row: RequestRow) -> bool:
+        return row.requested_by_id == p.id and row.requested_by["kind"] == p.kind
+
+    def _request_json(self, row: RequestRow, viewer: Principal) -> dict:
+        params, plan, result = row.params, row.plan, row.result
+        if row.type == "files.shares.create":
+            # Never return the token/password hashes or another person's Home paths.
+            params = {"share_id": params["share_id"], "expires_at": params["expires_at"]}
+            if self._owns_request(viewer, row):
+                items = [{k: v for k, v in item.items() if k != "identity"} for item in row.params["items"]]
+                plan = {**plan, "items": items}
+        if row.type == "files.rename":
+            params = {k: params[k] for k in ("root", "path", "name")}
+            if params["root"].startswith("home:"):
+                if self._owns_request(viewer, row):
+                    plan = {"summary": f"Rename {params['path']} to {params['name']} in your Home"}
+                else:
+                    params, result = {"root": params["root"]}, None
         return {
-            "id": row.id, "type": row.type, "params": row.params, "plan": row.plan, "risk": row.risk,
+            "id": row.id, "type": row.type, "params": params, "plan": plan, "risk": row.risk,
             "state": row.state, "reason": row.reason, "requested_by": row.requested_by,
             "approved_by": row.approved_by, "approved_via": row.approved_via, "approval": row.approval,
-            "deny_reason": row.deny_reason, "result": row.result, "expires_at": iso(aware(row.expires_at)),
+            "deny_reason": row.deny_reason, "result": result, "expires_at": iso(aware(row.expires_at)),
             "created_at": iso(aware(row.created_at)), "updated_at": iso(aware(row.updated_at)),
             "plan_sha256": self.plan_sha256(row),
         }
@@ -581,6 +619,9 @@ class FilesService:
         """context.RequesterLookup: who filed this files request, or None when it is not one."""
         row = self.repo.request(request_id) if request_id.startswith("frq_") else None
         return dict(row.requested_by) if row is not None else None
+
+    def approval_request(self, p: Principal, request_id: str) -> dict | None:
+        return self.get_request(p, request_id) if request_id.startswith("frq_") else None
 
     def _run_guards(self, p: Principal, request_id: str, body: dict, http_request: Any) -> None:
         """Approval guards other features register (identity: passkey step-up, F-2), with the
@@ -639,8 +680,10 @@ class FilesService:
                 "trash": params["trash"], "items": len(items), "bytes": sum(i.size_bytes for i in items)}
         return plan, "destructive"
 
-    def create_request(self, p: Principal, type_: str, params: dict, *, reason: str | None, expires_at: datetime | None,
-                       approve: bool, idempotency_key: str | None, http_request: Any = None) -> tuple[dict, bool]:
+    def create_request(self, p: Principal, type_: str, params: dict, *, reason: str | None = None,
+                       expires_at: datetime | None = None, approve: bool = False,
+                       idempotency_key: str | None = None, http_request: Any = None,
+                       plan_and_risk: tuple[dict, str] | None = None) -> tuple[dict, bool]:
         """Returns (request, created). created=False is an idempotent replay."""
         if approve and not p.is_owner:
             raise self._deny(p, f"{type_} with approve", "only an owner may request and approve in one step")
@@ -651,19 +694,25 @@ class FilesService:
         if existing is not None:
             if existing.body_sha256 != body_hash:
                 raise conflict("Idempotency-Key was already used for a different request", "idempotency_mismatch")
-            return self._request_json(self._expire_if_due(existing)), False
+            return self._request_json(self._expire_if_due(existing), p), False
         now = self.clock()
         expires = utc(expires_at) if expires_at else now + REQUEST_TTL
         if expires <= now:
             raise FilesError(409, "expired", "expires_at is already in the past")
         if expires > now + REQUEST_TTL_MAX:
             raise FilesError(422, "conflict", "expires_at may be at most 7 days ahead", reason="expiry_too_far")
-        plan, risk = (self._grant_plan if type_ == "files.grant.create" else self._trash_plan)(p, params)
+        if plan_and_risk is None:
+            plan_and_risk = (self._grant_plan if type_ == "files.grant.create" else self._trash_plan)(p, params)
+        plan, risk = plan_and_risk
         if not p.is_owner and self.repo.pending_count(p.id) >= MAX_PENDING:
             raise FilesError(429, "rate_limited", f"at most {MAX_PENDING} requests may wait for approval",
                              reason="too_many_pending", headers={"Retry-After": "60"})
         request_id = new_id("frq")
         if approve:  # the owner shortcut needs the same step-up as an approval; a refusal files nothing
+            ident = getattr(http_request.app.state, "identity", None) if http_request is not None else None
+            if ident is not None and ident.account_setup_exists():
+                raise FilesError(401, "unauthenticated", "file the request, then approve it with a fresh sign-in check",
+                                 reason="step_up_required")
             self._run_guards(p, request_id, {}, http_request)
         row = RequestRow(
             id=request_id, type=type_, params=params, plan=plan, risk=risk, state="awaiting_approval",
@@ -675,22 +724,22 @@ class FilesService:
         if not created:
             if stored.body_sha256 != body_hash:
                 raise conflict("Idempotency-Key was already used for a different request", "idempotency_mismatch")
-            return self._request_json(stored), False
+            return self._request_json(stored, p), False
         self.event("request.created", p, {"request_id": stored.id, "type": type_, "risk": risk,
                                           "plan": plan, **({"reason": reason} if reason else {})})
         if approve:
             return self.approve(p, stored.id, http_request=http_request, owner_initiated=True, guarded=True), True
-        return self._request_json(stored), True
+        return self._request_json(stored, p), True
 
     def get_request(self, p: Principal, request_id: str) -> dict:
         row = self.repo.request(request_id)
-        if row is None or not (p.is_owner or row.requested_by_id == p.id):
+        if row is None or not (p.is_owner or self._owns_request(p, row)):
             raise not_found("no such request")
-        return self._request_json(self._expire_if_due(row))
+        return self._request_json(self._expire_if_due(row), p)
 
     def list_requests(self, p: Principal, state: str | None = None) -> list[dict]:
         rows = self.repo.requests(None if p.is_owner else p.id)
-        out = [self._request_json(self._expire_if_due(r)) for r in rows]
+        out = [self._request_json(self._expire_if_due(r), p) for r in rows if p.is_owner or self._owns_request(p, r)]
         if state:
             wanted = set(state.split(","))
             out = [r for r in out if r["state"] in wanted]
@@ -715,6 +764,9 @@ class FilesService:
         shortcut already ran the approval guards before filing."""
         body = body or {}
         row = self._decidable(p, request_id, "approve files request")
+        if row.type in {"files.rename", "files.shares.create", "files.shares.revoke"} and not body.get("plan_sha256"):
+            raise FilesError(409, "stale_precondition", "review the plan before approving this request",
+                             reason="plan_changed")
         if body.get("plan_sha256") is not None and body["plan_sha256"] != self.plan_sha256(row):
             raise FilesError(409, "stale_precondition", "the request differs from the one you were shown",
                              reason="plan_changed")
@@ -733,7 +785,7 @@ class FilesService:
         if not guarded:
             self._run_guards(p, row.id, body, http_request)
         now = self.clock()
-        approval = "token"
+        approval = "passkey" if body.get("webauthn") else "token"
         moved = self.repo.transition_request(row.id, {"awaiting_approval"}, "accepted", now,
                                              approved_by=p.id, approved_via="api", approval=approval)
         if moved is None:
@@ -750,10 +802,21 @@ class FilesService:
             result = {"error": exc.__class__.__name__, "message": message[:300]}
             final = self.repo.transition_request(row.id, {"accepted"}, "failed", self.clock(), result=result)
             self.event("request.failed", None, {"request_id": row.id, "type": row.type, **result}, severity="error")
-        return self._request_json(final or self.repo.request(row.id))
+        return self._request_json(final or self.repo.request(row.id), p)
 
     def _apply(self, p: Principal, row: RequestRow) -> dict:
         params = row.params
+        if row.type in {"files.rename", "files.shares.create", "files.shares.revoke"}:
+            role = self.shares.current_role(row.requested_by_id)
+            if role is None:
+                raise denied("the requester no longer has access")
+            requester = Principal(id=row.requested_by_id, kind="person", role=role)
+            if row.type == "files.rename":
+                return self.rename(requester, params["root"], params["path"], params["name"],
+                                   identity=params["identity"])
+            if row.type == "files.shares.create":
+                return self.shares.activate(requester, params)
+            return self.shares.revoke(requester, params["share_id"])
         if row.type == "files.grant.create":
             grant = GrantRow(
                 id=new_id("grt"), request_id=row.id, subject_kind=params["subject"]["kind"],
@@ -783,18 +846,18 @@ class FilesService:
         if moved is None:
             raise conflict("the request was decided concurrently")
         self.event("request.denied", p, {"request_id": row.id, "type": row.type, **({"reason": reason} if reason else {})})
-        return self._request_json(moved)
+        return self._request_json(moved, p)
 
     def cancel(self, p: Principal, request_id: str) -> dict:
         row = self.repo.request(request_id)
-        if row is None or row.requested_by_id != p.id:
+        if row is None or not self._owns_request(p, row):
             raise not_found("no such request of yours")
         row = self._expire_if_due(row)
         moved = self.repo.transition_request(row.id, {"awaiting_approval"}, "cancelled", self.clock())
         if moved is None:
             raise conflict(f"request is {row.state}, not awaiting_approval")
         self.event("request.cancelled", p, {"request_id": row.id, "type": row.type})
-        return self._request_json(moved)
+        return self._request_json(moved, p)
 
     # ---- grants -------------------------------------------------------------------------
     @staticmethod

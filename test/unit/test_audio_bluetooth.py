@@ -102,11 +102,14 @@ class BluetoothSettings(unittest.TestCase):
 
 
 class UbuntuHedge(unittest.TestCase):
-    """nightly.yml builds board x86_64-efi with leg ubuntu; that board has no packages-ubuntu.txt, so the
-    board's post-install step must skip its Debian-only checks there instead of failing the image build."""
-    def test_no_ubuntu_list_and_post_install_skips_other_legs(self):
+    """nightly.yml builds board x86_64-efi with leg ubuntu; that leg gets no audio or Bluetooth packages (its
+    packages-ubuntu.txt, when present, carries only the VA-API drivers of #1114), so the board's post-install step
+    must skip its Debian-only checks there instead of failing the image build."""
+    def test_no_audio_on_the_ubuntu_leg_and_post_install_skips_other_legs(self):
         board = os.path.join(ROOT, "os/boards/x86_64-efi")
-        self.assertFalse(os.path.exists(os.path.join(board, "packages-ubuntu.txt")))
+        ubuntu = os.path.join(board, "packages-ubuntu.txt")
+        if os.path.exists(ubuntu):
+            self.assertFalse(PKGS & set(words(ubuntu)), "the Ubuntu leg must not install the audio set")
         import subprocess, tempfile
         with tempfile.TemporaryDirectory() as d:
             sh = os.path.join(d, "bin"); os.mkdir(sh)

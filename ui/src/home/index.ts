@@ -3,6 +3,8 @@
 // Names are Home-specific so they never clash with the other ui/ areas' exports.
 export { HomeScreen, HUB_LIMITS, WEATHER_STALE_S } from './HomeScreen';
 export type { HomeScreenProps, HomeWallpaper } from './HomeScreen';
+export { DesktopHome, desktopSummary } from './DesktopHome';
+export type { DesktopHomeProps, DesktopSummary } from './DesktopHome';
 export { WidgetFrame } from './WidgetFrame';
 export type { WidgetFrameProps, WidgetBodyState } from './WidgetFrame';
 export { WidgetGrid } from './WidgetGrid';

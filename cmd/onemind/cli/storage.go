@@ -23,6 +23,8 @@ const storageUsage = `  onemind storage disks  [--json]
   onemind storage plan create  --device DISK [--device DISK...] [--mount DIR] [--encrypt] [--key-file F] [--json]
   onemind storage plan protect --device DISK [--mount DIR] [--key-file F] [--json]
   onemind storage plan repair  [--mount DIR] [--json]
+  onemind storage trim-status [--json]          last and next TRIM, smartd warnings, removable drives (through the hub; owner)
+  onemind storage eject DRIVE [--reason TEXT]   ask to safely remove a USB drive; an owner approves it
 `
 
 // newStorageCollector is replaced in tests (recorded tool output).
@@ -259,12 +261,24 @@ func contains(xs []string, v string) bool {
 // storageCommands registers `onemind storage` (a group line in root.go). Read-only: plan
 // prints commands, it never runs them.
 func storageCommands(a *App) []*cobra.Command {
-	return []*cobra.Command{{
+	root := &cobra.Command{
 		Use:                "storage disks|health|status|plan ...",
-		Short:              "List disks, check their health and print storage plans (read-only)",
+		Short:              "List disks, check their health and print storage plans (read-only); request and operation use the gateway",
 		DisableFlagParsing: true,
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			args, err := takeLeadingGlobals(cmd, args)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON { // the global --json (typed before the command) means the same as the local one
+				args = insertJSON(args, 1)
+			}
 			return storageCmd(args, a.Stdout)
 		},
-	}}
+	}
+	// trim-status and eject go through the hub (storage_care.go); disk changes are requested through the hub
+	// (storage_changes.go); the rest stay local and read-only.
+	root.AddCommand(storageCareCommands(a)...)
+	root.AddCommand(storageGatewayCommands(a)...)
+	return []*cobra.Command{root}
 }

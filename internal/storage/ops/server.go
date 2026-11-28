@@ -30,6 +30,8 @@ import (
 //	GET  /v1/operations          recent operations
 //	GET  /v1/operations/{id}     one operation (journal)
 //	POST /v1/recovery-key/take   the pending recovery key, once (H-11)
+//	POST /v1/recovery-key/peek   the pending recovery key, kept: the printed kit reads it (D-028)
+//	POST /v1/recovery-key/forget destroys the pending key: the owner confirmed the kit that holds it
 //	/v1/netmounts...             NAS shares as Files locations (netmount.Routes; off when Net is nil)
 type Server struct {
 	E               *Engine
@@ -257,6 +259,28 @@ func (s *Server) Handler() http.Handler {
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"recovery_key": key})
 	})
+	mux.HandleFunc("POST /v1/recovery-key/peek", func(w http.ResponseWriter, r *http.Request) {
+		key, err := s.peekRecoveryKey()
+		if errors.Is(err, os.ErrNotExist) {
+			apiError(w, http.StatusNotFound, "not_found", "no recovery key is waiting", nil)
+			return
+		}
+		if err != nil {
+			apiError(w, http.StatusInternalServerError, "internal", err.Error(), nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"recovery_key": key})
+	})
+	mux.HandleFunc("POST /v1/recovery-key/forget", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := s.takeRecoveryKey(); errors.Is(err, os.ErrNotExist) {
+			apiError(w, http.StatusNotFound, "not_found", "no recovery key is waiting", nil)
+			return
+		} else if err != nil {
+			apiError(w, http.StatusInternalServerError, "internal", err.Error(), nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"forgotten": true})
+	})
 	if s.Net != nil {
 		s.Net.Routes(mux)
 	}
@@ -274,6 +298,15 @@ func (s *Server) keyFile() string {
 		return s.RecoveryKeyFile
 	}
 	return storage.RecoveryKeyFile
+}
+
+// peekRecoveryKey returns the pending key and leaves the file: the printed kit shows it, and the file is
+// destroyed only when the owner confirms that kit (forget).
+func (s *Server) peekRecoveryKey() (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, err := os.ReadFile(s.keyFile())
+	return string(b), err
 }
 
 // takeRecoveryKey returns the pending key and destroys the file (overwrite,

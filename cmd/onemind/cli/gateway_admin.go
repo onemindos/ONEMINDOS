@@ -116,7 +116,7 @@ func printRawJSON(a *App, raw json.RawMessage) error {
 }
 
 func gatewayAdminCommands(a *App) []*cobra.Command {
-	return []*cobra.Command{sessionsCmd(a), sharesCmd(a), tlsCmd(a), networkCmd(a)}
+	return []*cobra.Command{sessionsCmd(a), sharesCmd(a), tlsCmd(a)} // `network show` lives in the network group (network.go)
 }
 
 func sessionsCmd(a *App) *cobra.Command {
@@ -284,22 +284,14 @@ func sharesCmd(a *App) *cobra.Command {
 	})
 	links.AddCommand(&cobra.Command{
 		Use:   "revoke LINK_ID",
-		Short: "End a link now (its creator or an owner)",
+		Short: "Request to end a link; an owner approves",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			c, _, err := a.client()
+			out, err := a.gwDo(http.MethodDelete, "/v1/files/shares/"+url.PathEscape(args[0]), nil)
 			if err != nil {
 				return err
 			}
-			var out any
-			if err := c.Do(bg(), http.MethodDelete, "/v1/files/shares/"+url.PathEscape(args[0]), nil, &out); err != nil {
-				return err
-			}
-			if a.G.JSON {
-				return printJSON(a.Stdout, map[string]any{"schema": "onemind.cli.shares/v1", "revoked": args[0], "result": out})
-			}
-			fmt.Fprintf(a.Stdout, "link %s ended\n", sanitize(args[0]))
-			return nil
+			return a.printFileRequest("end share link "+sanitize(args[0]), out)
 		},
 	})
 	g.AddCommand(links)
@@ -443,9 +435,9 @@ func tlsCmd(a *App) *cobra.Command {
 	return g
 }
 
-func networkCmd(a *App) *cobra.Command {
-	g := &cobra.Command{Use: "network", Short: "This box's network (read only)"}
-	g.AddCommand(&cobra.Command{
+// networkShowCmd is `onemind network show`; networkCommands (network.go) puts it beside set, dhcp and confirm.
+func networkShowCmd(a *App) *cobra.Command {
+	return &cobra.Command{
 		Use:   "show",
 		Short: "Interfaces, addresses, gateway, DNS and listening ports (owner; GET /v1/network)",
 		Args:  cobra.NoArgs,
@@ -482,6 +474,5 @@ func networkCmd(a *App) *cobra.Command {
 			}
 			return table(a.Stdout, "PROTO\tADDRESS\tPORT\tREACH", rows)
 		},
-	})
-	return g
+	}
 }

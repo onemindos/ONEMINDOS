@@ -2,7 +2,8 @@
 # A node's local NATS leaf (docs/architecture/NETWORKING.md §7): onemindd and local services publish
 # on 127.0.0.1:4222, and the leaf forwards to the hub over the mesh with TLS pinned to the box CA,
 # the node certificate and the node's own nkey (its own account on the hub). leaf.conf is written
-# by `onemind fabric join`; the unit waits for it. Runs as the static user onemind-nats, which owns
+# by `onemind fabric join`; every local program signs in with its own nkey and exact subjects
+# (no passwordless user, G1: internal/leaf/local.go); the unit waits for it. Runs as the static user onemind-nats, which owns
 # /etc/onemind/nats.
 [Unit]
 Description=OneMind NATS leaf (local bus, linked to the hub over the mesh)

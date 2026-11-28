@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# ESPHome 2026.10.2, official image ghcr.io/esphome/esphome (github.com/esphome/esphome, docker/Dockerfile
+# Bumped from 2026.10.2 to 2026.11.1 on 2026-11-27; the upstream files cited here were read at 2026.10.2 and not re-read at 2026.11.1.
+# ESPHome 2026.11.1, official image ghcr.io/esphome/esphome (github.com/esphome/esphome, docker/Dockerfile
 # and docker/docker_entrypoint.sh at tag 2026.10.2): CMD dashboard /config, port 6052, HEALTHCHECK on
 # GET /version. The entrypoint keeps PlatformIO packages and toolchains under /cache when it is mounted,
 # "not writable when the container runs as a non-root user" otherwise; HOME points there too so the
@@ -35,7 +36,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: esphome
-        image: ghcr.io/esphome/esphome:2026.10.2@sha256:4a918585150e95e7675be84a347384ff308fde1bd32d0e4472666e1252cc0e8f
+        image: ghcr.io/esphome/esphome:2026.11.1@sha256:eb1a5383cb1ce62df8683d7d728deaa5d8d78f0de0c6dccc9e3215cda53a1c6f
         imagePullPolicy: IfNotPresent
         env:
         - name: HOME

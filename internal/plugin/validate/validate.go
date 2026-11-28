@@ -36,17 +36,23 @@ func (r expression) MatchString(s string) bool {
 func compiler() *jsonschema.Compiler {
 	c := jsonschema.NewCompiler()
 	c.UseLoader(offline{})
-	c.UseRegexpEngine(func(s string) (jsonschema.Regexp, error) {
-		r, err := regexp2.Compile(s, regexp2.ECMAScript)
-		if err != nil {
-			return nil, err
-		}
-		r.MatchTimeout = 100 * time.Millisecond
-		return expression{r}, nil
-	})
+	c.UseRegexpEngine(pattern)
 	c.AssertFormat()
 	return c
 }
+
+// pattern compiles a schema "pattern" the way JSON Schema expects (ECMAScript)
+// with a match timeout, so a hostile manifest cannot stall validation.
+func pattern(s string) (jsonschema.Regexp, error) {
+	r, err := regexp2.Compile(s, regexp2.ECMAScript)
+	if err != nil {
+		return nil, err
+	}
+	r.MatchTimeout = patternTimeout
+	return expression{r}, nil
+}
+
+const patternTimeout = 100 * time.Millisecond
 
 var compiled = sync.OnceValues(func() (*jsonschema.Schema, error) {
 	c := compiler()

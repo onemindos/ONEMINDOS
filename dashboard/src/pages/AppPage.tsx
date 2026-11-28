@@ -6,7 +6,7 @@
 // made from Installed > manage (#139/#490 own the Open button and its sign-in) or from Approvals.
 // Box-wide live usage is #441; this page shows the one app's own numbers from /v1/apps/{id}/metrics.
 import { useMemo } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { OneMind } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill, Tabs, safeHttpUrl, type TabDef, type Tone } from '@onemind/ui';
 import type { CatalogApp } from '../api/types';
@@ -106,7 +106,8 @@ function UsageTab({ appId, sdk }: { appId: string; sdk?: OneMind }) {
         <div><dt>Memory</dt><dd>{mem(sum('memMb'))}</dd></div>
         <div><dt>Sampled</dt><dd>{u.at ?? 'Not reported'}</dd></div>
       </dl>
-      {u.components.length === 0 && <p>The hub reports no running parts for this app, so there is nothing to measure.</p>}
+      {u.reason && <p role="status">Not all figures are available: {u.reason}</p>}
+      {u.components.length === 0 && !u.reason && <p>The hub reports no running parts for this app, so there is nothing to measure.</p>}
     </>;
   }}</Load>;
 }
@@ -162,7 +163,7 @@ function AccessTab({ appId, sdk, view }: { appId: string; sdk?: OneMind; view?: 
       <div><dt>Sign-in</dt><dd>{a.auth === 'app' ? 'The app’s own sign-in' : a.auth === 'onemind' ? 'OneMind sign-in' : 'Not reported'}</dd></div>
       {mine !== null && <div><dt>You</dt><dd>{mine ? 'You can open it' : 'You cannot open it'}</dd></div>}
     </dl>
-    <p className="om-hint">Only an owner changes sharing, and widening it asks for a passkey. Nothing on this page changes it.</p>
+    <p className="om-hint">Only an owner changes sharing, under <Link to="/settings/permissions">Settings &gt; Permissions &gt; By app</Link>; adding people asks for a passkey.</p>
     </>;
   }}</Load>;
 }
@@ -214,5 +215,6 @@ function WorkloadsTab({ appId, sdk, view }: { appId: string; sdk?: OneMind; view
       <tbody>{comps.map((c) => <tr key={c.name}><th scope="row">{c.name}</th><td>{c.ready ? 'Yes' : 'No'}</td><td>{c.restarts}</td><td>{c.lastExit ?? 'None'}</td><td>{cpu(byName.get(c.name)?.cpuMillicores ?? null)}</td><td>{mem(byName.get(c.name)?.memMb ?? null)}</td></tr>)}</tbody>
     </table>
     {usage.error && <p role="status">CPU and memory could not be read right now.</p>}
+    {usage.data?.reason && <p role="status">Not all figures are available: {usage.data.reason}</p>}
   </>;
 }

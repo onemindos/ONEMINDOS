@@ -52,6 +52,21 @@ describe('HttpApi', () => {
     expect(calls[0]!.init!.method).toBe('POST');
   });
 
+  it('sends a sealed secrets form with the approval even with no plan hash (#528)', async () => {
+    const { fn, calls } = fakeFetch(200, { id: 'a', state: 'accepted' });
+    const sealed = { alg: 'X25519-AES256GCM' as const, epk: 'e', ct: 'c' };
+    await new HttpApi({ token: 't', baseUrl: 'http://h', fetchFn: fn }).approve('a', { sealed });
+    expect(JSON.parse(String(calls[0]!.init!.body))).toEqual({ sealed });
+  });
+
+  it('reads an app\'s declared secrets and the box sealing key (#528)', async () => {
+    const { fn, calls } = fakeFetch(200, { app_id: 'a b' });
+    const api = new HttpApi({ token: 't', baseUrl: 'http://h', fetchFn: fn });
+    await api.appSecrets('a b');
+    await api.secretsPublicKey();
+    expect(calls.map((c) => c.url)).toEqual(['http://h/v1/apps/a%20b/secrets', 'http://h/v1/secrets/public-key']);
+  });
+
   it('maps the §3 error body to its code', async () => {
     const { fn } = fakeFetch(403, { error: 'permission_denied', message: 'agents cannot approve' });
     const e = await caught(new HttpApi({ token: 't', baseUrl: 'http://h', fetchFn: fn }).approve('x'));
@@ -267,5 +282,50 @@ describe('MockApi serves the demo §12 routes', () => {
   it('says who may approve through /v1/me', async () => {
     expect((await new MockApi('owner-demo').me()).capabilities).toContain('can_approve');
     expect((await new MockApi('adult-demo').me()).capabilities).not.toContain('can_approve');
+  });
+});
+
+describe('step-up in place (D-028)', () => {
+  const STEP = { op: 'users.create', target: '', body: { display_name: 'Bea', role: 'adult', username: null }, required_level: 'L1' };
+  function hub(optionsAnswer?: () => Response) {
+    const calls: Array<{ path: string; headers: Record<string, string>; body: unknown }> = [];
+    const fn: FetchLike = async (url, init) => {
+      const path = new URL(url).pathname;
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      calls.push({ path, headers, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const json = (status: number, b: unknown) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } });
+      if (path === '/v1/auth/step-up/options') return optionsAnswer ? optionsAnswer() : json(200, { publicKey: { challenge: 'abc' }, required_level: 'L1', grace: true, challenge_id: 'c', expires_at: 't' });
+      if (path === '/v1/auth/step-up') return json(200, { step_up: 'grant-1', expires_at: 't', level: 'L1' });
+      if (headers['OneMind-Step-Up'] === 'grant-1') return json(201, { id: 'usr_1', one_time: { enrolment_code: 'x' } });
+      return json(401, { error: 'unauthenticated', message: 'confirm it is you', reason: 'step_up_required', details: [{ step_up: STEP }] });
+    };
+    return { fn, calls };
+  }
+  const passkeys = (get = jest.fn(async () => ({ id: 'cred' }))) => ({ supported: () => true, get, create: jest.fn() }) as never;
+
+  it('confirms with the phone passkey and sends the change once more with the grant', async () => {
+    const { fn, calls } = hub();
+    const get = jest.fn(async () => ({ id: 'cred' }));
+    const api = new HttpApi({ token: 't', baseUrl: 'https://h', fetchFn: fn, passkeys: passkeys(get) });
+    await api.createUser({ display_name: 'Bea', role: 'adult' } as never);
+    expect(calls.map((c) => c.path)).toEqual(['/v1/users', '/v1/auth/step-up/options', '/v1/auth/step-up', '/v1/users']);
+    expect(calls[1]!.body).toEqual({ op: STEP.op, target: STEP.target, body: STEP.body });
+    expect(get).toHaveBeenCalledWith({ challenge: 'abc' });
+    expect(calls[3]!.headers['OneMind-Step-Up']).toBe('grant-1');
+  });
+
+  it('an L2 change a phone passkey cannot meet is reported in plain words, not retried', async () => {
+    const { fn, calls } = hub(() => new Response(JSON.stringify({ error: 'conflict', message: 'needs your proven key (L2)', reason: 'verification_level_unmet' }), { status: 409 }));
+    const api = new HttpApi({ token: 't', baseUrl: 'https://h', fetchFn: fn, passkeys: passkeys() });
+    const e = await caught(api.createUser({ display_name: 'Bea', role: 'adult' } as never));
+    expect([e.status, e.reason]).toEqual([409, 'verification_level_unmet']);
+    expect(calls).toHaveLength(2);
+  });
+
+  it('without passkeys on this phone the refusal reaches the screen as before', async () => {
+    const { fn, calls } = hub();
+    const e = await caught(new HttpApi({ token: 't', baseUrl: 'https://h', fetchFn: fn }).createUser({ display_name: 'Bea', role: 'adult' } as never));
+    expect(e.reason).toBe('step_up_required');
+    expect(calls).toHaveLength(1);
   });
 });

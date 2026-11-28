@@ -7,7 +7,7 @@ VS Code in the browser
 
 | | |
 |---|---|
-| Version | 4.145.2 (upstream release `v4.145.2`, published 2026-11-07) |
+| Version | 4.146.0 (upstream release `v4.146.0`, published 2026-11-20) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
@@ -32,7 +32,7 @@ Storage: PVC `code-server-home` 10Gi.
 
 Images:
 
-- `docker.io/codercom/code-server:4.145.2@sha256:09565f9e07f5624554e295e8bab0e2fec4a7c533eb3cff459ed6596a4d3d7c1c`
+- `docker.io/codercom/code-server:4.146.0@sha256:fc708b18f6c613b5a9d00f1d1801e58376d3df9c5b5de77f5c02d67b711f99c9`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -45,7 +45,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** upstream `docker.io/codercom/code-server:4.145.2`; it runs as `coder` (UID 1000).
+- **Image:** upstream `docker.io/codercom/code-server:4.146.0`; it runs as `coder` (UID 1000).
 - **Entrypoint:** the image's entrypoint first runs `fixuid`, a setuid helper that cannot work without privilege escalation. This package starts code-server the way that entrypoint finally does (`dumb-init /usr/bin/code-server --bind-addr 0.0.0.0:8080`), opening `/home/coder`.
 - **State:** PVC `code-server-home` (10 Gi) on `/home/coder`: settings, extensions, projects and the generated password.
 - **Health:** probes on `GET /healthz`, code-server's health endpoint.
@@ -73,6 +73,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** Go `stdlib` 1.20.7 inside the image. `4.145.2` is the newest tag. Unblock: a release built with a patched Go toolchain. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** code-server 4.145.2 to 4.146.0. The only note is that the npm package no longer ships shrinkwraps, which does not apply to the container image. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

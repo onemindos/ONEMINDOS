@@ -24,7 +24,8 @@ import sys
 # What the image carries but does not boot or update with: the gateway, dashboard, design system, app
 # catalogue and the SDK sources the image copies (schemas and policy for the gateway, TypeScript for the
 # dashboard, Go for onemindd; a Go compile break is caught by ci-onemindd on every PR anyway).
-PAYLOAD = ("core/", "dashboard/", "ui/src/", "apps/", "sdk/")
+# The containerized printing test also runs in the smoke job.
+PAYLOAD = ("core/", "dashboard/", "ui/src/", "apps/", "sdk/", "test/printing/")
 # Inside the payload folders but part of how the image is built or what the cloud tests prove:
 # - the gateway's Python dependencies are resolved per architecture in the image build (only the arm64
 #   builds catch a dependency with no arm64 wheel);

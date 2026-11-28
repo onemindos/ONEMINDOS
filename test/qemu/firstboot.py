@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F13, F14, F15, F16). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F25, F29-F32, F34, FP1-FP3; F26-F28 are powercut.py's). Criteria:
+test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -19,6 +20,9 @@ _spec.loader.exec_module(battery)
 _spec = importlib.util.spec_from_file_location("netcheck", os.path.join(HERE, "netcheck.py"))
 netcheck = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(netcheck)       # NW1-NW4, CRITERIA-NETWORK.md
+_spec = importlib.util.spec_from_file_location("netset", os.path.join(HERE, "netset.py"))
+netset = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(netset)         # NS1-NS3, CRITERIA-NETWORK-SET.md
 
 PY = "/usr/lib/onemind/gateway/venv/bin/python3"
 GW = "http://127.0.0.1:8080"
@@ -34,6 +38,22 @@ def record(tid, ok, detail):
     verdict = ok if isinstance(ok, str) else ("PASS" if ok else "FAIL")
     RESULTS.append({"test": tid, "verdict": verdict, "detail": detail})
     print(f"===> {tid}: {verdict} {detail}", flush=True)
+
+
+def reboot_and_wait(vm, timeout=900, gate_timeout=1800):
+    """Reboot a configured box; return (segment start, its first-boot line, its gate result).
+
+    On a committed boot the health gate decides at once (os/gate/onemind-health-gate, "committed-boot"), and
+    nothing orders onemind-health-gate.service against onemind-firstboot.service, which waits for cloud-init.
+    So on a fast host the gate's line can come BEFORE "already configured". expect() moves the read position past
+    the line it matched, so waiting for the gate after ALREADY skipped that boot's only gate line and hung for
+    wait_gate's 1800 s (#1159). Search for the gate from the reboot on instead, as F1 (vm.pos = 0), edge.py and
+    cloudboot.py already do. Both lines are still required, and both must come from this boot."""
+    seg = vm.here()
+    vm.send("systemctl reboot")
+    al = vm.expect(ALREADY, timeout).group(0)
+    vm.pos = seg                # this boot's buffer only: the earlier boots' gate lines lie before seg
+    return seg, al, vm.wait_gate(gate_timeout)
 
 
 def make_work(fx, work):
@@ -82,7 +102,7 @@ def diagnose(vm, why):
     try:
         # The fatal sign can come before the console has logged in; a command sent then is lost.
         vm.send("")
-        vm.expect(r"root@onemind:~# ", 120)
+        vm.expect(r"root@[a-z0-9-]+:~# ", 120)  # any name: F21 renames the box
     except (TimeoutError, RuntimeError, OSError) as e:
         vm.mark(f"DIAGNOSE: no shell prompt ({e}); trying anyway")
     for unit in units:
@@ -500,7 +520,7 @@ def f12(vm, token):
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
 def f13(vm):
-    """Step 2 PRs 4 and 7: the disk and admin tools run on the booted image (CRITERIA-FIRSTBOOT.md section 9)."""
+    """Step 2 PRs 4 and 7: the disk and admin tools run on the booted image (CRITERIA-FIRSTBOOT.md section 9; its smartd-masked clause is replaced by F25, section 19)."""
     _, out = vm.run(
         'D=$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" 2>/dev/null | head -1); '
         '[ -n "$D" ] || D=$(lsblk -dno NAME,TYPE | awk \'$2=="disk"{print $1; exit}\'); D=/dev/$D; echo DISK=$D; '
@@ -510,8 +530,7 @@ def f13(vm):
         'btrfs --version >/dev/null 2>&1; echo BTRFS_RC=$?; '
         'for t in jq htop rsync nano less ethtool dmidecode lspci lsusb; do $t --version >/dev/null 2>&1; echo TOOL $t $?; done; '
         'ping -V >/dev/null 2>&1; echo TOOL ping $?; '
-        'test -r /usr/share/bash-completion/bash_completion; echo BASHCOMP_RC=$?; '
-        'echo SMARTD=$(systemctl is-enabled smartmontools.service 2>&1 | head -1)/$(systemctl is-enabled smartd.service 2>&1 | head -1)', 120)
+        'test -r /usr/share/bash-completion/bash_completion; echo BASHCOMP_RC=$?', 120)
     get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
     tools = dict((t, rc) for t, rc in re.findall(r"^TOOL (\S+) (\d+)\s*$", out, re.M))
     want = ["jq", "htop", "rsync", "nano", "less", "ethtool", "dmidecode", "lspci", "lsusb", "ping"]
@@ -520,8 +539,7 @@ def f13(vm):
          "sgdisk_p": get("SGDISK_RC") == "0" and get("SGDISK_TABLE") not in ("0", "?"),
          "btrfs": get("BTRFS_RC") == "0",
          "admin_tools": all(tools.get(t) == "0" for t in want),
-         "bash_completion": get("BASHCOMP_RC") == "0",
-         "smartd_masked": get("SMARTD") in ("masked/masked", "masked/alias")}
+         "bash_completion": get("BASHCOMP_RC") == "0"}  # smartd is no longer masked: CRITERIA-FIRSTBOOT.md section 19 (F25)
     record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" disk={get('DISK')} tools={tools}")
 
 # F15's pseudo-terminal login, run in the guest (section 11): what a getty on tty2 does, with login(1) and PAM.
@@ -753,6 +771,50 @@ def f16(vm, board):
     return token
 
 
+# F34 (CRITERIA-FIRSTBOOT.md section 27): the box's own monitor shows the OneMind desktop by default (kiosk on).
+F34_NO_MONITOR = "kiosk: no monitor is connected; showing the text screen until one is"
+F34_FACTS = (
+    "echo PKGS=$(dpkg-query -W -f='${Package}:${Status} ' cage chromium 2>/dev/null | grep -o '[a-z]*:install ok installed' | cut -d: -f1 | sort | tr '\\n' ' '); "
+    "echo BINS=$(test -x /usr/bin/cage && test -x /usr/bin/chromium && echo yes || echo no); "
+    "echo FLAG=$(test -e /data/onemind/kiosk/enabled && echo yes || echo no); "
+    "echo DIROWNER=$(stat -c %U /data/onemind/kiosk 2>/dev/null); "
+    "echo MARKER=$(test -e /data/onemind/firstboot/kiosk-default && echo yes || echo no); "
+    "echo KIOSK=$(systemctl is-active onemind-kiosk.service 2>&1 | head -1); "
+    "echo SCREEN=$(systemctl is-active onemind-screen.service 2>&1 | head -1); "
+    "echo TEXTPROC=$(grep -l onemind_screen.py $(sed 's#^#/proc/#; s#$#/cmdline#' /sys/fs/cgroup/system.slice/onemind-kiosk.service/cgroup.procs 2>/dev/null) 2>/dev/null | wc -l); "
+    "echo CHROMIUM=$(pgrep -x chromium 2>/dev/null | wc -l); "
+    "journalctl -u onemind-kiosk.service -b --no-pager -o cat 2>/dev/null | sed 's/^/KLOG /'; true")
+
+
+def f34_judge(out, board, after_reboot=False):
+    """F34's or F34r's verdict from the guest's output (pure, so test/unit can feed it canned text)."""
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    klog = "\n".join(re.findall(r"^KLOG (.*)$", out, re.M))
+    pkgs = set(g("PKGS").split())
+    if after_reboot:
+        return {"owner_off_kept": g("FLAG") == "no", "text_screen_active": g("SCREEN") == "active",
+                "kiosk_not_active": g("KIOSK") != "active" and g("KIOSK") != ""}
+    if board not in SCREEN_BOARDS:
+        return {"no_kiosk_packages": not ({"cage", "chromium"} & pkgs),
+                "no_flag": g("FLAG") == "no", "text_screen_active": g("SCREEN") == "active"}
+    return {"image_packages": {"cage", "chromium"} <= pkgs and g("BINS") == "yes",
+            "default_on": g("FLAG") == "yes" and g("DIROWNER") == "onemind" and g("MARKER") == "yes",
+            "kiosk_active": g("KIOSK") == "active", "text_unit_skipped": g("SCREEN") not in ("active", ""),
+            "no_monitor_fallback": F34_NO_MONITOR in klog and (g("TEXTPROC") or "0").isdigit() and int(g("TEXTPROC") or 0) >= 1
+            and g("CHROMIUM") == "0",
+            "nothing_secret": re.search(r"\b[0-9a-f]{64}\b", klog) is None and "ONEMIND OWNER TOKEN" not in klog}
+
+
+def f34(vm, board, tid="F34", after_reboot=False):
+    """Kiosk on by default on a screen board, the text screen inside it with no monitor; none on a no-screen board.
+    F34r: after the reboot, the owner's "off" (F15 removed the flag) is kept."""
+    # Give the kiosk unit a moment after boot: it starts after first boot and waits on nothing else here.
+    _, out = vm.run("t0=$SECONDS; while [ $((SECONDS - t0)) -lt 60 ] && ! systemctl -q is-active onemind-kiosk.service "
+                    "&& ! systemctl -q is-active onemind-screen.service; do sleep 2; done; sleep 5; " + F34_FACTS, 120)
+    c = f34_judge(out, board, after_reboot)
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" board={board}")
+
+
 def f16_after(vm, tid, token):
     """F16r / F16u: the same pairing directory and marker after a reboot or an A/B update."""
     st = f16_pairing_state(vm)
@@ -780,6 +842,710 @@ def f14(vm):
          "man_w_sub": get("MANW2").startswith("/usr/share/man/man1/"),
          "man_renders": get("MAN_RC") == "0" and get("MAN_NAME") not in ("0", "?") and get("MAN_SYN") not in ("0", "?")}
     record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" manw={get('MANW1')!r}")
+
+def f17(vm):
+    """The clock is Debian's own: systemd-timesyncd runs, tzdata is there, LANG is C.UTF-8 (section 12)."""
+    _, out = vm.run("echo ENABLED=$(systemctl is-enabled systemd-timesyncd.service 2>&1 | head -1); "
+                    "echo ACTIVE=$(systemctl is-active systemd-timesyncd.service 2>&1 | head -1); "
+                    "echo ZONE=$(test -r /usr/share/zoneinfo/UTC && echo ok || echo missing); "
+                    "echo LOCALE=$(grep -v '^#' /etc/locale.conf 2>/dev/null | head -1); "
+                    "for i in $(seq 1 30); do [ \"$(timedatectl show -p NTPSynchronized --value 2>/dev/null)\" = yes ] && break; sleep 2; done; "
+                    "echo SYNC=$(timedatectl show -p NTPSynchronized --value 2>&1 | head -1); "
+                    "echo SERVER=$(timedatectl timesync-status 2>/dev/null | sed -n 's/^ *Server: *//p' | head -1)", 200)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    sync, server = get("SYNC"), get("SERVER")
+    c = {"timesyncd_enabled": get("ENABLED") == "enabled", "timesyncd_active": get("ACTIVE") == "active",
+         "tzdata": get("ZONE") == "ok", "lang_c_utf8": get("LOCALE") == "LANG=C.UTF-8"}
+    # user-mode networking may not reach any NTP server: then the unit being enabled and running is the proof, and
+    # the detail says so. If a server was reached, the clock must report synchronised (what node-check.sh asks).
+    c["synchronised_if_reachable"] = sync == "yes" or not server or server.startswith("n/a")
+    record("F17", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" NTPSynchronized={sync} ntp_server={server!r}" + ("" if sync == "yes" else " (NTP server unreachable from the VM)"))
+
+
+HOSTSOCK = "curl -s --max-time 10 --unix-socket /run/onemind/host.sock"
+
+
+def zone_probe(vm):
+    """What the box says its zone is now: the symlink's target, the UTC offset, and the host's own GET /v1/time."""
+    _, out = vm.run("echo LINK=$(readlink -f /etc/localtime); echo OFFSET=$(date +%z); "
+                    f"echo TIME=$({HOSTSOCK} http://host/v1/time | tr -d '\\n')", 60)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    try:
+        host_zone = json.loads(get("TIME")).get("zone")
+    except ValueError:
+        host_zone = None
+    return get("LINK"), get("OFFSET"), host_zone
+
+
+def f18(vm):
+    """The host applies a time zone now: the symlink on /data is swapped, the offset changes, an unknown zone is refused (section 13)."""
+    before = zone_probe(vm)
+    _, out = vm.run(
+        f"{HOSTSOCK} -o /dev/null -w 'POST=%{{http_code}}\\n' -X POST http://host/v1/operations "
+        "-d '{\"action_id\":\"f14-tz\",\"kind\":\"set-timezone\",\"zone\":\"Pacific/Auckland\"}'; "
+        "for i in $(seq 1 30); do "
+        f"S=$({HOSTSOCK} http://host/v1/operations/f14-tz | sed -n 's/.*\"state\":\"\\([a-z_]*\\)\".*/\\1/p'); "
+        "[ \"$S\" = succeeded ] || [ \"$S\" = failed ] && break; sleep 1; done; echo STATE=$S; "
+        f"{HOSTSOCK} -w '\\nBAD=%{{http_code}}\\n' -X POST http://host/v1/operations "
+        "-d '{\"action_id\":\"f14-bad\",\"kind\":\"set-timezone\",\"zone\":\"Mars/Olympus\"}'", 90)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    after = zone_probe(vm)
+    c = {"started_utc": before[0].startswith("/usr/share/zoneinfo/") and before[2] == "UTC",
+         "accepted": get("POST") in ("200", "202"), "succeeded": get("STATE") == "succeeded",
+         "link_auckland": after[0].endswith("zoneinfo/Pacific/Auckland"), "offset_plus_1300": after[1] == "+1300",
+         "host_reports_zone": after[2] == "Pacific/Auckland",
+         "unknown_refused": get("BAD") == "409" and "unknown_zone" in out}
+    record("F18", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" before={before} after={after}")
+
+
+def f19(vm):
+    """The zone survives the reboot (section 13)."""
+    link, offset, host_zone = zone_probe(vm)
+    c = {"link_auckland": link.endswith("zoneinfo/Pacific/Auckland"), "offset_plus_1300": offset == "+1300",
+         "host_reports_zone": host_zone == "Pacific/Auckland"}
+    record("F19", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" link={link} offset={offset} host_zone={host_zone}")
+
+# F20's helper, run in the guest (section 14): file a restart, approve it, and read the ledger after the reboot.
+F20_PY = r"""
+import json, sys, time, urllib.error, urllib.request
+phase, token = sys.argv[1], sys.argv[2]
+def call(method, path, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request("http://127.0.0.1:8080" + path, data=data, method=method,
+                                 headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.status, json.loads(r.read() or b"null")
+    except urllib.error.HTTPError as e:
+        return e.code, None
+    except (OSError, ValueError):
+        return None, None
+boot = lambda: open("/proc/sys/kernel/random/boot_id").read().strip()
+if phase == "file":
+    b0 = boot()
+    code, a = call("POST", "/v1/system/actions", {"type": "system.restart", "reason": "F20", "idempotency_key": "f20"})
+    time.sleep(10)
+    json.dump({"id": (a or {}).get("id"), "boot": b0}, open("/data/onemind/f20-state", "w"))
+    print("RESULT file " + json.dumps({"code": code, "state": (a or {}).get("state"), "id": (a or {}).get("id"),
+                                       "same_boot": boot() == b0, "boot": b0}))
+elif phase == "approve":
+    st = json.load(open("/data/onemind/f20-state"))
+    code, _ = call("POST", "/v1/actions/" + st["id"] + "/approve", {})
+    json.dump({**st, "approve": code}, open("/data/onemind/f20-state", "w"))
+    time.sleep(600)
+else:
+    st = json.load(open("/data/onemind/f20-state"))
+    t0, state = time.time(), None
+    while time.time() - t0 < 120:
+        code, a = call("GET", "/v1/actions/" + st["id"])
+        state = (a or {}).get("state")
+        if state in ("succeeded", "failed", "outcome_unknown"):
+            break
+        time.sleep(3)
+    print("RESULT after " + json.dumps({"state": state, "approve": st.get("approve"), "was_boot": st["boot"], "boot": boot()}))
+"""
+
+
+def f20(vm, token):
+    """An approved restart reboots the box, and the ledger action ends succeeded (section 14)."""
+    _, out = vm.run("cat > /run/f20.py <<'PYEOF'\n" + F20_PY + "\nPYEOF\n" + f"{PY} -I /run/f20.py file '{token}'", 120)
+    filed = json.loads((re.findall(r"^RESULT file (\{.*\})\s*$", out, re.M) or ["{}"])[-1])
+    seg = vm.here()
+    vm.send(f"{PY} -I /run/f20.py approve '{token}'")
+    al = vm.expect(ALREADY, 900).group(0)
+    g = vm.wait_gate(); vm.shell_ready()
+    new_toks = TOKEN.findall(vm.since(seg))
+    hz = http_code(vm, f"{GW}/healthz", timeout=900)
+    if hz != "200":
+        diagnose(vm, f"healthz={hz} after the approved restart")
+    _, out = vm.run("cat > /run/f20.py <<'PYEOF'\n" + F20_PY + "\nPYEOF\n" + f"{PY} -I /run/f20.py after '{token}'; rm -f /run/f20.py /data/onemind/f20-state", 240)
+    after = json.loads((re.findall(r"^RESULT after (\{.*\})\s*$", out, re.M) or ["{}"])[-1])
+    c = {"filed": filed.get("code") == 202 and filed.get("state") == "awaiting_approval" and bool(filed.get("id")),
+         "nothing_before_approval": filed.get("same_boot") is True,
+         "approved_200": after.get("approve") == 200,
+         "rebooted": bool(after.get("boot")) and after.get("boot") != after.get("was_boot") == filed.get("boot"),
+         "no_new_token": not new_toks, "healthz": hz == "200", "succeeded": after.get("state") == "succeeded"}
+    record("F20", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" '{al[:60]}' gate={g} ledger={after.get('state')}")
+
+NEW_NAME = "omtest-new"
+
+
+def f21(vm):
+    """P-05: a set-hostname request to the host helper renames the running system and avahi answers <name>.local."""
+    sock = "curl -s --unix-socket /run/onemind/host.sock -w ' CODE=%{http_code}'"
+    post = lambda body: f"{sock} -X POST -H 'Content-Type: application/json' -d '{body}' http://host/v1/operations"
+    good = json.dumps({"action_id": "f21-rename", "kind": "set-hostname", "hostname": NEW_NAME})
+    bad = json.dumps({"action_id": "f21-bad", "kind": "set-hostname", "hostname": "Bad Name"})
+    _, out = vm.run(f"echo POST=$({post(good)}); "
+                    f"for i in $(seq 1 30); do s=$({sock} http://host/v1/operations/f21-rename | grep -o '\"state\":\"[a-z_]*\"'); "
+                    "case \"$s\" in *succeeded*|*failed*) break;; esac; sleep 2; done; echo STATE=$s; "
+                    "echo HOST=$(cat /proc/sys/kernel/hostname); echo FILE=$(cat /data/onemind/etc/hostname); "
+                    "echo HOSTS=$(grep '^127.0.1.1' /etc/hosts | tr -s ' \\t' ' '); "
+                    f"echo STATUS=$({sock} http://host/v1/status | grep -o '\"hostname\":\"[^\"]*\"'); "
+                    f"for i in $(seq 1 30); do r=$(avahi-resolve -n {NEW_NAME}.local 2>/dev/null); [ -n \"$r\" ] && break; sleep 2; done; echo MDNS=$r; "
+                    f"echo BAD=$({post(bad)}); echo AFTER=$(cat /proc/sys/kernel/hostname)", 400)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    c = {"accepted": g("POST").endswith(("CODE=202", "CODE=200")), "succeeded": "succeeded" in g("STATE"),
+         "running_name": g("HOST") == NEW_NAME, "saved_on_data": g("FILE") == NEW_NAME,
+         "hosts_line": g("HOSTS") == f"127.0.1.1 {NEW_NAME}", "status_name": g("STATUS") == f'"hostname":"{NEW_NAME}"',
+         "mdns_answers": g("MDNS").startswith(f"{NEW_NAME}.local"), "bad_name_400": g("BAD").endswith("CODE=400"),
+         "name_kept": g("AFTER") == NEW_NAME}
+    record("F21", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-400:]!r}")
+
+
+def f22(vm):
+    """P-05: the new name is still the box's name after a reboot, and avahi still answers it."""
+    _, out = vm.run(f"for i in $(seq 1 60); do r=$(avahi-resolve -n {NEW_NAME}.local 2>/dev/null); [ -n \"$r\" ] && break; sleep 2; done; "
+                    "echo HOST=$(cat /proc/sys/kernel/hostname); echo FILE=$(cat /data/onemind/etc/hostname); echo MDNS=$r", 300)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    c = {"running_name": g("HOST") == NEW_NAME, "saved_on_data": g("FILE") == NEW_NAME, "mdns_answers": g("MDNS").startswith(f"{NEW_NAME}.local")}
+    record("F22", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-300:]!r}")
+
+
+# F23's script, run in the guest with the gateway's Python (section 16): the owner's SSH keys and switch through the
+# real chain (gateway API, owner approval, host service, onemind-ssh-apply.service, sshd). Keys are made here for
+# this test only. It prints "F23 NAME=value" lines; f23_judge reads them. No token or private key is printed.
+F23_PY = r"""
+import json, os, subprocess, sys, time, urllib.error, urllib.request
+GW = "http://127.0.0.1:8080"
+TOKEN = sys.argv[1]
+SSHO = "-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o LogLevel=ERROR"
+def out(k, v): print("F23 %s=%s" % (k, v), flush=True)
+def api(method, path, body=None, token=TOKEN):
+    h = {"Content-Type": "application/json"}
+    if token: h["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(GW + path, method=method, headers=h, data=None if body is None else json.dumps(body).encode())
+    try:
+        with urllib.request.urlopen(req, timeout=150) as r: return r.status, json.loads(r.read() or b"null")
+    except urllib.error.HTTPError as e:
+        try: return e.code, json.loads(e.read() or b"null")
+        except Exception: return e.code, None
+def sh(cmd, t=150):
+    p = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=t)
+    return p.returncode, (p.stdout + p.stderr).strip()
+def login(key):
+    rc, o = sh("ssh %s -i %s admin@127.0.0.1 'id -un' 2>&1" % (SSHO, key))
+    return rc, (o.splitlines() or [""])[-1]
+def active(): return sh("systemctl is-active ssh.service")[1]
+def listening(): return int(sh("ss -ltn 'sport = :22' | grep -c LISTEN")[1] or 0)
+def wait(cond, t=60):
+    end = time.time() + t
+    while time.time() < end:
+        if cond(): return True
+        time.sleep(1)
+    return cond()
+def settle(a):
+    end = time.time() + 120
+    while time.time() < end:
+        c, d = api("GET", "/v1/actions/" + a["id"])
+        if c == 200 and d["state"] in ("succeeded", "failed", "outcome_unknown"): return d["state"]
+        time.sleep(1)
+    return "timeout"
+def approve(a):
+    c, d = api("POST", "/v1/actions/%s/approve" % a["id"])
+    return settle(a) if c == 200 else "approve_%s" % c
+def fp(pub): return sh("ssh-keygen -l -f %s | cut -d' ' -f2" % pub)[1]
+
+sh("rm -rf /run/f20 && mkdir -p /run/f20 && ssh-keygen -q -t ed25519 -N '' -f /run/f20/k1 && ssh-keygen -q -t ed25519 -N '' -C second -f /run/f20/k2")
+K1, K2 = "/run/f20/k1", "/run/f20/k2"
+out("noauth", api("GET", "/v1/ssh", token="")[0])
+c, v = api("GET", "/v1/ssh"); s = (v or {}).get("service", {})
+out("get", c); out("available", s.get("available")); out("password_login", s.get("password_login")); out("port", s.get("port")); out("user", s.get("user"))
+
+c, a = api("POST", "/v1/ssh/keys", {"public_key": open(K1 + ".pub").read().strip()})
+out("b_code", c); out("b_state", (a or {}).get("state")); out("b_type", (a or {}).get("type"))
+out("b_pre_login", login(K1)[1])
+out("c_state", approve(a))
+wait(lambda: active() == "active" and listening() >= 1)
+out("c_login", login(K1)[1])
+c, ks = api("GET", "/v1/ssh/keys")
+out("c_listed", fp(K1 + ".pub") in [k["fingerprint"] for k in (ks or {}).get("keys", [])])
+
+c, a2 = api("POST", "/v1/ssh/keys", {"public_key": open(K2 + ".pub").read().strip()})
+out("d_add_code", c); out("d_add_state", approve(a2)); out("d_k2_login", login(K2)[1])
+c, ks = api("GET", "/v1/ssh/keys")
+kid = [k["id"] for k in (ks or {}).get("keys", []) if k["fingerprint"] == fp(K2 + ".pub")]
+c, d = api("DELETE", "/v1/ssh/keys/" + (kid[0] if kid else "missing"))
+out("d_del_code", c); out("d_del_state0", (d or {}).get("state")); out("d_k2_before_approval", login(K2)[1])
+out("d_del_state", approve(d) if c == 202 else "none")
+rc, o = sh("ssh %s -i %s admin@127.0.0.1 'id -un' 2>&1" % (SSHO, K2))
+out("d_k2_after_rc", rc); out("d_k2_after_denied", "Permission denied (publickey)" in o)
+out("d_k1_still", login(K1)[1])
+c, ks = api("GET", "/v1/ssh/keys")
+fps = [k["fingerprint"] for k in (ks or {}).get("keys", [])]
+out("d_k2_listed", fp(K2 + ".pub") in fps); out("d_k1_listed", fp(K1 + ".pub") in fps)
+
+def limit_ok():
+    # Both limit rules (IPv4 and IPv6) are in the chain and come before the accept rule.
+    lines = sh("nft list chain inet onemind_host ssh")[1].splitlines()
+    lim = [i for i, l in enumerate(lines) if "dport 22" in l and "limit rate over 6/minute" in l]
+    acc = [i for i, l in enumerate(lines) if l.strip().startswith("tcp dport 22 accept")]
+    return len(lim) == 2 and bool(acc) and max(lim) < acc[0]
+out("e_limit_first", limit_ok())
+
+c, a = api("PUT", "/v1/ssh", {"enabled": False})
+out("f_code", c); out("f_state0", (a or {}).get("state")); out("f_listen_before", listening())
+out("f_state", approve(a))
+wait(lambda: listening() == 0 and active() != "active")
+out("f_active", active()); out("f_listen", listening())
+out("f_nft", sh("nft list chain inet onemind_host ssh | grep -c 'dport 22'")[1])
+out("f_flag", os.path.exists("/data/onemind/ssh/disabled")); out("f_login_rc", login(K1)[0])
+sh("systemctl start ssh.service; sleep 2"); out("f_restart_active", active())
+
+c, a = api("PUT", "/v1/ssh", {"enabled": True})
+out("g_state", approve(a))
+wait(lambda: active() == "active" and listening() >= 1)
+out("g_active", active()); out("g_listen", listening()); out("g_flag", os.path.exists("/data/onemind/ssh/disabled")); out("g_login", login(K1)[1])
+# (e) again after SSH went off and on (the second start of ssh.service), and after a firewall restart (host.nft reloads,
+# the ssh chain empties, sshd restarts with it). The limit must come back each time (section 17 amendment).
+out("e_limit_after_on", limit_ok())
+sh("systemctl restart onemind-firewall.service")
+wait(lambda: active() == "active" and listening() >= 1 and limit_ok())
+out("e_limit_after_fw", limit_ok()); out("e_fw_login", login(K1)[1])
+
+before = len(api("GET", "/v1/actions")[1] or [])
+c, _ = api("POST", "/v1/ssh/keys", {"public_key": 'command="id" ' + open(K1 + ".pub").read().strip()})
+out("i_code", c); out("i_filed", len(api("GET", "/v1/actions")[1] or []) - before)
+sh("rm -rf /run/f20")
+"""
+
+
+def f23_judge(out):
+    """F23's verdict from the guest's output (pure, so test/unit can feed it canned text). (h), an agent's request,
+    is skipped: the first boot mints no agent token."""
+    g = lambda k: (re.findall(rf"^F23 {k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    t, isint = "True", lambda k: g(k).isdigit()
+    c = {
+        "reads": g("get") == "200" and g("available") == t and g("password_login") == "False" and g("port") == "22"
+        and g("user") == "admin" and g("noauth") == "401",
+        "request_waits": g("b_code") == "202" and g("b_state") == "awaiting_approval" and g("b_type") == "ssh.key.add"
+        and g("b_pre_login") != "admin",
+        "approval_adds": g("c_state") == "succeeded" and g("c_login") == "admin" and g("c_listed") == t,
+        "second_key": g("d_add_code") == "202" and g("d_add_state") == "succeeded" and g("d_k2_login") == "admin",
+        "removal_waits": g("d_del_code") == "202" and g("d_del_state0") == "awaiting_approval" and g("d_k2_before_approval") == "admin",
+        "removal_refuses": g("d_del_state") == "succeeded" and isint("d_k2_after_rc") and g("d_k2_after_rc") != "0"
+        and g("d_k2_after_denied") == t and g("d_k1_still") == "admin" and g("d_k2_listed") == "False" and g("d_k1_listed") == t,
+        "rate_limit_rule": g("e_limit_first") == t and g("e_limit_after_on") == t and g("e_limit_after_fw") == t and g("e_fw_login") == "admin",
+        "off_waits": g("f_code") == "202" and g("f_state0") == "awaiting_approval" and isint("f_listen_before") and int(g("f_listen_before")) >= 1,
+        "off_closes_port": g("f_state") == "succeeded" and g("f_active") != "active" and g("f_active") != "" and g("f_listen") == "0"
+        and g("f_nft") == "0" and g("f_flag") == t and isint("f_login_rc") and g("f_login_rc") != "0",
+        "off_holds": g("f_restart_active") != "active" and g("f_restart_active") != "",
+        "on_opens_it": g("g_state") == "succeeded" and g("g_active") == "active" and isint("g_listen") and int(g("g_listen")) >= 1
+        and g("g_flag") == "False" and g("g_login") == "admin",
+        "bad_key_refused": g("i_code") == "422" and g("i_filed") == "0",
+    }
+    return c
+
+
+def f23(vm, token):
+    """SSH keys and the SSH switch through the approval queue (section 16)."""
+    _, o = vm.run("cat > /run/f23.py <<'PYEOF'\n" + F23_PY + f"\nPYEOF\n{PY} -I /run/f23.py '{token}'; rm -f /run/f23.py", 900)
+    c = f23_judge(o)
+    record("F23", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + " agent_request=skipped(no agent token at first boot)")
+
+
+BOX_BINDS = {"/var/lib/fwupd": "var-lib-fwupd", "/var/cache/fwupd": "var-cache-fwupd",
+             "/var/lib/rasdaemon": "var-lib-rasdaemon", "/var/lib/udisks2": "var-lib-udisks2"}
+
+
+def f24(vm, board):
+    """Step 2b: box care for a 24/7 machine (CRITERIA-FIRSTBOOT.md section 18). Returns the marker content."""
+    marker = "f24-" + os.urandom(8).hex()
+    cmds = [
+        "fwupdmgr --version >/dev/null 2>&1; echo FWUPD_RC=$?",
+        "sensors -v >/dev/null 2>&1; echo SENSORS_RC=$?",
+        "ras-mc-ctl --help >/dev/null 2>&1; echo RASCTL_RC=$?",
+        "udisksctl help >/dev/null 2>&1; echo UDISKSCTL_RC=$?",
+        "timeout 90 fwupdmgr get-devices --no-unreported-check >/tmp/f24.fw 2>&1; echo FWDEV_RC=$?; echo FWDEV_HEAD=$(head -c 80 /tmp/f24.fw | tr -d '\\n' | tr ' ' '_')",
+        "timeout 60 udisksctl status >/dev/null 2>&1; echo UDSTATUS_RC=$?",
+        "for u in fwupd-refresh.timer fwupd-refresh.service; do echo STATE $u $(systemctl is-enabled $u 2>&1 | head -1); done",
+        "echo STATE fwupd.service $(systemctl is-enabled fwupd.service 2>&1 | head -1)",
+        "echo STATE fstrim.timer $(systemctl is-enabled fstrim.timer 2>&1 | head -1)",
+        "echo STATE rasdaemon.service $(systemctl is-enabled rasdaemon.service 2>&1 | head -1)",
+        "echo STATE thermald.service $(systemctl is-enabled thermald.service 2>&1 | head -1); echo ACTIVE=$(systemctl is-active thermald.service 2>&1 | head -1)",
+        "echo THERMALD_PKG=$(dpkg -s thermald >/dev/null 2>&1 && echo yes || echo no)",
+        "echo FSTRIM_LAST=$(systemctl cat fstrim.service | grep '^ExecStart=' | tail -1 | tr ' ' '_')",
+        "systemctl start fstrim.service; echo FSTRIM_RC=$?",
+        "echo WATCHDOG=$(systemctl show -p RuntimeWatchdogUSec --value)",
+        "for p in gvfs-udisks2-volume-monitor udiskie polkitd; do dpkg -s $p >/dev/null 2>&1; echo ABSENT $p $?; done",
+        "echo DROOT=$(findmnt -no FSROOT /data | head -1)",
+    ]
+    for path, src in BOX_BINDS.items():
+        cmds.append(f"echo BIND {path} $(findmnt -no SOURCE {path} | head -1 | tr -d ' ') "
+                    f"MARK=$(echo {marker} > {path}/onemind-f24 && sync && cat /data/state/{src}/onemind-f24)")
+    _, out = vm.run("; ".join(cmds), 240)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    amd = ARCH.get(board) == "amd64"
+    binds = {p: (m.group(1), m.group(2)) for p, m in
+             ((p, re.search(rf"^BIND {re.escape(p)} (\S*) MARK=(\S*)\s*$", out, re.M)) for p in BOX_BINDS) if m}
+    absent = dict(re.findall(r"^ABSENT (\S+) (\d+)\s*$", out, re.M))
+    droot = get("DROOT").rstrip("/") if get("DROOT") != "?" else None
+    c = {"fwupdmgr": get("FWUPD_RC") == "0", "sensors": get("SENSORS_RC") == "0",
+         "ras_mc_ctl": get("RASCTL_RC") == "0", "udisksctl": get("UDISKSCTL_RC") == "0",
+         "fwupd_get_devices_runs": get("FWDEV_RC") in ("0", "2"), "udisks_status_runs": get("UDSTATUS_RC") == "0",
+         "refresh_masked": state.get("fwupd-refresh.timer") == "masked" and state.get("fwupd-refresh.service") == "masked",
+         "fwupd_not_enabled": state.get("fwupd.service") != "enabled",
+         "fstrim_enabled": state.get("fstrim.timer") == "enabled",
+         "fstrim_data_only": get("FSTRIM_LAST").endswith("fstrim_--verbose_--quiet-unsupported_/data"),
+         "fstrim_runs": get("FSTRIM_RC") == "0",
+         "rasdaemon_enabled": state.get("rasdaemon.service") == "enabled",
+         "thermald": (state.get("thermald.service") == "enabled" and get("ACTIVE") != "active") if amd
+                     else get("THERMALD_PKG") == "no",
+         # /data starts at "/" on ext4 and at "/@" on the btrfs layout (#152): the bind's root is "<that>/state/<dir>"
+         "binds_on_data": droot is not None and len(binds) == 4 and all(f"[{droot}/state/{BOX_BINDS[p]}]" in v[0] for p, v in binds.items())
+                          and all(v[1] == marker for v in binds.values()),
+         "watchdog_30s": get("WATCHDOG") == "30s" if amd else True,
+         "no_automount_helpers": len(absent) == 3 and all(v != "0" for v in absent.values())}
+    # The loop device: detected, never mounted by itself, mounted read-only only when asked.
+    _, out2 = vm.run(
+        "truncate -s 64M /run/f24.img && mkfs.ext4 -q -F /run/f24.img && L=$(losetup --find --show /run/f24.img) && echo LOOP=$L; "
+        "udevadm trigger --name-match=$L; udevadm settle --timeout=30; sleep 3; "
+        "echo AUTO=$(udevadm info -q property -n $L | grep -c '^UDISKS_AUTO=0$'); "
+        "echo MOUNTED_BEFORE=$(findmnt -S $L -n | wc -l)$(lsblk -no MOUNTPOINT $L | grep -c .); "
+        "udisksctl info -b $L >/dev/null 2>&1; echo INFO_RC=$?; "
+        "udisksctl mount -b $L -o ro >/tmp/f24.mnt 2>&1; echo MOUNT_RC=$?; cat /tmp/f24.mnt; "
+        "echo RO=$(findmnt -S $L -no OPTIONS | tr ',' '\\n' | grep -c '^ro$'); "
+        "udisksctl unmount -b $L >/dev/null 2>&1; echo UNMOUNT_RC=$?; losetup -d $L; rm -f /run/f24.img", 240)
+    g2 = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out2, re.M) or ["?"])[-1]
+    c.update({"loop_has_auto0": g2("AUTO") == "1", "loop_not_automounted": g2("MOUNTED_BEFORE") == "00",
+              "udisks_info": g2("INFO_RC") == "0", "owner_mount_ro": g2("MOUNT_RC") == "0" and g2("RO") == "1",
+              "owner_unmount": g2("UNMOUNT_RC") == "0"})
+    record("F24", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" states={state} fwdev={get('FWDEV_RC')}/{get('FWDEV_HEAD')} binds={binds}"
+           + ("" if all(c.values()) else f" mount_out={out2[-700:]!r}"))
+    return marker
+
+
+def f24_again(vm, tid, marker):
+    """F24b (after the reboot) and F24c (after the A/B update): the box-care state is still there."""
+    cmds = []
+    for path, src in BOX_BINDS.items():
+        cmds.append(f"echo BIND {path} $(findmnt -no SOURCE {path} | head -1 | tr -d ' ') MARK=$(cat {path}/onemind-f24 2>&1)")
+    cmds += ["echo STATE fstrim.timer $(systemctl is-enabled fstrim.timer 2>&1 | head -1)",
+             "echo STATE rasdaemon.service $(systemctl is-enabled rasdaemon.service 2>&1 | head -1)",
+             "echo DROOT=$(findmnt -no FSROOT /data | head -1)"]
+    _, out = vm.run("; ".join(cmds), 120)
+    droot = (re.findall(r"^DROOT=(\S*)\s*$", out, re.M) or [None])[-1]
+    droot = droot.rstrip("/") if droot is not None else None
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    marks = {p: m.group(1) for p, m in
+             ((p, re.search(rf"^BIND {re.escape(p)} \S* MARK=(\S*)\s*$", out, re.M)) for p in BOX_BINDS) if m}
+    mounted = droot is not None and all(re.search(rf"^BIND {re.escape(p)} \S*\[{re.escape(droot)}/state/{BOX_BINDS[p]}\] ", out, re.M) for p in BOX_BINDS)
+    c = {"markers_kept": len(marks) == 4 and all(v == marker for v in marks.values()), "binds_mounted": mounted,
+         "fstrim_enabled": state.get("fstrim.timer") == "enabled", "rasdaemon_enabled": state.get("rasdaemon.service") == "enabled"}
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
+
+# Runs in the guest as root: reads the host service the way the gateway does (CRITERIA-FIRSTBOOT.md section 19).
+F25_PY = r"""
+import http.client, json, socket, sys, time
+
+class U(http.client.HTTPConnection):
+    def __init__(self):
+        super().__init__("host", timeout=20)
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX)
+        self.sock.settimeout(20)
+        self.sock.connect("/run/onemind/host.sock")
+
+def call(method, path, body=None):
+    c = U()
+    try:
+        c.request(method, path, json.dumps(body) if body is not None else None, {"Content-Type": "application/json"})
+        r = c.getresponse()
+        raw = r.read()
+        try:
+            return r.status, json.loads(raw or b"null")
+        except ValueError:
+            return r.status, None
+    finally:
+        c.close()
+
+res = {}
+for _ in range(30):  # the socket starts the service on the first request
+    try:
+        res["hk_code"], res["hk"] = call("GET", "/v1/storage/housekeeping")
+        break
+    except OSError:
+        time.sleep(2)
+res["st_code"], st = call("GET", "/v1/status")
+res["kinds"] = [o.get("kind") for o in (st or {}).get("operations", [])]
+if sys.argv[1] == "full":
+    res["eject_code"], res["eject"] = call("POST", "/v1/operations", {"action_id": "f25-root-disk", "kind": "eject", "device": sys.argv[2]})
+    res["ops_code"], ops = call("GET", "/v1/operations/f25-root-disk")
+print("RESULT " + json.dumps(res))
+"""
+
+
+def f25(vm):
+    """P-10: storage housekeeping is on the image and the host service reports it (CRITERIA-FIRSTBOOT.md section 19)."""
+    marker = "f25-" + os.urandom(6).hex()
+    feed = "/var/lib/smartmontools/onemind-alerts.jsonl"
+    env = f"SMARTD_DEVICE=/dev/vda SMARTD_FAILTYPE=FailedHealthCheck SMARTD_MESSAGE={marker} SMARTD_TFIRSTEPOCH=1700000000"
+    _, out = vm.run(
+        "cat > /run/f25.py <<'PYEOF'\n" + F25_PY + "\nPYEOF\n"
+        f"rm -f {feed}; "
+        "echo STATE smartmontools.service $(systemctl is-enabled smartmontools.service 2>&1 | head -1); "
+        "echo STATE smartd.service $(systemctl is-enabled smartd.service 2>&1 | head -1); "
+        "echo CONF_NOMAILER=$(grep -E '^DEVICESCAN' /etc/smartd.conf | grep -c -- '-m <nomailer>'); "
+        "echo CONF_EXEC=$(grep -E '^DEVICESCAN' /etc/smartd.conf | grep -c -- '-M exec /usr/lib/onemind/smartd-notify'); "
+        "smartd -q onecheck -c /etc/smartd.conf >/run/f25.smartd 2>&1; echo SMARTD_RC=$?; "
+        "echo SMARTD_CONF_ERRORS=$(grep -ciE 'fatal syntax|Directive:|unknown directive' /run/f25.smartd); "
+        "echo NOTIFY_X=$(test -x /usr/lib/onemind/smartd-notify && echo yes || echo no); "
+        f"env {env} /usr/lib/onemind/smartd-notify; env {env} /usr/lib/onemind/smartd-notify; "
+        f"echo LINES_AFTER_TWO=$(wc -l < {feed}); echo HAS_MARKER=$(grep -c {marker} {feed}); "
+        "SMARTD_DEVICE=/dev/disk/by-id/x SMARTD_FAILTYPE=Health SMARTD_MESSAGE=bad /usr/lib/onemind/smartd-notify; "
+        f"echo LINES_AFTER_BAD=$(wc -l < {feed}); "
+        "echo BIND=$(findmnt -no SOURCE /var/lib/smartmontools | head -1 | tr -d ' '); echo DROOT=$(findmnt -no FSROOT /data | head -1); "
+        "systemctl start fstrim.service; echo FSTRIM_RC=$?; "
+        "ROOT=/dev/$(lsblk -no PKNAME \"$(findmnt -no SOURCE /)\" 2>/dev/null | head -1); echo ROOTDISK=$ROOT; "
+        f"{PY} -I /run/f25.py full $ROOT; rm -f /run/f25.py", 300)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    m = re.findall(r"^RESULT (\{.*\})\s*$", out, re.M)
+    res = json.loads(m[-1]) if m else {}
+    hk = res.get("hk") or {}
+    trim, smart = hk.get("trim") or {}, hk.get("smart") or {}
+    eject = res.get("eject") or {}
+    c = {"smartd_enabled_not_masked": state.get("smartmontools.service") == "enabled" and state.get("smartd.service") != "masked",
+         "conf_nomailer": get("CONF_NOMAILER") == "1", "conf_exec": get("CONF_EXEC") == "1",
+         "conf_parses": get("SMARTD_CONF_ERRORS") == "0", "notify_executable": get("NOTIFY_X") == "yes",
+         "one_line_for_a_reminder": get("LINES_AFTER_TWO") == "1" and get("HAS_MARKER") == "1",
+         "plain_nodes_only": get("LINES_AFTER_BAD") == "1",
+         # /data starts at "/" on ext4 and "/@" on the btrfs layout (#152): the bind's root is "<that>/state/..."
+         "bind_on_data": get("DROOT") not in ("", "?") and f"[{get('DROOT').rstrip('/')}/state/var-lib-smartmontools]" in get("BIND"),
+         "fstrim_ran": get("FSTRIM_RC") == "0",
+         "housekeeping_200": res.get("hk_code") == 200 and trim.get("enabled") is True
+         and bool(trim.get("last_run_at")) and bool(trim.get("next_run_at")),
+         "alert_listed": any(a.get("id") == "1700000000-vda-FailedHealthCheck" and marker in a.get("message", "")
+                             for a in smart.get("alerts") or []),
+         "removable_is_a_list": isinstance(hk.get("removable"), list),
+         "eject_kind_listed": "eject" in (res.get("kinds") or []),
+         "root_disk_refused": res.get("eject_code") == 409 and eject.get("reason") == "not_removable" and res.get("ops_code") == 404}
+    record("F25", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" rootdisk={get('ROOTDISK')} trim={trim} eject={eject} smartd_rc={get('SMARTD_RC')}")
+    return marker
+
+
+def f25_again(vm, tid, marker):
+    """F25b (after the reboot) and F25c (after the A/B update): the warning and its state are still there."""
+    feed = "/var/lib/smartmontools/onemind-alerts.jsonl"
+    _, out = vm.run(
+        "cat > /run/f25.py <<'PYEOF'\n" + F25_PY + "\nPYEOF\n"
+        "echo BIND=$(findmnt -no SOURCE /var/lib/smartmontools | head -1 | tr -d ' '); echo DROOT=$(findmnt -no FSROOT /data | head -1); "
+        f"echo HAS_MARKER=$(grep -c {marker} {feed} 2>&1); "
+        "echo STATE smartmontools.service $(systemctl is-enabled smartmontools.service 2>&1 | head -1); "
+        f"{PY} -I /run/f25.py read; rm -f /run/f25.py", 200)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    m = re.findall(r"^RESULT (\{.*\})\s*$", out, re.M)
+    res = json.loads(m[-1]) if m else {}
+    alerts = ((res.get("hk") or {}).get("smart") or {}).get("alerts") or []
+    c = {"bind_mounted": get("DROOT") not in ("", "?") and f"[{get('DROOT').rstrip('/')}/state/var-lib-smartmontools]" in get("BIND"),
+         "feed_kept": get("HAS_MARKER") == "1", "host_lists_it": any(marker in a.get("message", "") for a in alerts),
+         "smartd_enabled": state.get("smartmontools.service") == "enabled"}
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
+def printing(vm, tid, mode):
+    """Printing (CRITERIA-FIRSTBOOT.md section 20): FP1 on the first boot, FP2 after the reboot, FP3 after the update.
+    test/qemu/print-proof.sh runs in the guest as root (the owner) and prints KEY=value lines; judged here."""
+    send_file(vm, "/run/print-proof.sh", open(os.path.join(HERE, "print-proof.sh")).read())
+    for source, target in (("../printing/approve.py", "print-approve.py"),
+                           ("../../core/tests/soft_authenticator.py", "print-authenticator.py")):
+        with open(os.path.join(HERE, source)) as f:
+            send_file(vm, f"/run/{target}", f.read())
+        vm.run(f"chmod 644 /run/{target}")
+    _, out = vm.run(f"sh /run/print-proof.sh {mode}; rm -f /run/print-proof.sh /run/onemind-print-test.ppd "
+                    "/run/print-approve.py /run/print-authenticator.py", 420)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    mnt = {m: g("MNT_" + m) for m in ("etc_cups", "var_spool_cups", "var_cache_cups", "var_lib_ipp_usb")}
+    ctl = g("CTL")
+    c = {"packages": g("PKGS") == "ok", "no_browsed": g("BROWSED") == "absent", "tools": g("BINS") == "ok",
+         "active": g("ACTIVE") == "active",
+         "listening": bool(re.search(r"(^|,)(\*|0\.0\.0\.0|\[::\]|::):631(,|$)", g("LISTEN"))),
+         "on_data": g("DROOT") != "" and all(re.search(r"\[" + re.escape(g("DROOT").rstrip("/")) + r"/state/" + n.replace("_", "-") + r"\]$", v)
+                                              for n, v in mnt.items()),
+         "defaults_off": all(f"_{k}=0" in ctl for k in ("remote_admin", "remote_any", "share_printers", "user_cancel_any")),
+         "web_200": g("HTTP_ROOT") == "200", "admin_401": g("HTTP_ADMIN") == "401",
+         "direct_denied": g("DIRECT_SUBMIT_RC") not in ("", "0") and g("DIRECT_RELEASE_RC") not in ("", "0"),
+         "queued_owner_release": g("QUEUED_OWNER_RELEASE") == "ok",
+         "filedevice_off_before": g("FILEDEV_BEFORE") == "0", "printed": g("LP_RC") == "0" and g("OUT_HEAD") == "%PDF"
+         and g("OUT_SIZE").isdigit() and int(g("OUT_SIZE")) >= 1000,
+         "filedevice_off_after": g("FILEDEV_AFTER") == "0", "finished": "PRINT-PROOF-DONE" in out}
+    if mode == "baseline":
+        c["non_owner_refused"] = g("NONOWNER_RC") not in ("", "0") and g("NONOWNER_QUEUE") == "absent"
+        c["queue_added"] = g("ADD_RC") == "0"
+    else:
+        c["queue_kept"] = g("QUEUE").startswith("printer OneMindTest ") and g("DESC") == "OneMind QEMU proof queue"
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" listen={g('LISTEN')!r} mounts={mnt} ctl={ctl!r} out={g('OUT_HEAD')!r}/{g('OUT_SIZE')} queue={g('QUEUE')!r}")
+
+
+# Boards that ship VA-API (os/boards/<board>/packages-*.txt); F29 runs only on these (CRITERIA-FIRSTBOOT.md section 23: "the x86 box").
+VAAPI_BOARDS = ("x86_64-efi", "x86_64-efi-nvidia")
+
+def f29(vm):
+    """Step 3: VA-API packages and drivers are on the x86 box and vainfo starts (CRITERIA-FIRSTBOOT.md section 23).
+    QEMU has no GPU with VA-API, so no decode profile is listed here; that is proven on real hardware only."""
+    d = "/usr/lib/x86_64-linux-gnu/dri"
+    _, out = vm.run(
+        'for p in vainfo intel-media-va-driver mesa-va-drivers; do echo PKG $p $(dpkg-query -W -f=\'${Status}\' $p 2>&1 | grep -c "install ok installed"); '
+        'echo LISTED $p $(grep -c "^$p " /usr/lib/onemind/packages.txt); done; '
+        f'for f in iHD radeonsi; do test -f {d}/${{f}}_drv_video.so; echo DRV $f $?; echo MISSING $f $(ldd {d}/${{f}}_drv_video.so 2>&1 | grep -c "not found"); done; '
+        'command -v vainfo >/dev/null; echo HAVE=$?; vainfo >/tmp/f29.out 2>&1; echo VAINFO_RC=$?; '
+        'echo BANNER=$(grep -c -E "^(vainfo|error):" /tmp/f29.out); head -3 /tmp/f29.out', 120)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    pk = dict(re.findall(r"^PKG (\S+) (\d+)\s*$", out, re.M))
+    ls = dict(re.findall(r"^LISTED (\S+) (\d+)\s*$", out, re.M))
+    drv = dict(re.findall(r"^DRV (\S+) (\d+)\s*$", out, re.M))
+    miss = dict(re.findall(r"^MISSING (\S+) (\d+)\s*$", out, re.M))
+    names = ("vainfo", "intel-media-va-driver", "mesa-va-drivers")
+    c = {"packages": all(pk.get(n) == "1" for n in names), "listed": all(ls.get(n) == "1" for n in names),
+         "driver_files": drv == {"iHD": "0", "radeonsi": "0"}, "no_missing_libs": miss == {"iHD": "0", "radeonsi": "0"},
+         "vainfo_found": get("HAVE") == "0", "vainfo_exit_0_or_1": get("VAINFO_RC") in ("0", "1"),
+         "vainfo_banner": get("BANNER") not in ("0", "?")}
+    record("F29", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" vainfo_rc={get('VAINFO_RC')} (no GPU in QEMU) out={out.strip()[-160:]!r}")
+
+
+# What the kernel maps keycode 21 to (the Y key on a US keyboard, Z on a German one): the full table (no -1) has one "keycode  21 = +y +Y ..." line.
+CONSOLE_STATE = (r"""echo LAYOUT=$(sed -n 's/^XKBLAYOUT="\(.*\)"$/\1/p' /data/onemind/console/keyboard); """
+                 r"""echo UNIT=$(systemctl is-active onemind-console-keyboard.service); """
+                 r"""echo KEY21=$(dumpkeys -C /dev/tty0 2>&1 | grep -m1 -E '^keycode +21 *=' | sed -n 's/^keycode *21 *= *+*\([A-Za-z]\).*/\1/p'); echo RAW=$(dumpkeys -C /dev/tty0 2>&1 | grep -m1 -E 'keycode +21 *=|rror' | cut -c1-60 | tr ' ' '_')""")
+
+
+def console_state(vm):
+    _, out = vm.run(CONSOLE_STATE, 60)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    st = (get("LAYOUT"), get("UNIT"), get("KEY21"))
+    if st[2] in ("", "?"):
+        print(f"  console_state: no key for keycode 21, dumpkeys said {get('RAW')!r}")
+    return st
+
+
+def f30_before(vm):
+    """The seed is US and loaded; the owner's file is then changed to de and the unit re-run (judged after the F3 reboot)."""
+    _, out = vm.run("echo MASK=$(systemctl is-enabled console-setup.service 2>&1 | head -1)/$(systemctl is-enabled keyboard-setup.service 2>&1 | head -1)", 60)
+    mask = (re.findall(r"^MASK=(\S+)", out, re.M) or ["?"])[-1]
+    us = console_state(vm)
+    vm.run("sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT=\"de\"/' /data/onemind/console/keyboard; sync; "
+           "systemctl restart onemind-console-keyboard.service", 60)
+    de = console_state(vm)
+    return {"masked": mask == "masked/masked", "seed_us": us == ("us", "active", "y"), "applied_de": de == ("de", "active", "z")}, f"mask={mask} us={us} de={de}"
+
+
+def f30_after(vm, pre):
+    c, note = pre
+    _, out = vm.run("echo FAILED=$(systemctl --failed --no-legend 2>/dev/null | grep -c -E 'console-setup|keyboard-setup')", 60)
+    failed = (re.findall(r"^FAILED=(\d+)", out, re.M) or ["?"])[-1]
+    st = console_state(vm)
+    c = dict(c, kept_de_after_reboot=st == ("de", "active", "z"), no_failed_setup_units=failed == "0")
+    record("F30", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" {note} after_reboot={st} failed_setup_units={failed}")
+
+
+def f31(vm):
+    st = console_state(vm)
+    record("F31", st == ("de", "active", "z"), f"after_ab_update layout/unit/keycode21={st}")
+
+
+HOST_SOCK = "curl -s --unix-socket /run/onemind/host.sock -H 'Content-Type: application/json'"
+
+
+def host_post(vm, aid, body):
+    """POST /v1/operations on the host socket as root (the peer check admits root). Returns (http_code, json)."""
+    _, out = vm.run(f"{HOST_SOCK} -o /tmp/f32.out -w 'CODE=%{{http_code}}\\n' -d '{json.dumps(dict(body, action_id=aid))}' http://h/v1/operations; "
+                    "echo BODY=$(tr -d '\\n' < /tmp/f32.out); rm -f /tmp/f32.out", 60)
+    code = (re.findall(r"^CODE=(\d+)", out, re.M) or ["?"])[-1]
+    raw = (re.findall(r"^BODY=(.*)$", out, re.M) or ["{}"])[-1]
+    try:
+        return code, json.loads(raw)
+    except ValueError:
+        return code, {}
+
+
+def host_wait(vm, aid, secs=120):
+    """Poll GET /v1/operations/{id} until it is succeeded or failed; the last Op."""
+    end, op = time.time() + secs, {}
+    while time.time() < end:
+        _, out = vm.run(f"echo OP=$({HOST_SOCK} http://h/v1/operations/{aid} | tr -d '\\n')", 30)
+        try:
+            op = json.loads((re.findall(r"^OP=(.*)$", out, re.M) or ["{}"])[-1])
+        except ValueError:
+            op = {}
+        if op.get("state") in ("succeeded", "failed"):
+            break
+        time.sleep(2)
+    return op
+
+
+def keyboard_view(vm):
+    """GET /v1/keyboard on the host socket: (schema, current layout, variant, seeded, de offers nodeadkeys)."""
+    _, out = vm.run(f"echo KB=$({HOST_SOCK} http://h/v1/keyboard | tr -d '\\n')", 60)
+    try:
+        v = json.loads((re.findall(r"^KB=(.*)$", out, re.M) or ["{}"])[-1])
+    except ValueError:
+        v = {}
+    cur = v.get("current") or {}
+    de = next((l for l in v.get("layouts") or [] if l.get("id") == "de"), {})
+    return (v.get("schema"), cur.get("layout"), cur.get("variant"), v.get("seeded"),
+            any(x.get("id") == "nodeadkeys" for x in de.get("variants") or []))
+
+
+def key13(vm):
+    """The key left of Backspace on a German keyboard: a dead key (dead_acute) on plain de, a plain acute on nodeadkeys."""
+    _, out = vm.run(r"""echo KEY13=$(dumpkeys -C /dev/tty0 2>&1 | grep -m1 -E '^keycode +13 *=' | tr -s ' ' '_')""", 60)
+    return (re.findall(r"^KEY13=(\S*)\s*$", out, re.M) or ["?"])[-1]
+
+
+def f32_before(vm):
+    """P-11: set-keymap through the host socket (what the gateway does after an owner approves): the layout is written
+    to /data and loaded into the console. Run right after f30_before, which left the console on de."""
+    c = {}
+    _, out = vm.run(f"echo KINDS=$({HOST_SOCK} http://h/v1/status | tr -d '\\n' | grep -o '\"kind\":\"set-keymap\",\"available\":true' | wc -l)", 60)
+    c["kind_available"] = (re.findall(r"^KINDS=(\d+)", out, re.M) or ["0"])[-1] == "1"
+    c["view_before"] = keyboard_view(vm) == ("onemind.keyboard/v1", "de", "", False, True)
+    plain = key13(vm)
+    code, op = host_post(vm, "f32-set", {"kind": "set-keymap", "layout": "de", "variant": "nodeadkeys"})
+    c["accepted"] = code == "202"
+    done = host_wait(vm, "f32-set")
+    c["succeeded"] = done.get("state") == "succeeded"
+    if not c["succeeded"]:  # evidence for the failure detail only; it changes no verdict
+        _, dbg = vm.run("echo DBG-START; systemctl list-jobs --no-pager 2>&1 | head -8; ps -eo pid,args | grep -E 'systemctl|ckbcomp|loadkeys' | grep -v grep | head -5; "
+                        "journalctl -u onemind-host.service -u onemind-console-keyboard.service -n 25 --no-pager 2>&1 | cut -c1-200; echo DBG-END", 60)
+        print("F32-DEBUG " + dbg.replace("\n", " | ")[-2500:], flush=True)
+    st = console_state(vm)
+    c["applied"] = st == ("de", "active", "z")
+    c["variant_in_file"] = keyboard_view(vm)[1:3] == ("de", "nodeadkeys")
+    nodead = key13(vm)
+    c["variant_loaded"] = "dead_" in plain and nodead != plain and "dead_" not in nodead
+    bad_code, bad = host_post(vm, "f32-bad", {"kind": "set-keymap", "layout": "zz"})
+    c["unknown_refused"] = bad_code == "409" and bad.get("reason") == "unknown_layout"
+    shape_code, _ = host_post(vm, "f32-shape", {"kind": "set-keymap", "layout": "de;reboot"})
+    c["bad_shape_400"] = shape_code == "400"
+    c["refusal_changed_nothing"] = keyboard_view(vm)[1:3] == ("de", "nodeadkeys") and console_state(vm) == ("de", "active", "z")
+    return c, f"plain13={plain} nodeadkeys13={nodead} op={done.get('state')}/{done.get('message')!r}"
+
+
+def f32_state(vm):
+    return keyboard_view(vm)[1:4], console_state(vm), key13(vm)
+
+
+def f32_record(pre, mid, final):
+    """One verdict: the checks before the reboot, then (when the run got that far) after the F3 reboot and after the F4 update."""
+    c, note = pre
+    ok = ("de", "nodeadkeys", False)
+    if mid is not None:
+        c = dict(c, kept_after_reboot=mid[0] == ok and mid[1] == ("de", "active", "z") and mid[2] == pre_key(note))
+    if final is not None:
+        c = dict(c, kept_after_ab_update=final[0] == ok and final[1] == ("de", "active", "z") and final[2] == mid[2])
+    record("F32", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" {note}" + (f" after_reboot={mid}" if mid else "") + (f" after_ab_update={final}" if final else ""))
+
+
+def pre_key(note):
+    return (re.findall(r"nodeadkeys13=(\S+)", note) or ["?"])[0]
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -837,19 +1603,38 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
-        vm.mark("F13 disk and admin tools run, smartd masked (Step 2)"); f13(vm)
+        vm.mark("F13 disk and admin tools run (Step 2; smartd is no longer masked, F25)"); f13(vm)
         vm.mark("NW1-NW4 NetworkManager: wired DHCP, k3s order, unmanaged k3s links, saved profile")
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
         nw4 = netcheck.nw4_before(vm)
+        vm.mark("F34 the box's own monitor shows the desktop by default (kiosk on)"); f34(vm, a.board)
         vm.mark("F15 the owner shell: key-only SSH, tty2 login, no baked password"); f15(vm)
         vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
         vm.mark("F14 onemind completion and man pages (#882)"); f14(vm)
+        # round-2 integration: the checks of the skipped OS PRs, in ID order (F20 reboots the box, so it is last)
+        vm.mark("F17 the clock: timesyncd, tzdata, C.UTF-8"); f17(vm)
+        vm.mark("F18 the host applies a time zone (P-04)"); f18(vm)
+        vm.mark("F21 renaming the box: hostnamed, the data partition and avahi (P-05)"); f21(vm)
+        # the host restarts the gateway a few seconds after a rename (P-05): the next checks need it answering again
+        time.sleep(10); http_code(vm, f"{GW}/healthz", timeout=300)
+        vm.mark("F23 SSH keys and the SSH switch through the approval queue (P-06)"); f23(vm, token)
+        vm.mark("F24 box care: fwupd, fstrim, sensors, rasdaemon, udisks2 without automount (Step 2b)"); box_marker = f24(vm, a.board)
+        vm.mark("F25 storage housekeeping: TRIM status, smartd warnings, eject refusal (P-10)"); smart_marker = f25(vm)
+        vm.mark("FP1 printing: CUPS, locked down, on /data, prints a test page (Step 3)"); printing(vm, "FP1", "baseline")
+        if a.board in VAAPI_BOARDS:
+            vm.mark("F29 VA-API packages and vainfo (Step 3; no GPU in QEMU)"); f29(vm)
+        vm.mark("F30 console layout from /data, changed to de before the reboot"); pre30 = f30_before(vm)
+        vm.mark("F32 set-keymap through the host socket: de nodeadkeys, then a refused layout (P-11)"); pre32 = f32_before(vm)
+        mid32 = final32 = None
+        vm.mark("NS1-NS3 a wired address change rolls back by itself, a confirmed one sticks (P-08)")
+        netset.ns3(vm, record); netset.ns1(vm, record)
+        ns2 = netset.ns2_before(vm, record)
+        # F20 reboots the box: it stays the last check before F3
+        vm.mark("F20 an approved restart reboots the box and the ledger says succeeded (W1)"); f20(vm, token)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
-            seg = vm.here(); vm.send("systemctl reboot")
-            al = vm.expect(ALREADY, 900).group(0)
-            g3 = vm.wait_gate(); vm.shell_ready()
+            seg, al, g3 = reboot_and_wait(vm); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
             hz3 = http_code(vm, f"{GW}/healthz", timeout=900)
@@ -857,13 +1642,24 @@ def main():
                 diagnose(vm, f"healthz={hz3} after reboot")
             listed3 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed3 if n[0] == ids["node_id"]]
+            vm.mark("F24b box-care state after the reboot"); f24_again(vm, "F24b", box_marker)
+            vm.mark("F25b storage-housekeeping state after the reboot"); f25_again(vm, "F25b", smart_marker)
+            vm.mark("F19 the zone survives the reboot (P-04)"); f19(vm)
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
+            vm.mark("F30 the layout is still de after the reboot"); f30_after(vm, pre30)
+            mid32 = f32_state(vm)
+            vm.mark("FP2 the printer and CUPS settings survive the reboot"); printing(vm, "FP2", "again")
+            vm.mark("F22 the new name survives the reboot (P-05)"); f22(vm)
             netcheck.nw4_after(vm, record, nw4)
+            if a.board in SCREEN_BOARDS:
+                f34(vm, a.board, "F34r", after_reboot=True)
             if btmark:
                 f16_after(vm, "F16r", btmark)
+            netset.ns2_after(vm, record, ns2)
         else:
             netcheck.nw4_after(vm, record, nw4, rebooted=False)
+            netset.ns2_after(vm, record, ns2, rebooted=False)
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")
@@ -883,12 +1679,18 @@ def main():
             listed4 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed4 if n[0] == ids["node_id"]]
             already = re.search(ALREADY, s) is not None
+            vm.mark("F24c box-care state after the A/B update"); f24_again(vm, "F24c", box_marker)
+            vm.mark("F25c storage-housekeeping state after the A/B update"); f25_again(vm, "F25c", smart_marker)
             record("F4", rc_i == 0 and g4 == ("mark-good", "B", "2") and mark == mark2 and len(mark) == 64 and ver2
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "
                    f"new_token={bool(TOKEN.search(s))} same_ids={ids4 == ids} healthz={hz4} listed={listed4}")
+            vm.mark("F31 the layout is still de after the A/B update"); f31(vm)
+            final32 = f32_state(vm)
+            vm.mark("FP3 the printer and CUPS settings survive the A/B update"); printing(vm, "FP3", "again")
             if btmark:
                 f16_after(vm, "F16u", btmark)
+        f32_record(pre32, mid32, final32)
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")

@@ -7,7 +7,7 @@ High performance self-hosted photo and video management solution.
 
 | | |
 |---|---|
-| Version | 3.4.1 (upstream release `v3.4.1`, published 2026-11-11) |
+| Version | 3.4.2 (upstream release `v3.4.2`, published 2026-11-18) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
@@ -36,7 +36,7 @@ Images:
 
 - `ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23`
 - `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7`
-- `ghcr.io/immich-app/immich-server:v3.4.1@sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b`
+- `ghcr.io/immich-app/immich-server:v3.4.2@sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -108,6 +108,10 @@ To unblock: verify compatible upstream image tags and multi-architecture digests
 **Hold (apps/market-unblock-2, 2026-11-13):** Debian CVEs and Go `stdlib` in `postgres:14-vectorchord0.4.3-pgvectors0.2.0`, and `libopenexr` in the server image `v3.4.1` (the newest). Postgres tags `17-vectorchord0.4.x` exist, but changing the major version needs a data migration and Immich's supported pairing, so it is not a pin bump. Needs a founder or upstream-pairing decision before any change.
 
 **Hold (apps/147-household-apps, 2026-11-21):** re-read the registry and scanned the newest upstream tags with Trivy (amd64). `immich-server:v3.4.2` (digest `sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd`) still has CRITICAL CVE-2026-42216 and CVE-2026-42217 in `libopenexr-3-1-30` 3.1.13-2 (fixed in 3.2.12-1~deb13u1, Debian base layer of the server image) and CVE-2026-6653 in `libxml2` (no fix yet). The database image has a newer upstream tag family (`14-vectorchord1.1.1-pgvector0.8.7`), but moving Immich to a different VectorChord major is an upstream compatibility question we did not verify, so the pin is not changed. Nothing is bumped and the tier stays `blocked`. A OneMind rebuild with fixed packages needs a founder decision. Tracked on #147.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Immich server v3.4.1 to v3.4.2 (bug fixes). The database image is **not** changed: Immich v3.4.2 `docker/docker-compose.yml` still pins `postgres:14-vectorchord0.4.3-pgvectors0.2.0` at the digest used here, and moving to the `14-vectorchord1.1.1-pgvector0.8.7` family is still the open compatibility question recorded above. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
+
+**Valkey sidecar (ma/market-bump-45-blocked-app-images, 2026-11-27):** left at 9.1.3 on purpose: the committed scan shows 0 CRITICAL for it, and a newer patch (9.1.4 / 9.2.1) was not adopted in this change. The CI gate decides the tier.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

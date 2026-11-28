@@ -148,8 +148,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
     net = settings.section(NetSettings)
     env_mesh = settings.section(MeshSettings)  # what the installer wrote; the owner's stored state wins
     fab_cfg = settings.section(FabricSettings)
-    box = net.box()
-    box_ca = BoxCA(net.tls_dir or settings.audit_path.parent / "tls", box, clock=gw.clock)
+    tls_dir = net.tls_dir or settings.audit_path.parent / "tls"
+    box = net.tls_box(tls_dir)  # the CA's name: a rename does not move TLS names (P-05)
+    box_ca = BoxCA(tls_dir, box, clock=gw.clock)
     if net.tls:  # H-05: agent app pods verify the gateway's HTTPS with this CA (ONEMIND_GATEWAY_CA)
         gw.actions.gateway_ca = lambda: box_ca.ca_pem().decode()
     state_repo = MeshStateRepository(gw.db)
@@ -215,7 +216,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         gateway_session_resolver(gw.tokens, gw.authenticators), KubectlServiceResolver(settings.kubectl),
         box_domains=net.box_domains(), audit=gw.audit.append, path_routes=net.path_routes,
         exposure=exposure_of, shared=sharing_check(gw.authenticators, gw.app_filters),
-        classify=classify, browsers=getattr(app.state, "browsers", None),  # routers/browsers.py (#692)
+        classify=classify, path_aware_sessions=True,
+        browsers=getattr(app.state, "browsers", None),  # routers/browsers.py (#692)
     )
     app.add_middleware(AppProxyMiddleware, proxy=proxy)
 

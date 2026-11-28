@@ -25,14 +25,26 @@ class IdentitySettings:
     refresh_days: int = 30
     # Cookies carry Secure; turn off only for a plain-HTTP dev box (browsers keep Secure cookies on localhost).
     cookie_secure: bool = True
-    # §12.3 / F-2: once an owner has a passkey, every owner approval needs an assertion.
+    # Retain the existing policy of an action-bound assertion even for low-risk approvals in a
+    # passkey session. Password and authenticator sessions are governed by D-034's verification levels.
     require_passkey_approval: bool = True
     # #702 / F-2 (not yet decided): a phone's device-bound approver key may approve destructive and
     # actuate requests only when this is on. Off: those still need a passkey. Physical actions always do.
     approver_key_high_risk: bool = False
     # §12.6 / F-14: role default scopes for sessions. Static-file tokens always keep v0 behaviour.
     enforce_role_scopes: bool = True
-    # How recent a passkey sign-in must be for user, passkey and access administration.
+    # Immediately offer the box code for eligible actions before the first proven key, as in D-028.
+    # D-034 also lets someone on the home network explicitly choose the box route for L2.
+    l2_grace: bool = True
+    # The file the gateway writes and onemind-screen reads. Without a screen, L2 needs a proven key.
+    box_code_file: Path | None = None
+    # Optional RAM-only disk unlock key delivered to the setup owner with the sign-in recovery kit.
+    recovery_key_file: Path | None = None
+    # Appliance boot's authoritative encrypted/plain status. Missing status or key blocks encrypted setup.
+    recovery_disk_state_file: Path | None = None
+    # The authenticator allow-list; empty = the file shipped with the gateway (identity/levels.py).
+    allowlist_file: Path | None = None
+    # How recently the person must have proved L1.
     step_up_s: int = 300
     # §12.1: failed logins per source per minute before a back-off.
     login_failures_per_min: int = 10

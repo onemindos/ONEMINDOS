@@ -8,6 +8,7 @@ import { OneMind, OneMindError, type components } from '@onemind/sdk';
 import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
 import { usePoll } from '../../lib/hooks';
 import { useSignedIn } from '../../session';
+import { useShell } from '../../shell/Shell';
 import { getJson } from '../records';
 import { Load } from '../parts';
 
@@ -23,9 +24,10 @@ const nodeName = (c: RadioCard) => c.hostname || c.node_id || 'a machine';
 const KIND: Record<string, string> = { lora: 'LoRa radio', zigbee: 'Zigbee radio', 'zigbee-thread': 'Zigbee and Thread radio' };
 
 export function Radios() {
-  const { token, person, mock, principal } = useSignedIn();
+  const { token, person, mock } = useSignedIn();
+  const { role } = useShell(); // a real hub's session has no principal; the role comes from GET /v1/me
   if (mock) return null;
-  return <LiveRadios key={person} token={token} owner={principal?.role === 'owner'} />;
+  return <LiveRadios key={person} token={token} owner={role === 'owner'} />;
 }
 
 function LiveRadios({ token, owner }: { token: string; owner: boolean }) {

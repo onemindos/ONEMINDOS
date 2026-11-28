@@ -7,7 +7,7 @@ import type { OneMindApi } from '../../api/client';
 import { usePoll } from '../../lib/hooks';
 import { SessionProvider, useSession, useSignedIn } from '../../session';
 import { LockScreen } from './LockScreen';
-import { readIdleLock, readLock, saveIdleLock, useIdleLock } from './state';
+import { inKiosk, readIdleLock, readLock, saveIdleLock, useIdleLock } from './state';
 
 afterEach(() => {
   sessionStorage.clear();
@@ -112,4 +112,68 @@ it('resets the idle clock on input and preserves each person’s selected timeou
   expect(lock).not.toHaveBeenCalled();
   act(() => vi.advanceTimersByTime(60_000));
   expect(lock).toHaveBeenCalledOnce();
+});
+
+it('Atlas lock: welcomes the person back with their initials, shows the clock, the waiting count and where it signs in', async () => {
+  const { initials, whereLine } = await import('./LockScreen');
+  render(<LockScreen summary={{ boxName: 'Home Hub', waiting: 1, person: 'Sam Rivera' }} mock={false} />);
+  expect(screen.getByRole('heading', { name: 'Welcome back, Sam Rivera' })).toHaveFocus();
+  expect(screen.getByText('SR')).toHaveAttribute('aria-hidden', 'true');
+  expect(screen.getByText('Home Hub is locked.')).toBeVisible();
+  expect(screen.getByText('1 waiting for a decision')).toBeVisible();
+  expect(document.querySelector('main time')).not.toBeNull();
+  // D-034: passkeys are optional, and the screen says so instead of offering a passkey only.
+  expect(screen.getByText(/your passkey, your password \(and code/)).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Unlock' })).toBeVisible();
+  const violations = await axe.run(document.querySelector('main')!, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa'] });
+  expect(violations.violations).toEqual([]);
+
+  expect(initials('maya')).toBe('M');
+  expect(initials('  Ana  María López ')).toBe('AM');
+  expect(whereLine('Home', { protocol: 'http:', hostname: '127.0.0.1' })).toMatch(/on this box's own screen$/);
+  expect(whereLine('Home', { protocol: 'https:', hostname: 'home.local' })).toMatch(/encrypted connection$/);
+  expect(whereLine('Home', { protocol: 'http:', hostname: '192.0.2.10' })).toMatch(/not encrypted/);
+  expect(whereLine('Home', { protocol: 'https:', hostname: 'home.local' })).toContain('no cloud account');
+});
+
+it('the lock snapshot keeps a display name only, trimmed, and stays valid without one', () => {
+  sessionStorage.setItem('onemind.locked', JSON.stringify({ boxName: 'Home', waiting: 0, person: '  Sam  ' }));
+  expect(readLock()).toEqual({ boxName: 'Home', waiting: 0, person: 'Sam' });
+  sessionStorage.setItem('onemind.locked', JSON.stringify({ boxName: 'Home', waiting: 0, person: 42 }));
+  expect(readLock()).toEqual({ boxName: 'Home', waiting: 0 });
+  sessionStorage.setItem('onemind.locked', JSON.stringify({ boxName: 'Home', waiting: 0, person: 'x'.repeat(200) }));
+  expect(readLock()?.person).toHaveLength(64);
+});
+
+it('sign-in offers the password and authenticator code beside the passkey, not hidden behind it (D-034)', async () => {
+  // A browser that can use passkeys (webauthnSupported reads these two).
+  vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {});
+  if (!navigator.credentials) Object.defineProperty(navigator, 'credentials', { value: {}, configurable: true });
+  const { SignIn } = await import('../../pages/SignIn');
+  render(
+    <SessionProvider deps={{ mock: true, makeApi: () => ({ instance: vi.fn().mockResolvedValue({}) } as unknown as OneMindApi), knownPrincipal: () => undefined }}>
+      <SignIn mock={false} lockedBox="Home Hub" />
+    </SessionProvider>,
+  );
+  expect(screen.getByRole('button', { name: 'Use my passkey' })).toBeVisible();
+  const username = screen.getByLabelText('Username');
+  expect(username.closest('details')).toBeNull();                 // a first choice, not "other ways"
+  expect(screen.getByLabelText('Authenticator code (if configured)')).toHaveAttribute('inputmode', 'numeric');
+  expect(screen.getByLabelText('Access token').closest('details')).not.toBeNull();
+  vi.unstubAllGlobals();
+});
+
+it('on the box\'s own screen (kiosk=1) every role locks when idle and nobody can switch it off', () => {
+  expect(inKiosk()).toBe(false);
+  expect(readIdleLock('adult', false)).toBe(0);                 // a normal browser: the role default
+  window.history.replaceState(null, '', '/?kiosk=1');
+  expect(inKiosk()).toBe(true);
+  window.history.replaceState(null, '', '/');                   // the router drops the query; the tab keeps the marker
+  expect(inKiosk()).toBe(true);
+  expect(readIdleLock('adult', false)).toBe(5);
+  expect(readIdleLock('owner', true)).toBe(15);
+  expect(saveIdleLock('owner', 0)).toBe(false);
+  expect(readIdleLock('owner', true)).toBe(15);
+  expect(saveIdleLock('owner', 60)).toBe(true);
+  expect(readIdleLock('owner', true)).toBe(60);
 });

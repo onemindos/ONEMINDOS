@@ -9,8 +9,28 @@ from onemind_core.auth import Principal
 from onemind_core.errors import ApiError
 from onemind_core.eventstream import events_for_record
 from onemind_core.work.service import ProjectFields, TaskFields
-from test_identity import csrf, idc, setup_owner  # noqa: F401 (pytest fixture)
+from onemind_core.identity.crypto import totp_code
+from test_appstore import request
+from test_identity import PASSWORD, at_box, csrf, idc, setup_owner  # noqa: F401 (pytest fixture)
+from test_identity_signin import enable_totp
 from test_mcp import H, rpc
+
+
+def run_signed(c, clock, secret, type_, params) -> dict:
+    """Request and approve from the owner's session. D-034: once the household has an account, an approval
+    needs a fresh proof, here the password and an authenticator code."""
+    headers = csrf(c)
+    filed = request(c, clock, type_, params, headers=headers)
+    assert filed.status_code == 201, filed.text
+    approve = f"/v1/actions/{filed.json()['id']}/approve"
+    opts = c.post(approve + "-options", headers=headers, json={"method": "password+totp", "at_box": True})
+    assert opts.status_code == 200, opts.text
+    proof = {"challenge": opts.json()["challenge"], "password": PASSWORD,
+             "totp": totp_code(secret, int(clock.now.timestamp()) // 30)}
+    done = c.post(approve, headers=headers, json={"password_totp": proof, **at_box(c, opts.json())})
+    assert done.status_code == 200, done.text
+    clock.advance(30)  # each authenticator code is accepted once
+    return done.json()
 
 
 def test_capture_replays_and_partial_update_uses_task_revision(client):
@@ -66,7 +86,7 @@ def test_child_or_teen_cannot_list_edit_or_borrow_non_owned_task(client, role):
         assert failure.value.status == 404
 
 
-def test_scoped_agent_reads_only_its_owners_opted_in_tasks_and_mcp_taints(idc):
+def test_scoped_agent_reads_only_its_owners_opted_in_tasks_and_mcp_taints(idc, clock):
     setup_owner(idc)
     headers = csrf(idc)
     for key, level in (("shared", "read"), ("private", "none")):
@@ -94,3 +114,13 @@ def test_scoped_agent_reads_only_its_owners_opted_in_tasks_and_mcp_taints(idc):
     assert {tool["name"] for tool in catalogue} == {"get_instance", "work_tasks_list", "work_task_get"}
     request = rpc(idc, "tools/call", {"name": "request_action", "arguments": {}}, headers={**H, **bearer})
     assert request.json()["result"]["isError"]
+
+    secret = enable_totp(idc, clock)
+    assert run_signed(idc, clock, secret, "app.disable", {"app_id": "work"})["state"] == "succeeded"
+    off = rpc(idc, "tools/list", headers={**H, **bearer}).json()["result"]["tools"]
+    assert {tool["name"] for tool in off} == {"get_instance"}
+    for name, arguments in (("work_tasks_list", {}), ("work_task_get", {"project_id": "shared", "task_id": "task"})):
+        reply = rpc(idc, "tools/call", {"name": name, "arguments": arguments}, headers={**H, **bearer})
+        assert reply.json()["result"]["structuredContent"]["error"] == "app_disabled"
+    assert run_signed(idc, clock, secret, "app.enable", {"app_id": "work"})["state"] == "succeeded"
+    assert rpc(idc, "tools/list", headers={**H, **bearer}).json()["result"]["tools"] == catalogue

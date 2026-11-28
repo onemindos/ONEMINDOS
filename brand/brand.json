@@ -70,7 +70,10 @@
     "name": "OneMind OS",
     "prettyName": "OneMind OS",
     "ansiColor": "red",
-    "boot": { "variant": "white", "size": 256, "background": "black" },
+    "boot": { "variant": "on-dark", "size": 256, "background": "black",
+              "text": "#F3F2EF", "muted": "#A6A7AC", "ok": "#5BC98A", "footer": "#8C8D92",
+              "progress": "#CC1F2B", "track": "#26272C",
+              "footerText": "OneMind OS · an update that does not start healthy is rolled back by itself" },
     "grub": { "variant": "white", "size": 128, "foreground": "white", "background": "black", "highlight": "light-red" }
   }
 }

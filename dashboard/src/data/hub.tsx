@@ -210,7 +210,8 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
 /** What an action is about: the app's name, else the machine's name. */
 export function subjectOf(hub: Pick<Hub, 'appName'>, a: Pick<Action, 'params'>): string {
-  return a.params.app_id !== undefined ? hub.appName(a.params.app_id) : a.params.name ?? '';
+  const { app_id: appId, name } = a.params;
+  return typeof appId === 'string' ? hub.appName(appId) : typeof name === 'string' ? name : '';
 }
 
 /** Plain words for an ApiError, for toasts. */

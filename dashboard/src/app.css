@@ -16,13 +16,47 @@
 .dash-signin-mark { width: 40px; height: 40px; }
 .dash-signin-form { display: flex; flex-direction: column; gap: var(--om-space-2); }
 .dash-signin-form label { font-weight: var(--om-font-weight-semibold); }
-.dash-signin-form input { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
+.dash-signin-form input:not([type='checkbox']), .dash-invite input { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
 .dash-signin-form input:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dash-identity-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-2); }
+.dash-identity-factors, .dash-invite { display: grid; gap: var(--om-space-2); }
+.dash-identity-factors h3 { margin: var(--om-space-2) 0 var(--om-space-1); font-size: var(--om-font-size-md); }
+.dash-identity-check { display: flex; align-items: baseline; gap: var(--om-space-2); }
+.dash-kit-sheet dd { margin: 0 0 var(--om-space-2); overflow-wrap: anywhere; }
+@media print {
+  body:has(.dash-kit-sheet) * { visibility: hidden; }
+  body:has(.dash-kit-sheet) .dash-signin-card { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  body .dash-kit-sheet, body .dash-kit-sheet * { visibility: visible; color: black; }
+  .dash-kit-sheet { position: fixed; inset: 0; width: 100%; padding: 1rem; }
+}
 
 /* Sign-in over the wallpaper (polish): the picture sits behind a veil in the page colour, so text on the card keeps its contrast. */
 .dash-signin-wp { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
 .dash-signin-wp .om-cz-wp { position: absolute; inset: 0; }
 .dash-signin-wp::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--om-color-bg) 30%, transparent); }
+/* Lock screen (design-v2 screen 11): box name top left, big clock, the card, the waiting count and where this goes. Tokens only. */
+.dash-lock { grid-template-rows: auto auto 1fr auto; align-content: start; gap: var(--om-space-6); padding-block: var(--om-space-8); }
+.dash-lock-wp .om-cz-wp { filter: blur(3px); transform: scale(1.02); }
+.dash-lock-box { position: absolute; top: var(--om-space-6); left: var(--om-space-8); display: flex; align-items: center; gap: var(--om-space-2); margin: 0; font-weight: var(--om-font-weight-semibold); }
+.dash-lock-mark { width: 28px; height: 28px; }
+.dash-lock-time { text-align: center; margin-top: var(--om-space-12); }
+.dash-lock-time time { display: block; font-size: clamp(var(--om-font-size-4xl), 11vw, 6.5rem); font-weight: var(--om-font-weight-regular); letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.dash-lock-time p { margin: var(--om-space-2) 0 0; font-size: var(--om-font-size-lg); font-weight: var(--om-font-weight-medium); }
+.dash-lock-card { text-align: center; margin-top: var(--om-space-12); position: relative; }
+.dash-lock-avatar { display: grid; place-items: center; width: 76px; height: 76px; margin: calc(-1 * var(--om-space-12)) auto 0; border-radius: var(--om-radius-pill); background: var(--om-color-accent-soft); color: var(--om-color-text); border: 3px solid var(--om-color-surface-raised); font-size: var(--om-font-size-2xl); font-weight: var(--om-font-weight-semibold); }
+.dash-lock-ways { margin: 0; }
+.dash-lock-glance, .dash-lock-where { position: absolute; bottom: var(--om-space-6); margin: 0; display: flex; align-items: center; gap: var(--om-space-2); font-size: var(--om-font-size-sm); }
+.dash-lock-glance { left: var(--om-space-8); padding: var(--om-space-2) var(--om-space-4); border-radius: var(--om-radius-lg); background: color-mix(in srgb, var(--om-color-surface-raised) 70%, transparent); border: 1px solid var(--om-color-border); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.dash-lock-dot { width: 10px; height: 10px; border-radius: var(--om-radius-pill); background: var(--om-color-ok-fg); }
+.dash-lock-dot-needs { background: var(--om-color-accent); }
+.dash-lock-where { left: 0; right: 0; justify-content: center; color: var(--om-color-text-muted); pointer-events: none; }
+@media (max-width: 720px) {
+  .dash-lock-box { left: var(--om-space-4); }
+  .dash-lock-glance, .dash-lock-where { position: static; justify-content: center; }
+  .dash-lock-glance { justify-self: center; }
+}
+.dash-signin-or { display: flex; align-items: center; gap: var(--om-space-2); margin: 0; color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); }
+.dash-signin-or::before, .dash-signin-or::after { content: ''; flex: 1; border-top: 1px solid var(--om-color-border); }
 .dash-signin-more { display: flex; flex-direction: column; gap: var(--om-space-3); }
 .dash-signin-more > summary { cursor: pointer; display: flex; align-items: center; min-height: var(--om-layout-touch-target); font-weight: var(--om-font-weight-semibold); color: var(--om-color-accent-link, var(--om-color-accent)); text-decoration: underline; }
 .dash-signin-more > summary:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
@@ -85,3 +119,22 @@
 .dash-tech > summary:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 
 .dash-world-stale { color: var(--om-color-text-muted); }
+
+/* Plugins (Atlas screen 10): installed list, the five places, and the misbehaviour panel. Tokens only. */
+.dash-plugins-grid { display: grid; grid-template-columns: minmax(200px, 250px) minmax(0, 1fr) minmax(240px, 340px); gap: var(--om-space-4); align-items: start; }
+@media (max-width: 960px) { .dash-plugins-grid { grid-template-columns: minmax(0, 1fr); } }
+.dash-plugins-list { display: flex; flex-direction: column; gap: var(--om-space-2); }
+.dash-plugins-list h2, .dash-plugins-detail h2 { margin: 0; font-size: var(--om-font-size-md); display: flex; align-items: center; gap: var(--om-space-2); flex-wrap: wrap; }
+.dash-plugins-item { display: flex; align-items: center; justify-content: space-between; gap: var(--om-space-2); min-height: var(--om-layout-touch-target); padding: var(--om-space-2) var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; text-align: start; cursor: pointer; }
+.dash-plugins-item small { display: block; color: var(--om-color-text-muted); font-size: var(--om-font-size-xs); }
+.dash-plugins-item[aria-current='true'] { background: var(--om-color-accent-soft); border-color: var(--om-color-accent); }
+.dash-plugins-item:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dash-plugins-detail { display: flex; flex-direction: column; gap: var(--om-space-3); min-width: 0; }
+.dash-plugins-table { width: 100%; border-collapse: collapse; font-size: var(--om-font-size-sm); }
+.dash-plugins-table th, .dash-plugins-table td { text-align: start; padding: var(--om-space-2); border-bottom: 1px solid var(--om-color-border); vertical-align: top; }
+.dash-plugins-table thead th { color: var(--om-color-text-muted); font-weight: var(--om-font-weight-semibold); }
+.dash-plugins-n { display: inline-grid; place-items: center; width: 1.125rem; height: 1.125rem; border-radius: 50%; background: var(--om-color-accent); color: var(--om-color-accent-text); font-size: var(--om-font-size-xs); }
+.dash-plugins-side { display: flex; flex-direction: column; gap: var(--om-space-3); }
+.dash-plugins-actions { display: flex; flex-wrap: wrap; gap: var(--om-space-2); margin: var(--om-space-3) 0; }
+.dash-plugins-cmd { display: block; overflow-wrap: anywhere; }
+.dash-plugins-never { margin: 0; padding-inline-start: var(--om-space-4); }

@@ -4,14 +4,14 @@
 
 Why: the org shares 20 concurrent GitHub-hosted jobs (Free plan), and all seven shards on every PR
 push left runs queued for up to 85 minutes. Founder choice (2026-11-15): each PR push runs only the
-3 SQLite shards (fast feedback); the 4 PostgreSQL + NATS shards run once per merge, in the merge
+6 SQLite shards (fast feedback; 3 until 2026-11-28); the 4 PostgreSQL + NATS shards run once per merge, in the merge
 queue, where the `merge-gate` check holds the merge until they pass. Pushes to main and manual runs
 still run all seven.
 
-  pull_request  -> 3 SQLite shards
+  pull_request  -> 6 SQLite shards
   merge_group   -> 4 PostgreSQL shards, only if the queued change touches core/, sdk/ or this
                    workflow (merge_group events have no `paths:` filter, so we filter here)
-  push, workflow_dispatch -> all 7
+  push, workflow_dispatch -> all 10
 
 CI-13 (issue 299): the SQLite shards need no Docker services, so they may run on the Mac's local
 runner; the PostgreSQL shards need the postgres and nats service containers and stay GitHub-hosted.
@@ -29,7 +29,7 @@ import os
 import sys
 import urllib.request
 
-SQLITE = [{"backend": "sqlite", "shard": f"{i}/3"} for i in (1, 2, 3)]
+SQLITE = [{"backend": "sqlite", "shard": f"{i}/6"} for i in range(1, 7)]  # 6 since 2026-11-28 (was 3)
 POSTGRES = [{"backend": "postgresql", "shard": f"{i}/4"} for i in (1, 2, 3, 4)]
 WATCHED = ("core/", "sdk/", ".github/workflows/ci-core.yml", "scripts/ci-core-matrix.py")
 COMPARE_LIMIT = 300  # the compare API lists at most 300 files; past that, assume core changed

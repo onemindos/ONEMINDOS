@@ -13,6 +13,11 @@ deploy/install.sh box are set up the same way, IMG-MESH-01 #292).
   onemind-firstboot join         worker/leaf: `onemind fabric join` with the saved join code
                                  (onemind-fabric-join.service; the owner approves on the hub)
 
+The box's own monitor shows the OneMind desktop (kiosk, onemind-kiosk.service) by default on the boards whose
+image has the compositor (founder decision 2026-11-28): `apply` switches it on once, before setup, so a monitor on
+a fresh box shows the setup page and then the desktop. `kiosk = off` in the settings, the wizard's choice, or
+`onemind kiosk disable` turns it off, and first boot never turns it back on.
+
 Where the settings come from, first match wins:
   1. a cloud-init / NoCloud seed: `onemind:` mapping in the #cloud-config user-data
      (cloud-init's copy on cloud boards, else a filesystem labelled CIDATA/cidata, read-only)
@@ -39,9 +44,11 @@ import shutil
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 from urllib.parse import parse_qs, urlsplit
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import onemind_k3s_state as durable  # noqa: E402  (atomic writes, syncfs; same folder, -I does not add it)
 
 ROLES = ("hub", "worker", "leaf")
 # Started on every boot. A unit whose Condition* is not met yet is skipped without error (for
@@ -51,7 +58,7 @@ ROLE_UNITS = {
     "hub": ["onemind-starting.service", "onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
             "onemind-gateway-kube.service", "tailscaled.service", "onemind-headscale.service",
             "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service",
-            "onemind-storage.service", "onemind-images.service"],
+            "onemind-storage.service", "onemind-images.service", "onemind-k3s-settle.service"],
     # A worker and a leaf both get the mesh and a local NATS leaf (internal/fabric Installer.Apply).
     "worker": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
     "leaf": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
@@ -59,11 +66,16 @@ ROLE_UNITS = {
 # A box configured before IMG-MESH-01 (state.json without "mesh") keeps the units it was set up for.
 LEGACY_ROLE_UNITS = {
     "hub": ["onemind-nats.service", "onemindd.service", "onemind-gateway.service", "onemind-gateway-kube.service",
-            "onemind-rescue.service", "onemind-host.service"],
+            "onemind-rescue.service", "onemind-host.service", "onemind-k3s-settle.service"],
     "worker": ["onemindd.service"],
     "leaf": ["onemind-nats.service", "onemindd.service"],
 }
-KEYS = ("role", "name", "join_code", "hub_addr")
+KEYS = ("role", "name", "join_code", "hub_addr", "kiosk")
+# The kiosk switch (onemind-kiosk.service and onemind-screen.service test the flag; core routers/kiosk.py and
+# `onemind kiosk` write the same file). The marker records that first boot set the default, so it does so once.
+KIOSK_ON = ("on", "yes", "true", "1")
+KIOSK_OFF = ("off", "no", "false", "0")
+KIOSK_COMPOSITOR = "/usr/bin/cage"     # only the screen boards' images carry it (os/boards/*/packages-debian.txt)
 NAME_RE = re.compile(r"^[^\x00-\x1f\"\\]{1,64}$")
 SCHEMA = "onemind.firstboot/v1"
 
@@ -115,6 +127,10 @@ class Paths:
         self.fabric_state = j("data", "onemind", "etc", "fabric.json")  # written by `onemind fabric join`
         self.hosts = j("etc", "hosts")                                   # a bind mount from /data on the image
         self.state = j("data", "onemind", "firstboot", "state.json")
+        self.kiosk_dir = j("data", "onemind", "kiosk")                   # the gateway owns it (onemind-gateway.service)
+        self.kiosk_flag = j("data", "onemind", "kiosk", "enabled")
+        self.kiosk_marker = j("data", "onemind", "firstboot", "kiosk-default")
+        self.compositor = j(KIOSK_COMPOSITOR.lstrip("/"))
         self.esp_conf = j("boot", "efi", "onemind.conf")
         self.esp_boot = j("boot", "efi", "EFI", "BOOT")                  # grub.cfg, grubenv and user.cfg live here
         self.esp_user_cfg = j("boot", "efi", "EFI", "BOOT", "user.cfg")  # the boot menu lock (os/assemble/grub.cfg.in)
@@ -130,6 +146,10 @@ class Paths:
         self.backup_export = j("data", "onemind", "gateway", "backup-export")  # the built-ins' export (#616)
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
         self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
+        self.map_packs = j("data", "onemind", "maps", "packs")
+        # The @storage subvolume (the owner's files on a btrfs box, #152): data_encrypt.py makes its mount point, and
+        # data-storage.mount mounts it here (Where=); snapper snapshots it. test_image_backups.py keeps the three equal.
+        self.storage = j("data", "storage")
         self.k3s_data = j("data", "k3s")                # k3s --data-dir (a leaf removes it, retire_k3s)
         self.k3s_run = j("run", "k3s")                  # tmpfs: exists only if k3s started on this boot
 
@@ -217,6 +237,11 @@ def validate(cfg: dict) -> dict:
     out = {"role": role, "name": cfg.get("name", "").strip() or "OneMind"}
     if not NAME_RE.match(out["name"]):
         raise ConfigError("name: 1-64 printable characters, no quotes or backslashes")
+    kiosk = str(cfg.get("kiosk", "") or "").strip().lower()
+    if kiosk:
+        if kiosk not in KIOSK_ON + KIOSK_OFF:
+            raise ConfigError("kiosk: on or off (whether a monitor on this box shows the OneMind desktop)")
+        out["kiosk"] = "on" if kiosk in KIOSK_ON else "off"
     code, addr = cfg.get("join_code", "").strip(), cfg.get("hub_addr", "").strip()
     if role == "hub":
         if code or addr:
@@ -293,7 +318,8 @@ def run_dir(p: "Paths") -> None:
 
 
 def write(path: str, data: str, mode: int = 0o600, owner: tuple[int, int] | None = None) -> bool:
-    """Atomic write: a power cut leaves the old file or the new one, never half of one.
+    """Atomic and durable write: temp file, fsync, rename, fsync of the folder. A power cut leaves the old file
+    or the new one, never half of one, and once this returns the new one is on the disk (VM 501, bug 1).
     Returns False (and touches nothing) when the file already has exactly this content, mode and owner."""
     try:
         st = os.stat(path)
@@ -302,22 +328,7 @@ def write(path: str, data: str, mode: int = 0o600, owner: tuple[int, int] | None
             return False
     except OSError:
         pass
-    d = os.path.dirname(path)
-    os.makedirs(d, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=d, prefix=".tmp-")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        os.chmod(tmp, mode)
-        if owner:
-            os.chown(tmp, *owner)
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-        raise
+    durable.atomic_write(path, data, mode, owner)      # temp + fsync + rename + fsync of the folder
     return True
 
 
@@ -475,14 +486,34 @@ def nats_service_keys(p: Paths) -> None:
     os.makedirs(p.nats_keys, mode=0o755, exist_ok=True)
     os.chmod(os.path.dirname(p.nats_keys), 0o755)
     os.chmod(p.nats_keys, 0o755)
-    for name in ("gateway", "onemindd"):
+    # "observer" (#620) is the gateway's read-only reader of the server's connect and auth-error events:
+    # natsconf puts it in the SYS account, not the hub account.
+    for name in ("gateway", "onemindd", "observer"):
         natsconf.make_service_key(Path(p.nats_keys), name)
     ids = onemind_ids()
     if ids:
-        os.chown(os.path.join(p.nats_keys, "gateway.nk"), *ids)
+        for name in ("gateway", "observer"):
+            os.chown(os.path.join(p.nats_keys, f"{name}.nk"), *ids)
     # The first accounts file (hub account with the two service keys); the gateway owns and rewrites it.
     os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(jetstream_max_bytes(p)))
     natsconf.main([p.accounts, p.nats_keys])
+
+
+def ensure_observer_key(p: Paths) -> None:
+    """Every boot, hub only (#620): a box set up before the observer existed and updated through RAUC has
+    no observer key, so the bus would stay unwatched for good. Make the key now, before the gateway starts:
+    the gateway rewrites the accounts file at startup and puts the key in the SYS account. A key that is
+    already there is kept."""
+    from pathlib import Path
+
+    from onemind_core import natsconf
+    if not os.path.isfile(os.path.join(p.nats_keys, "gateway.nk")) or os.path.isfile(os.path.join(p.nats_keys, "observer.nk")):
+        return
+    natsconf.make_service_key(Path(p.nats_keys), "observer")
+    ids = onemind_ids()
+    if ids:
+        os.chown(os.path.join(p.nats_keys, "observer.nk"), *ids)
+    log("NATS observer key made (the bus is watched from the next gateway start)")
 
 
 # The hub NATS reads copies of these from its runtime dir (onemind-nats.service, onemind-nats-files).
@@ -570,7 +601,7 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
            f"ONEMIND_FABRIC_NATS_SERVICE_KEYS={p.nats_keys}\n"
            f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n"
            f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={js_max_bytes}\nONEMIND_FABRIC_JETSTREAM_PATH={JETSTREAM_MOUNT}\n")
-    out += backup_gateway_env(p)
+    out += map_gateway_env(p) + backup_gateway_env(p)
     if mesh_ip:
         out += ("# The mesh (written by `onemind-firstboot mesh` once the hub has its mesh address).\n"
                 "ONEMIND_MESH_ENABLED=1\n"
@@ -581,6 +612,12 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
     return out
 
 
+def map_gateway_env(p: Paths) -> str:
+    return (f"ONEMIND_MAP_PACKS_DIR={p.map_packs}\n"
+            f"ONEMIND_MAP_REGION_CATALOG={p.lib}/maps/regions.json\n"
+            f"ONEMIND_MAP_REGION_KEY_FILE={p.lib}/keys/map-regions.pub\n")
+
+
 # ------------------------------------------------------------------ hub: backups (IMG-BACKUP-01)
 # restic ships in the image (/usr/lib/onemind/restic). The agent runs inside onemindd and starts when
 # agent.json exists; the gateway drives it when ONEMIND_BACKUPS_ENABLED=1. No destination is set here:
@@ -588,10 +625,22 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
 K3S_BACKUP_VERSION = "v1.37.2-k3s1"     # os/versions.lock.yaml k3s.version, "+" written as "-"
 
 
-def backup_system_paths(p: Paths) -> list[str]:
+def backup_system_paths(p: Paths, has_storage: bool | None = None) -> list[str]:
     """What the agent's `system` unit copies as files: settings, the box CA, NATS keys, and (#616) the
-    built-ins' table export the gateway writes before each run plus the built-in folders on this box."""
-    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files]
+    built-ins' table export the gateway writes before each run plus the built-in folders on this box, and (#1148) the
+    @storage mount (/data/storage) on a box that has one. Only then: the agent fails the whole unit when a source is
+    missing, and an ext4 box installed before #152 has no /data/storage. upgrade_agent_conf adds it on a later boot."""
+    if has_storage is None:
+        has_storage = os.path.isdir(p.storage)
+    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files] + ([p.storage] if has_storage else [])
+
+
+def backup_system_excludes(p: Paths, has_storage: bool | None = None) -> list[str]:
+    """snapper's snapshots live inside @storage (/data/storage/.snapshots): restic would walk every one of them on every
+    run, and they are on-disk undo copies of files the backup already holds, so the system unit leaves them out."""
+    if has_storage is None:
+        has_storage = os.path.isdir(p.storage)
+    return [os.path.join(p.storage, ".snapshots")] if has_storage else []
 
 
 def builtin_backup_env(p: Paths) -> str:
@@ -626,6 +675,7 @@ def backup_agent_conf(p: Paths, node_id: str) -> dict:
         "targets": [],
         "units": {
             "system": {"paths": backup_system_paths(p),
+                       **({"excludes": ex} if (ex := backup_system_excludes(p)) else {}),
                        "sqlite": [{"path": f"{p.gateway}/onemind.db", "name": "gateway.db"}],
                        "audit_log": f"{p.gateway}/audit.jsonl"},
             "k3s": {"paths": ["/data/k3s/server/token", "/data/k3s/server/tls",
@@ -644,15 +694,21 @@ def _append_missing(path: str, key: str, text: str) -> None:
 
 
 def upgrade_agent_conf(p: Paths) -> None:
-    """A box set up before #616 keeps its agent.json; add the system paths it lacks, change nothing else."""
+    """A box set up before #616 (or before its /data/storage existed, #1148) keeps its agent.json; add the system paths
+    and excludes it lacks, change nothing else."""
     conf = json.loads(_read(p.backup_conf) or "{}")
     system = conf.get("units", {}).get("system")
     if not isinstance(system, dict):
         return
     paths = list(system.get("paths") or [])
+    excludes = list(system.get("excludes") or [])
     missing = [x for x in backup_system_paths(p) if x not in paths]
+    missing_ex = [x for x in backup_system_excludes(p) if x not in excludes]
     if missing:
         system["paths"] = paths + missing
+    if missing_ex:
+        system["excludes"] = excludes + missing_ex
+    if missing or missing_ex:
         write(p.backup_conf, json.dumps(conf, indent=2) + "\n")
 
 
@@ -827,6 +883,34 @@ def ensure_rescue_tls(p: Paths) -> None:
 
 
 # ------------------------------------------------------------------ configure
+def set_kiosk(p: Paths, on: bool) -> None:
+    """Create or remove the kiosk flag. The folder belongs to the gateway user (it switches the flag over the
+    API), so a flag made here as root stays removable by it. onemind-kiosk.path applies the change."""
+    if on:
+        os.makedirs(p.kiosk_dir, mode=0o755, exist_ok=True)
+        os.chmod(p.kiosk_dir, 0o755)        # the unit's UMask=0077 would make it 0700: the kiosk user must see the flag
+        ids = onemind_ids()
+        if ids:
+            os.chown(p.kiosk_dir, *ids)
+        write(p.kiosk_flag, "on\n", 0o644, ids)
+    else:
+        try:
+            os.unlink(p.kiosk_flag)
+        except FileNotFoundError:
+            pass
+
+
+def kiosk_default(p: Paths) -> bool:
+    """Kiosk on by default (founder 2026-11-28), on a box that is not set up yet and whose image has the
+    compositor. Once only: the marker keeps an owner's later "off" off across reboots and updates, and a box set
+    up before this change keeps the screen its owner knows. True when it switched the kiosk on."""
+    if os.path.exists(p.kiosk_marker) or not os.path.exists(p.compositor):
+        return False
+    set_kiosk(p, True)
+    write(p.kiosk_marker, "kiosk switched on by first boot (default); the owner may turn it off\n", 0o644)
+    return True
+
+
 def configure(p: Paths, cfg: dict, source: str) -> str | None:
     """Write role, secrets and service settings. Returns the owner token (hub) or None.
     state.json is written last: until it exists, the next boot configures again from scratch."""
@@ -883,7 +967,16 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
         if cfg.get("hub_addr"):
             st["hub_addr"] = cfg["hub_addr"]
         st["hub"] = parse_join_code(cfg["join_code"])["hub"]
+    # The desktop is the hub's (it serves the dashboard); a worker or leaf screen shows the text screen, which
+    # says to manage it from the hub. On a hub an explicit choice wins; without one the default stays.
+    kiosk = cfg.get("kiosk") if role == "hub" else "off"
+    if kiosk:
+        set_kiosk(p, kiosk == "on")
+        st["kiosk"] = kiosk
     write(os.path.join(p.etc, "role"), role + "\n", 0o644)
+    # Everything above (helpers from onemind_core wrote some of it) is on the disk before the box says it is
+    # configured: state.json is the "done" mark, and a power cut after it must not find empty secrets.
+    durable.sync_fs(p.data if os.path.isdir(p.data) else p.root)
     st["configured_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     write(p.state, json.dumps(st, indent=2) + "\n", 0o644)
     return owner
@@ -949,6 +1042,21 @@ def ensure_files_root(p: Paths) -> None:
         os.chown(p.files, *ids)
 
 
+def ensure_map_storage(p: Paths, ids: tuple[int, int] | None) -> None:
+    os.makedirs(p.map_packs, mode=0o755, exist_ok=True)
+    os.chmod(p.map_packs, 0o755)
+    if ids:
+        os.chown(p.map_packs, *ids)
+    # Images updated after initial setup already have a gateway.env. Keep explicit settings.
+    path = os.path.join(p.etc, "gateway.env")
+    if os.path.isfile(path):
+        env = _read(path)
+        keys = {line.partition("=")[0] for line in env.splitlines()}
+        missing = [line for line in map_gateway_env(p).splitlines() if line.partition("=")[0] not in keys]
+        if missing:
+            write(path, env.rstrip("\n") + "\n" + "\n".join(missing) + "\n")
+
+
 # What k3s writes under its --data-dir. /data/k3s itself and /data/k3s/storage are made on every box by
 # onemind-data-layout.service and tmpfiles.d/onemind-backup.conf, so they stay.
 K3S_WRITES = ("server", "agent", "data")
@@ -985,9 +1093,11 @@ def start_units(p: Paths, st: dict) -> None:
         retire_k3s(p)
     if role == "hub":
         ensure_files_root(p)               # before the gateway: its sandbox needs the folder to exist
+        ids = onemind_ids()
+        ensure_map_storage(p, ids)
         ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
         # uid of "onemind" is fixed in the image (961), but re-own after an update anyway.
-        chown_tree(p.gateway, onemind_ids())
+        chown_tree(p.gateway, ids)
         ensure_backup(p, st)               # boxes configured before IMG-BACKUP-01 get backups on this boot
     units = ROLE_UNITS if st.get("mesh") else LEGACY_ROLE_UNITS
     systemctl("start", "--no-block", *units[role])
@@ -1002,8 +1112,16 @@ def apply(p: Paths) -> int:
             msg = ("ONEMIND-FIRSTBOOT: this box was set up before the mesh (IMG-MESH-01) and keeps running as it is; "
                    "to put it on the mesh, reinstall it (docs/leap/core/IMAGES.md §3)")
             log(msg); console(p, msg)
+        if st.get("role") == "hub":
+            try:
+                ensure_observer_key(p)
+            except Exception as exc:   # never blocks boot: the bus stays unwatched, nothing else changes
+                log(f"observer key not made: {exc.__class__.__name__}")
         start_units(p, st)
         return 0
+    if kiosk_default(p):
+        msg = "ONEMIND-FIRSTBOOT: a monitor on this box shows the OneMind desktop (kiosk on; `onemind kiosk disable` turns it off)"
+        log(msg); console(p, msg)
     try:
         cfg, source = find_config(p)
     except ConfigError as exc:
@@ -1050,6 +1168,10 @@ def finish(p: Paths, cfg: dict, source: str) -> int:
         log(ca); console(p, ca)
         hint = join_hint(p)
         log(hint); console(p, hint)
+    try:
+        os.sync()                           # the boot menu lock on the ESP and the rest: all on disk before the role starts
+    except OSError:
+        pass
     start_units(p, st)
     return 0
 
@@ -1283,15 +1405,16 @@ def main(argv=None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=os.environ.get("ONEMIND_FIRSTBOOT_ROOT", "/"))
     sp = ap.add_subparsers(dest="cmd", required=True)
-    for c in ("apply", "kubeconfig", "mesh", "join"):
+    handlers = {"apply": apply, "kubeconfig": kubeconfig, "mesh": mesh, "join": join}
+    for c in handlers:
         sp.add_parser(c)
     c = sp.add_parser("configure")
     for k in KEYS:
         c.add_argument("--" + k.replace("_", "-"), required=k == "role")
     a = ap.parse_args(argv)
     p = Paths(a.root)
-    if a.cmd in ("apply", "kubeconfig", "mesh", "join"):
-        return {"apply": apply, "kubeconfig": kubeconfig, "mesh": mesh, "join": join}[a.cmd](p)
+    if a.cmd in handlers:
+        return handlers[a.cmd](p)
     if load_state(p):
         print("already configured", file=sys.stderr)
         return 2

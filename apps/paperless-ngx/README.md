@@ -96,6 +96,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (2026-11-21, apps/147-household-apps):** the app image is fine at `3.4.2` (no CRITICAL with a fix), but `3.5.1` (digest `sha256:8508853b8a0f8394074260957d0be186c8c64f346973b24a7583de4580f306b9`) adds CRITICAL CVE-2026-128138 in Python `nltk` 3.10.3 (fixed in 3.10.4), so it is not adopted. The database sidecar is the blocker: `postgres:18.7-alpine` (digest `sha256:ff64c9e3bdf8e2120107d3559de8db314e8305f7e38c5105903c6295876738ff`) still has CRITICAL CVE-2025-68121 in Go `stdlib` v1.24.6 (fixed in 1.24.13), same as the pinned `18.6-alpine`. Pins unchanged, tier stays `blocked`. Unblock: an upstream postgres image built with a fixed Go, or a OneMind rebuild (founder decision). Tracked on #147.
+
+**Hold (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** not bumped in this change: the newer app tag is a regression (see the Hold line above), so the pin stays. The CI gate decides the tier.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

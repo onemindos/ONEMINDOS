@@ -168,6 +168,8 @@ export function toInstalled(a: CatalogApp, checkedAt: string, loc?: Pick<Locatio
   };
 }
 
+const finite = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
 export function toHomeNode(n: NodeRecord, status: NodeStatus = n.status): HomeNode {
   return {
     node_id: n.node_id,
@@ -182,6 +184,9 @@ export function toHomeNode(n: NodeRecord, status: NodeStatus = n.status): HomeNo
     last_seen: n.last_seen,
     status,
     uptime_s: n.uptime_s,
+    // The heartbeat nests these under `metrics`; Home reads them flat. Missing stays null, never 0.
+    cpu_percent: finite(n.metrics?.cpu_pct),
+    temp_c: finite(n.metrics?.temp_c),
   };
 }
 
@@ -196,22 +201,49 @@ export function requesterKind(kind: string | undefined): 'person' | 'agent' {
   return kind === 'person' ? 'person' : 'agent';
 }
 
-export function toActionSummary(a: Action, appName?: (id: string) => string): ActionSummary {
+/** The display name of a principal, when known (people from /v1/users, agents from /v1/agents). */
+export type PrincipalName = (who: { id: string; kind: string }) => string | undefined;
+
+/**
+ * Names for the principals on an approval: a person's display name from the users list, an agent's
+ * name from the agents list or its 'agent:<name>' id. Unknown ids stay as they are (no guessing).
+ */
+export function principalNamer(users: ReadonlyArray<{ id: string; display_name: string }>, agents: ReadonlyArray<{ id: string }>): PrincipalName {
+  const people = new Map(users.map((u) => [u.id, u.display_name]));
+  const bots = new Set(agents.map((g) => g.id));
+  return (who) => {
+    if (who.kind === 'person') return people.get(who.id) || undefined;
+    const bare = who.id.startsWith('agent:') ? who.id.slice('agent:'.length) : who.id;
+    return bots.has(bare) || who.id.startsWith('agent:') ? bare : undefined;
+  };
+}
+
+export function toActionSummary(a: Action, appName?: (id: string) => string, nameOf?: PrincipalName): ActionSummary {
   const rb = a.requested_by;
   const db = a.decided_by;
-  const appId = (a.params as Record<string, unknown>).app_id;
+  const params = a.params;
+  const { app_id: appId, display_name: personName, wait_days: wait, cooling_off_days: coolingOff } = params as Record<string, unknown>;
+  const familyInvite = ['users.invite', 'users.reinvite'].includes(a.type);
+  const impact = a.type === 'legacy.contact.add' && typeof wait === 'number' && typeof coolingOff === 'number'
+    ? `After a ${coolingOff}-day cooling-off period, this contact can file a claim after your death. If you remain inactive during the ${wait}-day claim wait and a second person confirms when available, the contact has 12 months to download a read-only export of your personal files.`
+    : undefined;
   return {
-    target_name: appName && typeof appId === 'string' ? appName(appId) : undefined,
+    target_name: familyInvite && typeof personName === 'string' ? personName
+      : appName && typeof appId === 'string' ? appName(appId) : undefined,
     id: a.id,
     type: a.type,
-    params: a.params as Record<string, unknown>,
+    params,
+    impact,
     state: a.state,
     expires_at: a.expires_at,
     hold: a.approval?.hold ? { duration: Math.max(2000, a.approval.hold_ms ?? 2000), plan: a.plan_sha256 } : undefined,
+    physical: a.approval?.physical || undefined,
     created_at: a.created_at,
-    requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role } : undefined,
-    decided_by: db ? { id: db.id, kind: db.kind } : undefined,
+    requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role, name: nameOf?.(rb) } : undefined,
+    decided_by: db ? { id: db.id, kind: db.kind, name: nameOf?.(db) } : undefined,
     message: RESULT_MESSAGE.has(a.state) ? (a.result?.message ?? undefined) : undefined,
+    // D-028: the key level approving needs, from the hub's read model; the card shows "Needs L2" from it.
+    required_level: a.required_level ?? undefined,
   };
 }
 
@@ -389,6 +421,8 @@ export function toActionPlan(a: Action): ActionPlan | undefined {
     if (typeof w === 'string' && !NETWORK_WARNING.test(w)) effects.push({ kind: 'note', risk: /no undo|deleted|refus/i.test(w) ? 'high' : 'low', label: w });
   }
   if (typeof p.summary === 'string' && p.summary) effects.unshift({ kind: 'note', risk: 'low', label: p.summary });
+  const preview = a.approval?.physical ? a.approval.preview : undefined;
+  if (preview?.kind === 'text' && preview.text) effects.unshift({ kind: 'note', risk: 'high', label: preview.text });
   // AIG-04 (#168): the requester read third-party text before asking (core taint.py). Shown first.
   const taint = p.taint as { sources?: unknown; message?: unknown } | null | undefined;
   if (taint && typeof taint === 'object') {

@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+# Owner allow rules (P-09 part 2, docs/architecture/NETWORKING.md): loads /data/onemind/firewall/live.nft into the
+# owner_lan and owner_mesh chains of the host firewall (host.nft). `onemindd host serve` writes that file from the rules
+# the owner approved with a passkey (internal/firewall/allow.go) and runs `systemctl restart` on this unit; it holds no
+# network privileges itself, this unit is the only part that does, and its only input is that one file. The file is
+# one transaction (flush both chains, add every rule), so the chains always equal the list. A rule not confirmed in time
+# is removed by the host service writing the file again. Never enabled: it starts when the host service asks.
+[Unit]
+Description=OneMind owner firewall rules (approved allow rules)
+After=onemind-firewall.service
+# A firewall restart reloads host.nft and empties both chains: restart with it so the owner's rules come back.
+PartOf=onemind-firewall.service
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/firewall/live.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/nft -c -f /data/onemind/firewall/live.nft
+ExecStart=/usr/sbin/nft -f /data/onemind/firewall/live.nft
+
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=
+ProtectSystem=strict
+ReadOnlyPaths=/data
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_NETLINK AF_UNIX
+IPAddressDeny=any

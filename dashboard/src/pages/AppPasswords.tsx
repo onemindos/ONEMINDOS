@@ -9,6 +9,7 @@ import { Button, Card, Table } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { Load } from './parts';
 
 type Row = { id: string; person_id: string; label: string; scopes: string[]; created_at: string; last_used_at: string | null };
@@ -32,9 +33,10 @@ function scopeText(scopes: string[]) {
 }
 
 export function AppPasswords() {
-  const { token, mock, principal } = useSignedIn();
+  const { token, mock } = useSignedIn();
+  const { role } = useShell();
   if (mock) return <Card title="App passwords"><p role="status">Connect to a real hub to manage app passwords. Demo mode has none.</p></Card>;
-  if (principal?.role && !HOLDERS.has(principal.role)) return null;
+  if (role === undefined || role === null || !HOLDERS.has(role)) return null; // fail closed while the role loads
   return <LiveAppPasswords token={token} />;
 }
 

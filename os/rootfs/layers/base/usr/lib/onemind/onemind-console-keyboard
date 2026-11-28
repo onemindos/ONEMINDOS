@@ -1,0 +1,52 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-console-keyboard.service: load the owner's console keyboard layout (tty1-tty6, so the tty2 login too).
+#
+# Why not Debian's console-setup service: it saves a cache under /etc (setupcon --save) and the root is read-only,
+# so it is masked in the image. The layout lives on /data instead, where it survives reboots and A/B updates:
+#   /data/onemind/console/keyboard   same format as /etc/default/keyboard (XKBMODEL, XKBLAYOUT, XKBVARIANT, XKBOPTIONS)
+# Seeded as US when absent (no onboarding keyboard setting exists yet; the onboarding screen will write this file).
+# The file is data, never sourced as shell: each value is read with sed and must match [A-Za-z0-9_,:+-]*.
+# Test hooks (test/unit/test_console_keyboard.py): ONEMIND_CONSOLE_DIR, ONEMIND_CKBCOMP, ONEMIND_LOADKEYS,
+# ONEMIND_CONSOLE_DEV, ONEMIND_CONSOLE_DEFAULT, ONEMIND_TMP.
+set -eu
+DIR=${ONEMIND_CONSOLE_DIR:-/data/onemind/console}
+CKBCOMP=${ONEMIND_CKBCOMP:-ckbcomp}
+LOADKEYS=${ONEMIND_LOADKEYS:-loadkeys}
+DEV=${ONEMIND_CONSOLE_DEV:-/dev/tty0}
+DEFAULT=${ONEMIND_CONSOLE_DEFAULT:-/usr/lib/onemind/console-keyboard.default}
+FILE=$DIR/keyboard
+
+say() { echo "onemind-console-keyboard: $*"; }
+
+# Seed the default once. A box without a usable /data still gets the US layout (nothing is written then).
+if [ ! -f "$FILE" ]; then
+  if mkdir -p "$DIR" 2>/dev/null && install -m 0644 "$DEFAULT" "$FILE" 2>/dev/null; then
+    say "seeded $FILE with the US default"
+  else
+    say "cannot write $FILE; using the US default for this boot"
+    FILE=$DEFAULT
+  fi
+fi
+
+val() { # val KEY -> the value of KEY="..." (last line wins), or empty
+  sed -n "s/^[[:space:]]*$1=\"\{0,1\}\([^\"]*\)\"\{0,1\}[[:space:]]*\$/\1/p" "$FILE" | tail -n 1
+}
+ok() { case "$1" in *[!A-Za-z0-9_,:+-]*) return 1 ;; esac; }
+
+MODEL=$(val XKBMODEL); LAYOUT=$(val XKBLAYOUT); VARIANT=$(val XKBVARIANT); OPTIONS=$(val XKBOPTIONS)
+for v in "$MODEL" "$LAYOUT" "$VARIANT" "$OPTIONS"; do
+  ok "$v" || { say "refusing $FILE: a value has characters outside [A-Za-z0-9_,:+-]; using US"; MODEL=; LAYOUT=; VARIANT=; OPTIONS=; break; }
+done
+[ -n "$MODEL" ] || MODEL=pc105
+[ -n "$LAYOUT" ] || LAYOUT=us
+
+say "layout=$LAYOUT variant=${VARIANT:-none} model=$MODEL options=${OPTIONS:-none}"
+# ckbcomp turns the X keyboard description (xkb-data) into a kernel keymap; loadkeys installs it for every console.
+# Two steps, not a pipe: sh has no pipefail, and a failed ckbcomp must not look like a loaded layout.
+MAP=$(mktemp -p "${ONEMIND_TMP:-/run}" console-keymap.XXXXXX)
+trap 'rm -f "$MAP"' EXIT
+"$CKBCOMP" -model "$MODEL" -layout "$LAYOUT" -variant "$VARIANT" -option "$OPTIONS" > "$MAP"
+[ -s "$MAP" ] || { say "ckbcomp produced no keymap for layout $LAYOUT"; exit 1; }
+"$LOADKEYS" -q -C "$DEV" "$MAP"
+say "loaded"

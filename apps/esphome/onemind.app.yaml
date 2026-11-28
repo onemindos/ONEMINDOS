@@ -7,7 +7,7 @@ kind: App
 metadata:
   id: esphome
   name: "ESPHome"
-  version: "2026.10.2"
+  version: "2026.11.1"
   description: "ESPHome is a system to control your ESP32, ESP8266, BK72xx, RP2040 by simple yet powerful configuration files and control them remotely through Home Automation systems."
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (firmware) are listed in README.md
   # until the schema has metadata.tags.
@@ -23,7 +23,7 @@ metadata:
     github: "https://github.com/esphome/esphome"
     website: "https://esphome.io/"
     support: "https://github.com/esphome/esphome/issues"
-  upstream: {release: "2026.10.2", released_at: "2026-11-02T21:30:29Z", archived: false}
+  upstream: {release: "2026.11.1", released_at: "2026-11-25T06:55:27Z", archived: false}
   # blocked by the CI app gate: fixable CRITICAL findings in libbrotli1, perl, linux-libc-dev, pillow and uv (full reported list, plus unfixed openssh-client, in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

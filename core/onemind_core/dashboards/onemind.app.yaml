@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: dashboards
+  name: Dashboards
+  description: Personal live cards and machine history.
+spec:
+  routes:
+    owns: [/v1/me/dashboard-card]
+    calls:
+      - GET /v1/me/dashboard-card
+      - PUT /v1/me/dashboard-card
+      - GET /v1/me/dashboard-card/events
+      - GET /v1/nodes
+      - GET /v1/series
+  backup:
+    units:
+      - {kind: table, name: dashboard_subject_cards}
+  data: {owns: [private], reads: [owner, activity]}
+  phone: {entry: web}

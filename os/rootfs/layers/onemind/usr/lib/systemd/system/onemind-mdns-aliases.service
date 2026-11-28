@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# After the owner renames the box (P-05) it keeps answering to onemind.local and its old name over mDNS: passkeys,
+# join codes, the HTTPS certificate and the desktop and phone apps all use those names. avahi publishes only the
+# host name, so this publishes the saved old names (/data/onemind/etc/mdns-aliases) at the box's address. Never
+# renamed: no list, the unit does not start.
+[Unit]
+Description=OneMind: keep answering to the box's old names
+After=avahi-daemon.service onemind-data-layout.service
+Requires=avahi-daemon.service
+ConditionPathExists=/data/onemind/etc/mdns-aliases
+
+[Service]
+ExecStart=/usr/bin/onemindd host mdns-aliases
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

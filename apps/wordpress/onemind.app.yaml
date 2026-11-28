@@ -9,7 +9,7 @@ kind: App
 metadata:
   id: wordpress
   name: "WordPress"
-  version: "7.1.4"
+  version: "7.1.5"
   description: "Website and blog publishing software."
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
@@ -28,7 +28,7 @@ metadata:
     github: "https://github.com/WordPress/WordPress"
     website: "https://wordpress.org"
     support: "https://wordpress.org/support/forums/"
-  upstream: {release: "7.1.4", released_at: "2026-10-28T16:12:44Z", archived: false}
+  upstream: {release: "7.1.5", released_at: "2026-11-18T16:27:36Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVE-2025-68121 in the bundled mariadb image, fix exists (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

@@ -3,22 +3,32 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
+import socket
+import threading
+import time
 from dataclasses import replace
 from datetime import timedelta
 
+import httpx
 import pytest
+import uvicorn
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+from onemind_core import serve
 from onemind_core.app import create_app
 from onemind_core.files.shares import MAX_FAILED
 from onemind_core.files.store import ShareRow
 from onemind_core.photos import PhotosSettings
 
-from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_root, files_settings, mkdir, ok, upload  # noqa: F401
+from files_support import (  # noqa: F401
+    ADULT, AGENT, GUEST, OWNER, approve_request, audit_events, fc, files_root, files_settings, mkdir, ok, rename, upload,
+)
+from test_identity import LOCAL_PEER, SoftAuthenticator, id_settings, register_passkey, setup_owner
 from test_photos import Phone, blob, sha
 
 PASSWORD = "a long share password"
@@ -32,6 +42,26 @@ def share(c, headers, clock, items, **kw):
     return c.post("/v1/files/shares", headers=headers, json={"items": items, "expires_at": when(clock, days=1), **kw})
 
 
+def listed_share(c, headers, share_id):
+    return next(row for row in ok(c.get("/v1/files/shares", headers=headers)) if row["id"] == share_id)
+
+
+def make_share(c, headers, clock, items, **kw):
+    response = share(c, headers, clock, items, **kw)
+    pending = ok(response, 202)
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["location"] == f"/v1/files/requests/{pending['id']}"
+    result = approve_request(c, pending)
+    assert result["share_id"] == pending["params"]["share_id"]
+    return {**listed_share(c, headers, result["share_id"]), "one_time": pending["one_time"]}
+
+
+def end_share(c, headers, share_id):
+    pending = ok(c.delete(f"/v1/files/shares/{share_id}", headers=headers), 202)
+    assert approve_request(c, pending) == {"share_id": share_id, "state": "revoked"}
+    return listed_share(c, headers, share_id)
+
+
 def put(c, headers, root, folder, name, data):
     ok(upload(c, headers, root, folder, name, data), 204)
     return {"root": root, "path": f"{folder.rstrip('/')}/{name}"}
@@ -43,10 +73,80 @@ def share_rows(settings) -> list[ShareRow]:
         return list(s.scalars(select(ShareRow)))
 
 
+@pytest.mark.parametrize("operation", ["rename", "rename-as-move", "create", "revoke"])
+def test_person_file_writes_wait_for_owner_approval(operation, settings, clock, executor, files_settings):
+    s = id_settings(replace(settings, sections={**settings.sections, "files": files_settings}))
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
+        item = put(c, OWNER, "shared", "/", "original.txt", b"file")
+        if operation == "revoke":
+            link = make_share(c, OWNER, clock, [item])
+            download = f"{link['one_time']['path']}/items/0"
+        setup_owner(c)
+        key = SoftAuthenticator()
+        register_passkey(c, key)
+
+        if operation in {"rename", "rename-as-move"}:
+            op = ({"op": "rename", "name": "renamed.txt"} if operation == "rename"
+                  else {"op": "move", "to_path": "/renamed.txt", "to_root": ""})
+            r = c.post("/v1/files/ops", headers=OWNER, json=item | op)
+            check_path = "/v1/files/stat?root=shared&path=/original.txt"
+            before, after = 200, 404
+        elif operation == "create":
+            r = share(c, ADULT, clock, [item], password=PASSWORD)
+            check_path = f"{r.json()['one_time']['path']}/items/0"
+            before, after = 404, 200
+        else:
+            r = c.delete(f"/v1/files/shares/{link['id']}", headers=OWNER)
+            check_path = download
+            before, after = 200, 410
+
+        pending = ok(r, 202)
+        assert pending["state"] == "awaiting_approval"
+        path = f"/v1/files/requests/{pending['id']}"
+        approve_path = f"{path}/approve"
+        headers = {**OWNER, "OneMind-Share-Password": PASSWORD}
+        body = {"plan_sha256": pending["plan_sha256"]}
+        assert c.get(check_path, headers=headers).status_code == before
+        assert c.post(approve_path, headers=ADULT, json=body).status_code == 403
+        assert c.post(approve_path, headers=OWNER, json={}).status_code == 409
+        assert c.post(approve_path, headers=OWNER, json={"plan_sha256": "stale"}).status_code == 409
+        if operation == "create":
+            visible = ok(c.get(path, headers=OWNER))
+            assert pending["one_time"]["token"] not in repr(visible)
+            assert "password_hash" not in repr(visible) and "token_hash" not in repr(visible)
+            assert not share_rows(s)
+        if operation != "revoke":
+            refused = c.post(approve_path, headers=OWNER, json=body)
+            assert refused.status_code == 401 and refused.json()["reason"] == "step_up_required"
+            assert c.get(check_path, headers=headers).status_code == before
+            challenge = ok(c.post(f"/v1/actions/{pending['id']}/approve-options", headers=OWNER))
+            assert challenge["plan_sha256"] == pending["plan_sha256"]
+            body["webauthn"] = key.assert_(challenge["challenge"])
+        decided = ok(c.post(approve_path, headers=OWNER, json=body))
+        assert decided["state"] == "succeeded"
+        assert decided["approval"] == ("token" if operation == "revoke" else "passkey")
+        assert c.get(check_path, headers=headers).status_code == after
+
+
+def test_pending_share_keeps_home_paths_private_from_other_principals(settings, clock, executor, files_settings, tmp_path):
+    tokens = tmp_path / "tokens.yaml"
+    tokens.write_text(settings.tokens_file.read_text().replace("id: hermes, kind: agent", "id: adult, kind: agent"))
+    s = replace(settings, tokens_file=tokens, sections={**settings.sections, "files": files_settings})
+    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+        item = put(c, ADULT, "home:adult", "/", "private.txt", b"private")
+        pending = ok(share(c, ADULT, clock, [item]), 202)
+        path = f"/v1/files/requests/{pending['id']}"
+        assert ok(c.get(path, headers=ADULT))["plan"]["items"][0]["path"] == item["path"]
+        assert item["path"] not in repr(ok(c.get(path, headers=OWNER)))
+        assert ok(c.get("/v1/files/requests", headers=AGENT)) == []
+        assert c.get(path, headers=AGENT).status_code == 404
+        assert c.post(f"{path}/cancel", headers=AGENT).status_code == 404
+
+
 def test_a_link_opens_for_an_outside_user_and_stops_after_expiry(fc, settings, clock):
     mkdir(fc, OWNER, "shared", "/Trip")
     item = put(fc, OWNER, "shared", "/Trip", "notes.txt", b"day one: beach")
-    out = ok(share(fc, OWNER, clock, [item], name="Trip notes"), 201)
+    out = make_share(fc, OWNER, clock, [item], name="Trip notes")
     token = out["one_time"]["token"]
     assert out["one_time"]["url"].endswith(f"/v1/share/{token}") and out["state"] == "active"
     assert out["items"] == [{"kind": "file", "root": "shared", "path": "/Trip/notes.txt"}]
@@ -81,9 +181,60 @@ def test_a_link_opens_for_an_outside_user_and_stops_after_expiry(fc, settings, c
     assert all(token not in str(e) for e in events)
 
 
+def test_renamed_file_link_does_not_serve_reused_path(fc, clock):
+    item = put(fc, OWNER, "shared", "/", "selected.txt", b"original")
+    path = make_share(fc, OWNER, clock, [item])["one_time"]["path"]
+    assert fc.get(f"{path}/items/0").content == b"original"
+
+    rename(fc, OWNER, item["root"], item["path"], "moved.txt")
+    put(fc, OWNER, "shared", "/", "selected.txt", b"different file")
+
+    assert ok(fc.get(path))["items"] == [{"index": 0, "available": False, "name": None, "size": None}]
+    assert fc.get(f"{path}/items/0").status_code == 404
+
+
+def test_share_routes_redact_bearer_in_production_access_log(settings, clock, executor, files_settings):
+    s = replace(settings, sections={**settings.sections, "files": files_settings})
+    server = serve._Server(uvicorn.Config(create_app(s, clock=clock, executor=executor),
+                                          log_config=serve.log_config()))
+    records = []
+
+    class Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    capture = Capture()
+    access = logging.getLogger("uvicorn.access")
+    access.addHandler(capture)
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
+        thread.start()
+        try:
+            deadline = time.monotonic() + 30
+            while not server.started:
+                assert thread.is_alive() and time.monotonic() < deadline, "uvicorn did not start"
+                time.sleep(0.05)
+            with httpx.Client(base_url=f"http://127.0.0.1:{sock.getsockname()[1]}", timeout=30) as c:
+                item = put(c, OWNER, "shared", "/", "shared.txt", b"hello")
+                path = make_share(c, OWNER, clock, [item])["one_time"]["path"]
+                assert c.get(path).status_code == 200
+                assert c.get(f"{path}/items/0?inline=true").content == b"hello"
+        finally:
+            server.should_exit = True
+            thread.join(timeout=30)
+            access.removeHandler(capture)
+    lines = [r.getMessage() for r in records]
+    assert any("GET /v1/share/[redacted] HTTP/" in line for line in lines), lines
+    assert any("GET /v1/share/[redacted]/items/0?inline=true HTTP/" in line for line in lines), lines
+    secret = path.rsplit("/", 1)[-1]
+    assert all(secret not in r.getMessage() and secret not in repr(r.args) for r in records)
+    assert all(secret not in h.format(r) for h in access.handlers for r in records)
+
+
 def test_password_is_hashed_checked_and_limits_guessing(fc, settings, clock):
     item = put(fc, ADULT, "home:adult", "/", "secret.txt", b"psst")
-    token = ok(share(fc, ADULT, clock, [item], password=PASSWORD), 201)["one_time"]["token"]
+    token = make_share(fc, ADULT, clock, [item], password=PASSWORD)["one_time"]["token"]
     (row,) = share_rows(settings)
     assert row.password_hash.startswith("scrypt$") and PASSWORD not in row.password_hash
 
@@ -114,19 +265,19 @@ def test_who_may_share_and_what(fc, clock):
         assert r.status_code == 422 and r.json()["reason"] == "invalid_expiry"
     r = fc.post("/v1/files/shares", headers=OWNER, json={"items": [item]})
     assert r.status_code == 422  # an expiry is required: no link lives forever
-    assert ok(share(fc, ADULT, clock, [mine]), 201)["created_by"] == "adult"
+    assert make_share(fc, ADULT, clock, [mine])["created_by"] == "adult"
 
 
 def test_revoke_and_visibility(fc, settings, clock):
-    a = ok(share(fc, ADULT, clock, [put(fc, ADULT, "home:adult", "/", "x.txt", b"x")]), 201)
-    o = ok(share(fc, OWNER, clock, [put(fc, OWNER, "shared", "/", "y.txt", b"y")]), 201)
+    a = make_share(fc, ADULT, clock, [put(fc, ADULT, "home:adult", "/", "x.txt", b"x")])
+    o = make_share(fc, OWNER, clock, [put(fc, OWNER, "shared", "/", "y.txt", b"y")])
     assert [s["id"] for s in ok(fc.get("/v1/files/shares", headers=ADULT))] == [a["id"]]
     assert {s["id"] for s in ok(fc.get("/v1/files/shares", headers=OWNER))} == {a["id"], o["id"]}
     assert ok(fc.get("/v1/files/shares", headers=GUEST)) == []
     assert fc.delete(f"/v1/files/shares/{o['id']}", headers=ADULT).status_code == 404  # not theirs
     assert fc.delete(f"/v1/files/shares/{o['id']}", headers=AGENT).status_code == 404
 
-    assert ok(fc.delete(f"/v1/files/shares/{a['id']}", headers=OWNER))["state"] == "revoked"  # an owner may end any
+    assert end_share(fc, OWNER, a["id"])["state"] == "revoked"  # an owner may end any
     r = fc.get(f"/v1/share/{a['one_time']['token']}/items/0")
     assert r.status_code == 410 and r.json()["reason"] == "revoked"
     assert fc.get(f"/v1/share/{o['one_time']['token']}/items/0").content == b"y"
@@ -140,7 +291,7 @@ def test_each_use_rechecks_the_creator_and_the_confinement(settings, clock, exec
     with TestClient(create_app(s, clock=clock, executor=executor)) as c:
         one = put(c, ADULT, "home:adult", "/", "one.txt", b"1")
         two = put(c, ADULT, "home:adult", "/", "two.txt", b"2")
-        token = ok(share(c, ADULT, clock, [one, two]), 201)["one_time"]["token"]
+        token = make_share(c, ADULT, clock, [one, two])["one_time"]["token"]
 
         # The file is swapped for a symlink to a host file: the confinement refuses to follow it.
         home = next((files_root / "home").iterdir())
@@ -171,7 +322,7 @@ def test_photos_are_shared_by_content_from_your_own_library(pfc, clock):
     phone = Phone(pfc, ADULT)
     data = blob(1, 5000)
     phone.upload(phone.key("a1"), data, name="IMG_0001.JPG")
-    out = ok(share(pfc, ADULT, clock, [{"photo": sha(data)}], name="Beach"), 201)
+    out = make_share(pfc, ADULT, clock, [{"photo": sha(data)}], name="Beach")
     token = out["one_time"]["token"]
     assert ok(pfc.get(f"/v1/share/{token}"))["items"][0]["name"] == "IMG_0001.JPG"
     assert pfc.get(f"/v1/share/{token}/items/0").content == data
@@ -189,7 +340,7 @@ def test_an_owner_oversees_links_without_reading_another_persons_home(fc, settin
     mkdir(fc, ADULT, "home:adult", "/medical")
     private = put(fc, ADULT, "home:adult", "/medical", "scan.pdf", b"private")
     public = put(fc, ADULT, "shared", "/Trip", "map.txt", b"map")
-    made = ok(share(fc, ADULT, clock, [private, public], name="Medical scans", password=PASSWORD), 201)
+    made = make_share(fc, ADULT, clock, [private, public], name="Medical scans", password=PASSWORD)
     token = made["one_time"]["token"]
 
     # The creator sees everything they shared.
@@ -213,6 +364,6 @@ def test_an_owner_oversees_links_without_reading_another_persons_home(fc, settin
     assert downloaded and "scan.pdf" not in repr(downloaded) and "/medical" not in repr(downloaded)
 
     # The owner can still end the link without reading it, and still without the path.
-    revoked = ok(fc.delete(f"/v1/files/shares/{made['id']}", headers=OWNER))
+    revoked = end_share(fc, OWNER, made["id"])
     assert revoked["state"] == "revoked" and revoked["items_hidden"] == 1 and "scan.pdf" not in repr(revoked)
     assert fc.get(f"/v1/share/{token}", headers={"OneMind-Share-Password": PASSWORD}).status_code == 410

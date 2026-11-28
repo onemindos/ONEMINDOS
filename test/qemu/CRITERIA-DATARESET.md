@@ -25,3 +25,10 @@
 - A passphrase box (no TPM, `onemind.data_encrypt=passphrase`): R2's "never unlocked" rule is the same code path, but typing a passphrase is not exercised here.
 - A mirror of several disks, a late USB disk, or a power cut half way through the wipe (the unit tests of `internal/host` cover those with fake disks).
 - Real TPM hardware, and the owner's passkey approval that arms the marker on a live box (HOST-ACTIONS.md section 4; R1 and R2 write the marker the approval would write).
+
+## 4. Amendment 2026-11-28 (#1118): the recovery key is read from RAM, never from the serial console
+
+Written before the matching change to `data_encrypt.py` and `dataenc.py` was booted anywhere. The recovery key is no longer printed on a serial console by default (CRITERIA-DATAENC.md section 4), so in R2:
+
+- "Old identity" takes the recovery key from `/run/onemind/data-recovery-key` on the first boot, not from the console.
+- Instead of "a **new** `RECOVERY KEY` line with eight groups of eight modhex letters that differs from the old key": the fresh first boot prints `ONEMIND-DATA-CRYPT: recovery key made`, `/run/onemind/data-recovery-key` then holds a key of eight groups of eight modhex letters that differs from the old key, and the serial console output after the arming reboot (until the gate commits) contains neither key nor a `RECOVERY KEY` line. All other R2 clauses stay; R1 is unchanged.

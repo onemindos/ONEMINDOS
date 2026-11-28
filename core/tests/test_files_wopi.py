@@ -23,21 +23,22 @@ from onemind_core import serve
 from onemind_core.app import create_app
 from onemind_core.files import wopi as wopi_mod
 from onemind_core.files.wopi import LOCK_TTL, TOKEN_TTL, WopiRepository, WopiTokenRow
-from onemind_core.identity.settings import IdentitySettings
+from onemind_core.netconf import NetSettings
 
 from conftest import AGENT, OWNER
 from files_support import audit_events, files_root, files_settings, ok, upload  # noqa: F401
+from test_identity import (
+    LOCAL_PEER, PASSWORD, SoftAuthenticator, confirm_setup_kit, id_settings, register_passkey, setup_owner, stepped,
+)
 
-PASSWORD = "correct horse battery staple 1"
 DOC = b"PK\x03\x04 first draft of the household budget"
 
 
 @pytest.fixture
 def wc(settings, clock, executor, files_settings):
     """A gateway with a temporary FILES root and household sign-in (bearer sessions, as the CLI and apps use)."""
-    s = replace(settings, sections={**settings.sections, "files": files_settings,
-                                    "identity": IdentitySettings(cookie_secure=False)})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    s = id_settings(replace(settings, sections={**settings.sections, "files": files_settings}))
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         yield c
 
 
@@ -48,14 +49,16 @@ def bearer(token: str) -> dict:
 @pytest.fixture
 def owner(wc) -> dict:
     """The household owner signed in with a session: {id, headers, session}."""
-    r = wc.post("/v1/auth/setup", headers=OWNER, json={"username": "zeus", "password": PASSWORD, "client": "cli"})
-    assert r.status_code == 201, r.text
+    setup_owner(wc)
+    register_passkey(wc, SoftAuthenticator())
+    r = wc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD, "client": "cli"})
+    assert r.status_code == 200, r.text
     body = r.json()
     return {"id": body["principal"]["id"], "headers": bearer(body["access_token"]), "session": body["session"]["id"]}
 
 
-def signed_in(wc, owner, role: str, username: str) -> dict:
-    r = wc.post("/v1/users", headers=owner["headers"], json={"display_name": username.title(), "role": role})
+def signed_in(wc, role: str, username: str) -> dict:
+    r = stepped(wc, "POST", "/v1/users", json={"display_name": username.title(), "role": role})
     assert r.status_code == 201, r.text
     code = r.json()["one_time"]["enrolment_code"]
     r = wc.post("/v1/auth/enrol", json={"code": code, "username": username, "password": PASSWORD, "client": "cli"})
@@ -196,7 +199,7 @@ def test_missing_or_unknown_token_is_401(wc, owner):
 
 
 def test_wrong_user_is_refused(wc, owner):
-    olive = signed_in(wc, owner, "owner", "olive")  # a second owner: Homes stay private even between owners
+    olive = signed_in(wc, "owner", "olive")  # a second owner: Homes stay private even between owners
     put_doc(wc, owner)
     put_doc(wc, owner, root="shared", name="shared.docx")
     # another person's Home: no token, and the refusal is audited
@@ -211,22 +214,22 @@ def test_wrong_user_is_refused(wc, owner):
 
 @pytest.mark.parametrize("role", ["adult", "guest", "child", "teen"])
 def test_a_non_owner_session_gets_no_token(wc, owner, role):
-    """The token route needs "*" like every /v1/files/* route: no side door around the role scopes."""
-    person = signed_in(wc, owner, role, f"{role}x")
+    """Every role browses Files (#1232), but the token route still needs "*": no side door around the role scopes."""
+    person = signed_in(wc, role, f"{role}x")
     put_doc(wc, owner, root="shared", name="shared.docx")
-    assert wc.get("/v1/files/list", params={"root": "shared", "path": "/"}, headers=person["headers"]).status_code == 403
+    assert wc.get("/v1/files/list", params={"root": "shared", "path": "/"}, headers=person["headers"]).status_code == 200
     for root, path in (("shared", "/shared.docx"), (home(person), "/budget.docx")):
         r = wc.post("/v1/files/wopi/tokens", headers=person["headers"], json={"root": root, "path": path})
         assert r.status_code == 403, (root, r.text)
 
 
 def test_a_demoted_person_loses_the_token_at_once(wc, owner):
-    olive = signed_in(wc, owner, "owner", "olive")
+    olive = signed_in(wc, "owner", "olive")
     put_doc(wc, owner, root="shared", name="shared.docx")
     t = token(wc, olive, "shared", "/shared.docx")
     assert ok(wc.get(wopi(t)))["UserCanWrite"] is True
     assert lock(wc, t).status_code == 200
-    r = wc.patch(f"/v1/users/{olive['id']}", headers=owner["headers"], json={"role": "adult"})
+    r = stepped(wc, "PATCH", f"/v1/users/{olive['id']}", json={"role": "adult"})
     assert r.status_code == 200, r.text
     # her session is still live, but her role no longer holds "*": every WOPI call stops now, not at expiry
     assert wc.get(wopi(t)).status_code == 401
@@ -335,8 +338,8 @@ class _Records(logging.Handler):
 
 def test_wopi_calls_leave_no_access_token_in_the_uvicorn_access_log(settings, clock, executor, files_settings):
     """The token rides in ?access_token=; a real uvicorn listener with the gateway's log config must not log it."""
-    s = replace(settings, sections={**settings.sections, "files": files_settings,
-                                    "identity": IdentitySettings(cookie_secure=False)})
+    s = id_settings(replace(settings, sections={**settings.sections, "files": files_settings,
+                                                "net": NetSettings(trusted_proxies="127.0.0.1/32")}), box_code_file=None)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -352,10 +355,11 @@ def test_wopi_calls_leave_no_access_token_in_the_uvicorn_access_log(settings, cl
         while not server.started:
             assert thread.is_alive() and time.monotonic() < deadline, "uvicorn did not start"
             time.sleep(0.05)
-        with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=30) as c:
+        with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=30, headers={"X-OneMind-Path": "lan"}) as c:
             r = c.post("/v1/auth/setup", headers=OWNER, json={"username": "zeus", "password": PASSWORD, "client": "cli"})
             assert r.status_code == 201, r.text
             person = {"id": r.json()["principal"]["id"], "headers": bearer(r.json()["access_token"])}
+            confirm_setup_kit(c, person["headers"])
             put_doc(c, person)
             t = token(c, person, home(person))
             assert t["access_token"].startswith("om_wopi_")

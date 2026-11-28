@@ -5,7 +5,8 @@
 // its own error mapping (ApiError), session renewal and response-shape checks on top. Binary transfers
 // (tus uploads, downloads) stay on fetch: the JSON client cannot carry them.
 // contract.ts checks the hand-written types in types.ts against the generated schema at compile time.
-import { OneMind, NetworkError } from '@onemind/sdk';
+import { completeStepUp, OneMind, OneMindError, NetworkError, STEP_UP_HEADER, stepUpOf, type StepUpRequest } from '@onemind/sdk';
+import { PasskeyError, type Passkeys } from '../lib/webauthn';
 import { noteProtocol, PROTOCOL_HEADER, PROTOCOL_VERSION } from '../lib/protocol';
 import {
   ApiError,
@@ -52,12 +53,15 @@ import {
   type SystemControlType,
   type SystemPlanPreview,
   type Me,
+  type GeoSite,
   type MigratePlan,
   type NodeRecord,
   type Plan,
   type PlanPreview,
   type PushRegistration,
   type PushRegistrationRequest,
+  type AppSecrets,
+  type SecretsPublicKey,
   type WebAuthnAssertion,
   type WebAuthnAttestation,
   type WebAuthnCreationOptions,
@@ -120,6 +124,8 @@ export const OP = {
   nodeMetrics: 'GET /v1/nodes/{}/metrics',
   appMetrics: 'GET /v1/apps/{}/metrics',
   mesh: 'GET /v1/mesh',
+  /** Phone Map tab (#656): the sites the plan is framed on. */
+  sites: 'GET /v1/sites',
   /** Health of every source at a glance. */
   status: 'GET /v1/status',
   /**
@@ -130,6 +136,9 @@ export const OP = {
   systemPlan: 'GET /v1/system/plan',
   myDevices: 'GET /v1/me/devices',
   myDeviceRemove: 'DELETE /v1/me/devices/{}',
+  /** #528: an install's declared secrets (names and set flags only) and the box key the form is sealed to. */
+  appSecrets: 'GET /v1/apps/{}/secrets',
+  secretsPublicKey: 'GET /v1/secrets/public-key',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -239,6 +248,9 @@ export interface OneMindApi {
   /** #702 (optional: only the live client has them; feature-detect with OP.approverKeys). */
   approverKeyRegister?(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }): Promise<ApproverKey>;
   approverKeyRevoke?(keyId: string): Promise<void>;
+  /** #528 (optional: only the live client has them; feature-detect with OP.appSecrets and OP.secretsPublicKey). */
+  appSecrets?(appId: string): Promise<AppSecrets>;
+  secretsPublicKey?(): Promise<SecretsPublicKey>;
   /** `me`: the newer `/v1/me/devices` routes (only when `features()` lists OP.meDevices). */
   deviceRequest(body: DeviceRequestBody, o?: { me?: boolean }): Promise<DeviceRequest>;
   deviceRequestStatus(id: string, pollCode?: string, o?: { me?: boolean }): Promise<DeviceRequest>;
@@ -293,6 +305,7 @@ export interface OneMindApi {
   nodeMetrics(nodeId: string, window?: string): Promise<NodeMetrics>;
   appMetrics(appId: string): Promise<AppMetrics>;
   mesh(): Promise<MeshView>;
+  sites(): Promise<GeoSite[]>;
   status(): Promise<StatusView>;
   systemPlan(type: SystemControlType): Promise<SystemPlanPreview>;
   // #715 My devices: the caller's own devices; removing one revokes everything it holds (a fresh passkey once passkeys are on).
@@ -365,6 +378,13 @@ export function errorFrom(status: number, data: unknown, retryAfterHeader?: stri
   });
 }
 
+/** The step-up a refusal names (the SDK's own reading of details.step_up), or undefined. */
+function stepUpIn(status: number, data: unknown): StepUpRequest | undefined {
+  if (!isErrorBody(data)) return undefined;
+  const details = (data as { details?: unknown }).details;
+  return stepUpOf(new OneMindError(status, data.error, data.message, { reason: data.reason ?? undefined, details: Array.isArray(details) ? details : undefined }));
+}
+
 /**
  * Mobile addition: trim, drop trailing slashes, and require an absolute http(s) URL.
  * Throws a plain Error with a user-facing message otherwise.
@@ -422,8 +442,12 @@ export class HttpApi implements OneMindApi {
   // Mobile change: the hub URL is required (a phone has no same-origin hub), and
   // every request has a timeout, because a phone off the home network otherwise
   // waits for the OS TCP timeout (a minute or more) on an unreachable LAN address.
-  constructor(opts: { token?: string; tokens?: TokenSource; baseUrl: string; fetchFn?: FetchLike; timeoutMs?: number }) {
+  /** The phone's passkeys: a change the hub wants confirmed in place (D-028) is confirmed with them. */
+  private readonly passkeys: Passkeys | undefined;
+
+  constructor(opts: { token?: string; tokens?: TokenSource; baseUrl: string; fetchFn?: FetchLike; timeoutMs?: number; passkeys?: Passkeys }) {
     this.base = normalizeHubUrl(opts.baseUrl);
+    this.passkeys = opts.passkeys;
     const fixed = opts.token;
     this.tokens = opts.tokens ?? { current: () => fixed };
     this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
@@ -498,7 +522,7 @@ export class HttpApi implements OneMindApi {
     path: string,
     body?: unknown,
     shape: Shape = 'object',
-    opts: { auth?: boolean; headers?: Record<string, string>; retried?: boolean; onHeaders?: (h: Headers) => void } = {},
+    opts: { auth?: boolean; headers?: Record<string, string>; retried?: boolean; steppedUp?: boolean; onHeaders?: (h: Headers) => void } = {},
   ): Promise<T> {
     const bearer = opts.auth === false ? undefined : this.tokens.current();
     const id = String(++this.seq);
@@ -529,6 +553,14 @@ export class HttpApi implements OneMindApi {
         const fresh = await this.renew();
         if (fresh) return this.req<T>(method, path, body, shape, { ...opts, retried: true });
       }
+      // D-028: the hub names a step-up for this exact change. Confirm it with the phone's passkey and send
+      // the change once more with the grant. A synced phone passkey is L1, so an L2 change is refused at
+      // the options step with verification_level_unmet, which the screens put in plain words.
+      const step = err.reason === 'step_up_required' && !opts.steppedUp && bearer && this.passkeys?.supported() ? stepUpIn(res.status, data) : undefined;
+      if (step) {
+        const grant = await this.stepUp(step);
+        return this.req<T>(method, path, body, shape, { ...opts, steppedUp: true, headers: { ...opts.headers, [STEP_UP_HEADER]: grant } });
+      }
       throw err;
     }
     if (res.status === 204 || shape === 'any') return data as T;
@@ -536,6 +568,21 @@ export class HttpApi implements OneMindApi {
       shape === 'array' ? Array.isArray(data) : typeof data === 'object' && data !== null && !Array.isArray(data);
     if (!valid) throw new ApiError(res.status, 'unknown', 'Unexpected response from the hub');
     return data as T;
+  }
+
+  /** options -> the phone's passkey -> verify, through the SDK's shared helper; failures read as ApiError. */
+  private async stepUp(step: StepUpRequest): Promise<string> {
+    const keys = this.passkeys as Passkeys;
+    try {
+      return await completeStepUp(this.sdk, step, async (pk) => (await keys.get(pk as unknown as WebAuthnRequestOptions)) as unknown as Record<string, unknown>);
+    } catch (e) {
+      if (e instanceof OneMindError) {
+        const code = KNOWN_CODES.has(e.code) ? (e.code as ApiError['code']) : codeForStatus(e.status);
+        throw new ApiError(e.status, code, e.message, { reason: e.reason, retryAfterS: e.retryAfterS });
+      }
+      if (e instanceof PasskeyError) throw new ApiError(401, 'unauthenticated', e.message, { reason: e.kind === 'cancelled' ? 'step_up_cancelled' : 'step_up_failed' });
+      throw e;
+    }
   }
 
   hubOffsetMs() {
@@ -566,7 +613,7 @@ export class HttpApi implements OneMindApi {
     return this.req<Action>('GET', `/v1/actions/${enc(id)}`);
   }
   approve(id: string, body?: ApproveBody) {
-    const b = body && (body.plan_sha256 || body.webauthn || body.device_signature) ? body : undefined;
+    const b = body && (body.plan_sha256 || body.webauthn || body.device_signature || body.sealed) ? body : undefined;
     return this.req<Action>('POST', `/v1/actions/${enc(id)}/approve`, b);
   }
   deny(id: string, reason?: string) {
@@ -648,6 +695,12 @@ export class HttpApi implements OneMindApi {
   }
   approverKeyRegister(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }) {
     return this.req<ApproverKey>('POST', '/v1/auth/approver-keys', body);
+  }
+  appSecrets(appId: string) {
+    return this.req<AppSecrets>('GET', `/v1/apps/${enc(appId)}/secrets`);
+  }
+  secretsPublicKey() {
+    return this.req<SecretsPublicKey>('GET', '/v1/secrets/public-key');
   }
   async approverKeyRevoke(keyId: string) {
     await this.req<unknown>('DELETE', `/v1/auth/approver-keys/${enc(keyId)}`, undefined, 'any');
@@ -827,6 +880,9 @@ export class HttpApi implements OneMindApi {
   }
   mesh() {
     return this.req<MeshView>('GET', '/v1/mesh');
+  }
+  sites() {
+    return this.req<GeoSite[]>('GET', '/v1/sites', undefined, 'array');
   }
   status() {
     return this.req<StatusView>('GET', '/v1/status');

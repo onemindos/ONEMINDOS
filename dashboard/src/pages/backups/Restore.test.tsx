@@ -49,6 +49,12 @@ it('lists real restore points and past restores with their undo snapshot', async
   expect(screen.getByText('cccccccc')).toBeInTheDocument();
 });
 
+it('says plainly that there are no restore points yet and that a destination is needed only if there is none', async () => {
+  transport((path) => (path === '/v1/backups/snapshots' ? response([]) : undefined));
+  mount();
+  expect(await screen.findByText(/No restore points yet\. They appear after the first backup run; add a backup destination first if you have none\./)).toBeInTheDocument();
+});
+
 it('files an unapproved restore, shows the hub plan and the approval link, never approves', async () => {
   const fetch = transport((path, init) => {
     if (path === '/v1/restores' && init?.method === 'POST') {

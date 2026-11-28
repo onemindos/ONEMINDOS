@@ -2,8 +2,7 @@
 // Settings on @onemind/ui SettingsLayout. Each sub-page declares itself in src/screens/settings-pages/<id>.ts
 // (a page this hub serves, or the work stream whose API brings it); this file only looks it up.
 // Appearance is live (saved per person in this browser until the §12 preferences route lands).
-// A section without a page says which work stream brings its API, instead of showing controls
-// that would do nothing.
+// All 21 sections have a page or a screen of their own; a missing one gets a plain not-found state.
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { EmptyState, SETTINGS_SECTIONS, SettingsLayout, StateView, type SettingsSectionId } from '@onemind/ui';
@@ -39,12 +38,11 @@ export function Settings() {
       </EmptyState>
     );
   } else {
-    const c = page?.coming ?? { stream: 'its work stream', api: null };
+    // Every section has a page or its own screen; this is only the safe answer if a definition goes missing.
     body = (
-      <EmptyState icon="settings" title={`${meta.label}: coming with ${c.stream}`} command={c.api ? `GET ${c.api.split(',')[0]!.trim()}` : undefined}>
+      <EmptyState icon="settings" title={`${meta.label} is not available`}>
         <p>
-          Coming soon. This hub does not serve these settings yet. They arrive with the {c.stream} work stream ({c.api ? `${c.api}, contract §12` : 'its API is not in contract §12 yet'}). Nothing here is a placeholder control that would do
-          nothing.
+          This section could not be found. <Link to={href.settings}>Back to all settings</Link>
         </p>
       </EmptyState>
     );

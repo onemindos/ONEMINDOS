@@ -175,7 +175,7 @@ jobs:
   # Scan artifacts must be available even when validation detects stale committed scans.
   plan:
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 5
     outputs:
       apps: ${{ steps.changed.outputs.apps }}
@@ -280,9 +280,12 @@ jobs:
           clamscan --version
 
       - name: Throwaway k3s cluster (k3d)
+        env:
+          APP: ${{ matrix.app }}
         run: |
           k3d cluster create gate --wait --timeout 300s --no-lb \
             --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+          bash sdk/tools/ci/map-packs-volume.sh "$APP" gate
           kubectl get nodes
 
       - name: Resolve the app directory
@@ -323,7 +326,7 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      max-parallel: 12
+      max-parallel: 48
       matrix:
         app: ${{ fromJSON(needs.plan.outputs.apps) }}
     steps:
@@ -376,9 +379,12 @@ jobs:
           clamscan --version
 
       - name: Throwaway k3s cluster (k3d)
+        env:
+          APP: ${{ matrix.app }}
         run: |
           k3d cluster create gate --wait --timeout 300s --no-lb \
             --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+          bash sdk/tools/ci/map-packs-volume.sh "$APP" gate
           kubectl get nodes
 
       - name: Resolve the app directory

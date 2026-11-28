@@ -33,3 +33,14 @@
 .wm-tiling { min-height: 28px; padding: 0 var(--om-space-2); cursor: pointer; border-radius: 6px; background: transparent; color: inherit; border: 1px solid var(--om-color-border, currentColor); }
 .wm-frame[data-tiled] { transition: none; }
 @media (max-width: 720px) { .wm-spaces, .wm-tiling, .wm-send { display: none; } }
+/* Windows over the desktop (Atlas 01): at "/" the stage lets clicks through to the desktop except on a
+   window; while a window has focus the bare stage takes the click and brings the desktop back. The
+   desktop keeps Home's layout under a window (the same rules as .dsk-at-home). */
+.dsk-at-home .wm-stage { pointer-events: none; }
+.wm-stage .wm-frame { pointer-events: auto; }
+.dash-desktop:has(> .dsk-in-window > .dsk-desktop[inert]) { height: 100vh; height: 100dvh; overflow: hidden; }
+.dsk-in-window:has(> .dsk-desktop[inert]) { height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.dsk-in-window > .dsk-desktop[inert] {
+  flex: 1 1 auto; min-height: 0; overflow-y: hidden;
+  margin-bottom: calc(var(--dsk-dock-h) + var(--om-space-3) + var(--om-space-3) + var(--dsk-jobs-reserve, 0px) + env(safe-area-inset-bottom, 0px));
+}

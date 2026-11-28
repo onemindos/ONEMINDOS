@@ -46,6 +46,9 @@ type Config struct {
 	// NATSNkeySeed is this daemon's own NATS user seed file on a strict hub
 	// (CORE-SEC-4, #161; core/onemind_core/natsconf.py). Empty = no nkey.
 	NATSNkeySeed string
+	// NATSInboxPrefix is the reply-subject prefix on a joined machine's local leaf (G1,
+	// leaf.InboxPrefix): the leaf lets onemindd subscribe only to its own replies. Empty = default.
+	NATSInboxPrefix string
 	// UpdateReport, when set, supplies the optional "update" object of the
 	// heartbeat (read from the update service's status file). nil = omit.
 	UpdateReport func() *heartbeat.Update
@@ -322,6 +325,9 @@ func (a *Agent) connectNATS() {
 			return
 		}
 		opts = append(opts, nk)
+	}
+	if a.cfg.NATSInboxPrefix != "" {
+		opts = append(opts, nats.CustomInboxPrefix(a.cfg.NATSInboxPrefix))
 	}
 	nc, err := nats.Connect(a.cfg.NATSURL, opts...)
 	if err != nil {

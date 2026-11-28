@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Home launcher (IA §2.1) on @onemind/ui HomeScreen, fed by /v1/nodes, /v1/apps and /v1/actions.
 // Backups, updates and mesh read /v1/backups/status, /v1/os/updates and /v1/mesh (data/homeExtras).
+// On the desktop layout Home is the Atlas desktop itself (DesktopHome: a column of tiles on the
+// wallpaper, windows over the rest); the Console layout keeps the launcher page (HomeScreen).
 import { useMemo, useState, type ReactNode } from 'react';
-import { HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { useNavigate } from 'react-router';
+import { DesktopHome, HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { useHomeExtras } from '../data/homeExtras';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
+import { PASSKEY_NOT_USED, PASSKEY_UNAVAILABLE } from '../lib/approve';
 import { errorText, useHub, type Hub } from '../data/hub';
 import { useHomeBackups } from '../data/homeBackups';
 import { useDisplayName } from '../data/homeMe';
@@ -21,6 +25,7 @@ import { HomeCommandBar } from './HomeCommandBar';
 import { HomeHealth } from './HomeHealth';
 import { SimpleHome } from './SimpleHome';
 import { HomeRecent } from './HomeRecent';
+import './home-desktop.css';
 
 /**
  * Home's first layout: "Needs you" and System on top, then a trust tile, Storage and Backups for
@@ -73,7 +78,8 @@ export function Home() {
   const customize = useOptionalCustomize();
   const { apps } = useHub();
   if (shell.view === 'unknown') return <StateView state="loading" what="Checking your role" skeleton="list" />;
-  const commandBar = customize?.prefs.commandBar
+  // On the desktop the run bar lives in the dock (shell/RunBar.tsx); the Console view keeps it on Home.
+  const commandBar = customize?.prefs.commandBar && shell.layout !== 'desktop'
     ? <HomeCommandBar openPalette={shell.openPalette} apps={shell.role === 'owner' ? apps.data ?? [] : []} />
     : undefined;
   return shell.view === 'simple' ? <SimpleHome commandBar={commandBar} /> : <ProHome commandBar={commandBar} />;
@@ -81,7 +87,8 @@ export function Home() {
 
 function ProHome({ commandBar }: { commandBar: ReactNode }) {
   const hub = useHub();
-  const { person } = useSignedIn();
+  const { person, api } = useSignedIn();
+  const navigate = useNavigate();
   const personName = useDisplayName();
   const shell = useShell();
   const toast = useToast();
@@ -97,15 +104,80 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
   const boxStatus = useBoxStatus();
   const data = homeData(hub, homeActivity(entries), extras, backups.value, storage.value);
 
-  const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
-    hub.decide(a.id, how).then(
+  // An install that needs values the owner types (install secrets) is approved in Approvals, where the form is.
+  const needsSecrets = async (a: ActionSummary) => {
+    const appId = a.type === 'app.install' ? (a.params.app_id as string | undefined) : undefined;
+    if (!appId || !api.appSecrets) return false;
+    try {
+      return (await api.appSecrets(appId)).secrets.some((s) => s.keys.some((k) => k.source === 'owner'));
+    } catch {
+      return false;
+    }
+  };
+  const decide = async (a: ActionSummary, how: 'approve' | 'deny') => {
+    if (how === 'approve' && (await needsSecrets(a))) {
+      toast.show({ tone: 'neutral', title: 'Review it in Approvals', body: 'This app needs values from you before it installs.' });
+      navigate(href.approval(a.id));
+      return;
+    }
+    return hub.decide(a.id, how).then(
       () => toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it.' : 'Nothing changes.' }),
       (e: unknown) => {
         const { code, message } = errorText(e);
         const licence = e instanceof ApiError && e.reason === 'licence_unconfirmed';
-        toast.show({ tone: 'bad', title: `Could not ${how}`, body: licence ? 'This app needs its licence accepted. Open Approvals to read it and confirm.' : `${message} (${code})` });
+        const passkey = e instanceof ApiError && (e.reason === PASSKEY_NOT_USED || e.reason === PASSKEY_UNAVAILABLE);
+        toast.show({ tone: 'bad', title: `Could not ${how}`, body: passkey ? 'This needs your passkey. Open Approvals to approve it there.' : licence ? 'This app needs its licence accepted. Open Approvals to read it and confirm.' : `${message} (${code})` });
       },
     );
+  };
+
+  const canDecide = decideState(shell.role, hub.canDecide) === 'no' ? { allowed: false as const, reason: 'Only the owner can approve or deny.' } : { allowed: true as const };
+  const onRetry = () => {
+    hub.reloadAll();
+    void backups.reload();
+    void storage.reload();
+  };
+  const onLayoutChange = (next: HomeLayout) => {
+    setLayout(next);
+    store.save(person, next);
+  };
+  const links = {
+    approvals: href.approvals,
+    // Nodes and Backups are Pro screens (roles.ts): a guest or child gets no link to them.
+    nodes: pro ? href.nodes : '',
+    activity: href.activity,
+    backups: pro ? href.backups : '',
+    updates: href.updates,
+    mesh: pro ? href.nodes : '',
+    apps: href.market,
+    storage: pro ? href.storage : '',
+    app: (id: string) => (hub.apps.data?.find((a) => a.id === id)?.installed ? href.manage(id) : href.app(id)),
+    approval: (id: string) => href.approval(id),
+  };
+
+  if (shell.layout === 'desktop') {
+    // IA §2.1 on the Atlas desktop: the greeting, then box health, then the tiles; recent visits last.
+    return (
+      <DesktopHome
+        data={{ ...data, boxStatus }}
+        now={hub.now}
+        timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+        personName={personName}
+        layout={layout}
+        onLayoutChange={onLayoutChange}
+        defaultLayout={dashboardHomeLayout(pro)}
+        canDecide={canDecide}
+        onApprove={(a) => void decide(a, 'approve')}
+        onDeny={(a) => void decide(a, 'deny')}
+        busy={hub.busy}
+        onRetry={onRetry}
+        commandBar={commandBar}
+        status={<HomeHealth pro={pro} status={boxStatus} />}
+        footer={<HomeRecent />}
+        links={links}
+      />
+    );
+  }
 
   return (
     <HomeScreen
@@ -113,18 +185,11 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
       now={hub.now}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
       personName={personName}
-      onRetry={() => {
-        hub.reloadAll();
-        void backups.reload();
-        void storage.reload();
-      }}
+      onRetry={onRetry}
       layout={layout}
-      onLayoutChange={(next) => {
-        setLayout(next);
-        store.save(person, next);
-      }}
+      onLayoutChange={onLayoutChange}
       wallpaper={customize && customize.prefs.wallpaper !== 'none' ? 'host' : 'tide'}
-      canDecide={decideState(shell.role, hub.canDecide) === 'no' ? { allowed: false, reason: 'Only the owner can approve or deny.' } : { allowed: true }}
+      canDecide={canDecide}
       onApprove={(a) => void decide(a, 'approve')}
       onDeny={(a) => void decide(a, 'deny')}
       busy={hub.busy}
@@ -134,19 +199,7 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
       footer={<HomeRecent />}
       onOpenSearch={shell.openPalette}
       showDock={shell.layout === 'console'}
-      links={{
-        approvals: href.approvals,
-        // Nodes and Backups are Pro screens (roles.ts): a guest or child gets no link to them.
-        nodes: pro ? href.nodes : '',
-        activity: href.activity,
-        backups: pro ? href.backups : '',
-        updates: href.updates,
-        mesh: pro ? href.nodes : '',
-        apps: href.market,
-        storage: pro ? href.storage : '',
-        app: (id) => (hub.apps.data?.find((a) => a.id === id)?.installed ? href.manage(id) : href.app(id)),
-        approval: (id) => href.approval(id),
-      }}
+      links={links}
     />
   );
 }

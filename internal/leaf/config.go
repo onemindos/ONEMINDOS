@@ -71,6 +71,10 @@ type Config struct {
 	// operator-mode hub) authenticates the leaf.
 	NkeyFile  string
 	CredsFile string
+	// Local are the programs that may connect to this leaf on the machine, each with its own
+	// nkey and exact subjects (local.go, G1). Render refuses a Config with none: there is no
+	// passwordless local user. Only public keys are here.
+	Local []LocalProgram `json:"Local,omitempty"`
 }
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -176,6 +180,11 @@ func (c *Config) Validate() error {
 	if (d.NkeyFile == "") == (d.CredsFile == "") {
 		return errors.New("exactly one of nkey file or creds file is required (per-node leaf credentials, H-06)")
 	}
+	for _, p := range d.Local {
+		if err := p.validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -215,6 +224,12 @@ func (c *Config) Render(confPath string) ([]byte, error) {
 		fmt.Fprintf(&b, "        cert_file: %q\n        key_file: %q\n", d.CertFile, d.KeyFile)
 	}
 	b.WriteString("        timeout: 5\n      }\n    }\n  ]\n}\n")
+	if err := renderLocal(&b, d.Local); err != nil {
+		return nil, err
+	}
+	if err := CheckLocalAuth(b.Bytes()); err != nil {
+		return nil, err
+	}
 	if err := CheckConf(b.Bytes()); err != nil {
 		return nil, err
 	}

@@ -5,6 +5,8 @@ import { personStorage } from '../../data/prefs';
 export interface LockSummary {
   boxName: string;
   waiting: number;
+  /** The display name of the person who locked, for "Welcome back" (never a token or an id). */
+  person?: string;
 }
 
 const storedLock = 'onemind.locked';
@@ -23,24 +25,43 @@ export function readLock(): LockSummary | null {
   try {
     const value = window.sessionStorage.getItem(storedLock);
     if (!value) return null;
-    const { boxName, waiting } = JSON.parse(value);
-    if (typeof boxName === 'string' && Number.isSafeInteger(waiting) && waiting >= 0) return { boxName, waiting };
+    const { boxName, waiting, person } = JSON.parse(value);
+    if (typeof boxName === 'string' && Number.isSafeInteger(waiting) && waiting >= 0) {
+      return typeof person === 'string' && person.trim() ? { boxName, waiting, person: person.trim().slice(0, 64) } : { boxName, waiting };
+    }
   } catch { /* No usable snapshot. */ }
   return null;
 }
 
+// The box's own screen (kiosk): its launcher opens the dashboard with ?kiosk=1 (onemind_kiosk.py KIOSK_URL). The
+// marker is kept for the tab, because the router drops the query. There a signed-in session always locks when
+// idle, for every role, and nobody can switch that off: anyone can walk up to that screen.
+const kioskMarker = 'onemind.kiosk';
+export const KIOSK_IDLE_MINUTES: IdleMinutes = 5;
+export function inKiosk(): boolean {
+  try {
+    if (new URLSearchParams(window.location.search).get('kiosk') === '1') window.sessionStorage.setItem(kioskMarker, '1');
+    return window.sessionStorage.getItem(kioskMarker) === '1';
+  } catch {
+    return false;
+  }
+}
+inKiosk(); // read the marker at start, before the router rewrites the address
+
 export function readIdleLock(person: string | undefined, isOwner: boolean): IdleMinutes {
+  let minutes: IdleMinutes = isOwner ? 15 : 0;
   try {
     const value = person && personStorage(person)?.getItem(idlePreference);
-    const stored = idleOptions.find((minutes) => String(minutes) === value);
-    if (stored !== undefined) return stored;
+    const stored = idleOptions.find((m) => String(m) === value);
+    if (stored !== undefined) minutes = stored;
   } catch { /* Fall back to the role default. */ }
-  return isOwner ? 15 : 0;
+  return minutes === 0 && inKiosk() ? KIOSK_IDLE_MINUTES : minutes;
 }
 
 export const idleChangeEvent = 'onemind:idle-lock-change';
 
 export function saveIdleLock(person: string, minutes: IdleMinutes) {
+  if (minutes === 0 && inKiosk()) return false;   // never "Off" on the box's own screen
   try { personStorage(person)?.setItem(idlePreference, String(minutes)); } catch { return false; }
   window.dispatchEvent(new Event(idleChangeEvent));
   return true;

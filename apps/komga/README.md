@@ -7,7 +7,7 @@ Media server for comics, manga, magazines and e-books, with a web reader and OPD
 
 | | |
 |---|---|
-| Version | 1.30.1 (upstream release `1.30.1`, published 2026-11-10) |
+| Version | 1.30.2 (upstream release `1.30.2`, published 2026-11-24) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
@@ -32,7 +32,7 @@ Storage: PVC `komga-config` 5Gi, PVC `komga-library` 50Gi.
 
 Images:
 
-- `docker.io/gotson/komga:1.30.1@sha256:d43bb3b57aeeafd274ea805214f5da71ff9306accf012fb14cc13dedc3307212`
+- `docker.io/gotson/komga:1.30.2@sha256:e4198a0d529d2be70bee5012484538154897c2d3071043b133bdaeacb806444e`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -86,6 +86,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** netty, tomcat and spring CVEs in `1.30.1`, the newest tag. Unblock: a release with updated Java libraries. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Komga 1.30.1 to 1.30.2 (patch release). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

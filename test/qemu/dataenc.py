@@ -17,7 +17,11 @@ _spec = importlib.util.spec_from_file_location("battery", os.path.join(HERE, "ru
 battery = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(battery)
 
-KEY = re.compile(r"ONEMIND-DATA-CRYPT: RECOVERY KEY[^\n]*?: ([cbdefghijklnrtuv]{8}(?:-[cbdefghijklnrtuv]{8}){7})")
+# #1118 (CRITERIA-DATAENC.md section 4): the key is never on the serial console by default. The console says the key was
+# made (KEY_MADE); the harness reads the key from RAM over the test shell (read_key) and checks the boot's serial output
+# for any key (key_on_serial).
+KEY_MADE = r"ONEMIND-DATA-CRYPT: recovery key made"
+KEY_RX = re.compile(r"[cbdefghijklnrtuv]{8}(?:-[cbdefghijklnrtuv]{8}){7}")
 # systemd 257 asks "Please enter recovery key for disk ..." when the volume has a recovery-key token and "passphrase" when it
 # has none (a passphrase-only volume): both are the prompt for the disk's key.
 PROMPT = r"(?i)(please enter (passphrase|recovery key) for disk onemind-data|enter passphrase)"
@@ -89,6 +93,17 @@ def guest_vals(vm, cmd, timeout=180):
     """Run a shell snippet that prints K=V lines; return {K: V} (last value of each key)."""
     _, out = vm.run(cmd, timeout)
     return dict(re.findall(r"^([A-Z0-9_]+)=(.*?)\s*$", out, re.M))
+
+
+def read_key(vm):
+    """The recovery key from /run/onemind/data-recovery-key (RAM), or "" when it is missing or malformed."""
+    k = guest_vals(vm, "echo RKEY=$(cat /run/onemind/data-recovery-key 2>/dev/null)").get("RKEY", "")
+    return k if KEY_RX.fullmatch(k) else ""
+
+
+def key_on_serial(text, key=""):
+    """True when serial output carries a recovery key: the given one, any eight-groups modhex key, or the key line."""
+    return bool((key and key in text) or KEY_RX.search(text) or "RECOVERY KEY" in text)
 
 
 MARK_CMD = ("head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n' > {path}; sync; "
@@ -185,7 +200,7 @@ def e57(a, logf, env):
         vm7.failfast = False
         vm7.mark("E7 growth on a large disk, encrypted (swtpm #3)")
         boot(vm7, tpm3, "E7 boot")
-        vm7.expect(KEY.pattern, 900)
+        vm7.expect(KEY_MADE, 900)
         vm7.pos = 0
         vm7.wait_gate(); vm7.shell_ready()
         n1 = sizes(vm7)
@@ -265,19 +280,20 @@ def reset_case(a, logf, tag, tpm):
         vm.failfast = False
         vm.mark(f"{tag.upper()} factory reset of a {'plain btrfs' if plain else 'encrypted'} box")
         boot(vm, tpm, f"{tag.upper()} boot")
-        first = vm.expect(r"ONEMIND-DATA-CRYPT: data partition ready \(btrfs, unencrypted\)" if plain else KEY.pattern, 900)
-        old_key = None if plain else KEY.search(first.group(0)).group(1)
+        vm.expect(r"ONEMIND-DATA-CRYPT: data partition ready \(btrfs, unencrypted\)" if plain else KEY_MADE, 900)
         vm.pos = 0
         vm.wait_gate(); vm.shell_ready()
+        old_key = None if plain else read_key(vm)
         old = guest_vals(vm, "echo UUID=$(blkid -s UUID -o value /dev/disk/by-partlabel/onemind-data)").get("UUID", "")
         guest_vals(vm, MARK_CMD.format(path="/data/onemind/e-marker", name="MA"))
         guest_vals(vm, MARK_CMD.format(path="/data/storage/e-marker2", name="MB"))
         armed = guest_vals(vm, ARM_CMD).get("ARMED", "")
         seg = vm.here(); vm.send("systemctl reboot"); vm.pos = seg
-        vm.expect(r"ONEMIND-DATA-CRYPT: data partition ready \(btrfs, unencrypted\)" if plain else KEY.pattern, 1200)
+        vm.expect(r"ONEMIND-DATA-CRYPT: data partition ready \(btrfs, unencrypted\)" if plain else KEY_MADE, 1200)
         vm.wait_gate(); s = vm.since(seg); vm.shell_ready()
         v = guest_vals(vm, RESET_AFTER + SUBVOLS_CMD)
-        new_keys = [m.group(1) for m in KEY.finditer(s)]
+        new_key = None if plain else read_key(vm)
+        serial_key = key_on_serial(s, new_key or "") or bool(old_key and old_key in s)
         recovered = bool(re.search(battery.RECOV, s))
         want_src = "/dev/mapper/onemind-data" if not plain else None
         src = v.get("SRC", "")
@@ -285,12 +301,12 @@ def reset_case(a, logf, tag, tpm):
               and v.get("ARMED") == "no" and v.get("DONE") == "yes" and v.get("MA") == "no" and v.get("MB") == "no"
               and v.get("STOR") == "1" and v.get("FAILED") == "0" and not recovered
               and (("making it plain btrfs, NOT encrypted" in s and "/dev/mapper" not in src) if plain else
-                   (src.startswith(want_src) and new_keys and new_keys[-1] != old_key and "data disk unlocked" not in s
-                    and not re.search(PROMPT, s))))
+                   (src.startswith(want_src) and bool(old_key) and bool(new_key) and new_key != old_key
+                    and not serial_key and "data disk unlocked" not in s and not re.search(PROMPT, s))))
         return ok, (f"plan_members={armed} old_uuid={old} new_uuid={v.get('UUID')} armed_marker_left={v.get('ARMED')} done={v.get('DONE')} "
                     f"markers_left={v.get('MA')},{v.get('MB')} data_source={src} storage_mounted={v.get('STOR')} failed_units={v.get('FAILED')} "
                     f"recovery_mode={recovered} prompted={bool(re.search(PROMPT, s))} unlocked_old={'data disk unlocked' in s} "
-                    f"new_recovery_key={bool(new_keys) and new_keys[-1] != old_key}")
+                    f"new_recovery_key={bool(new_key) and new_key != old_key} key_on_serial={False if plain else serial_key}")
     except (TimeoutError, RuntimeError, ValueError) as e:
         return False, f"aborted: {e}"
     finally:
@@ -345,23 +361,28 @@ def main():
         # E1: first boot, blank partition, TPM present.
         vm.mark("E1 first boot encrypts /data (swtpm #1)")
         boot(vm, tpm1, "E1 boot")
-        recovery = KEY.search(vm.expect(KEY.pattern, 900).group(0)).group(1)
+        vm.expect(KEY_MADE, 900)
         vm.pos = 0
-        vm.wait_gate(); vm.shell_ready()
+        vm.wait_gate()
+        s1 = vm.since(0)                 # this VM's first boot, power-on to the gate, before any shell command
+        vm.shell_ready()
+        recovery = read_key(vm)
+        serial_key = key_on_serial(s1, recovery)
         _, out = vm.run("echo SRC=$(findmnt -n -o SOURCE /data); "
                         "dev=$(cryptsetup status onemind-data | sed -n 's/^ *device: *//p'); "
                         "echo RAW=$(blkid -p -o value -s TYPE $dev); "
                         "echo DUMP=$(cryptsetup luksDump $dev | grep -cE 'systemd-tpm2|systemd-recovery'); "
                         "echo FILE=$(stat -c %a /run/onemind/data-recovery-key 2>&1); "
-                        "echo JOURNALKEY=$(journalctl -b --no-pager | grep -c " + recovery + ")")
+                        "echo JOURNALKEY=$(journalctl -b --no-pager | grep -c " + (recovery or "no-key-read") + ")")
         g = lambda k, o: (re.findall(rf"^{k}=(\S*)\s*$", o, re.M) or [""])[-1]
         _, o2 = vm.run(marker)
         mark = g("MARK", o2)
         record("E1", "/dev/mapper/onemind-data" in g("SRC", out) and g("DUMP", out) == "2" and g("FILE", out) == "600" and g("RAW", out) == "crypto_LUKS"
-               and g("JOURNALKEY", out) == "0"
+               and g("JOURNALKEY", out) == "0" and bool(recovery) and not serial_key
                and len(mark) == 64,
                f"data_source={g('SRC', out)} tpm2_and_recovery_tokens={g('DUMP', out)} keyfile_mode={g('FILE', out)} "
-               f"key_in_journal={g('JOURNALKEY', out)} raw_type_probe={g('RAW', out)}")
+               f"key_in_journal={g('JOURNALKEY', out)} key_in_ram={bool(recovery)} key_on_serial={serial_key} "
+               f"raw_type_probe={g('RAW', out)}")
         power_off(vm)
 
         # E2: same disk, same TPM: unlocks with nobody there.

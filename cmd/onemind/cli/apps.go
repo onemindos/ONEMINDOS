@@ -99,7 +99,7 @@ func appsCommands(a *App) []*cobra.Command {
 	}
 	install := requestCommand(a, onemind.ActionAppInstall, "install APP_ID", "Request an install, then approve it (owners)")
 	remove := requestCommand(a, onemind.ActionAppRemove, "remove APP_ID", "Request a removal, then approve it (owners)")
-	apps.AddCommand(list, info, install, remove)
+	apps.AddCommand(list, info, install, remove, appAccessCommand(a))
 	apps.AddCommand(systemAppsCommands(a)...)
 	return []*cobra.Command{apps}
 }
@@ -216,7 +216,7 @@ func requestCommand(a *App, typ, use, short string) *cobra.Command {
 			if !ok {
 				return exitWith(ExitPending, "pending", fmt.Sprintf("left waiting for approval: onemind actions approve %s", act.Id))
 			}
-			if _, err := a.approveOrConfirmLicence(c, act, acceptLicence, yes); err != nil {
+			if _, err := a.approveOrConfirmLicence(c, act, acceptLicence, yes, nil); err != nil {
 				if errors.Is(err, onemind.ErrPermissionDenied) {
 					return exitWith(ExitPermissionDenied, "permission_denied",
 						fmt.Sprintf("requested %s, but this principal may not approve; an owner runs: onemind actions approve %s", act.Id, act.Id))

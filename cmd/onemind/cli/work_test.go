@@ -36,6 +36,29 @@ func workHub(t *testing.T) *[]string {
 			_, _ = w.Write([]byte("[" + workTask + "]"))
 		case r.URL.Path == "/v1/work/projects/prj_1/tasks/tsk_1":
 			_, _ = w.Write([]byte(strings.Replace(workTask, `"todo"`, `"done"`, 1)))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/work/projects":
+			_, _ = w.Write([]byte(`[{"id":"prj_1","name":"Home","ai_access":"none"}]`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/v1/work/projects/prj_1":
+			_, _ = w.Write([]byte(`{"id":"prj_1","name":"House","ai_access":"read"}`))
+		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/v1/work/projects/prj_1"):
+			w.WriteHeader(204)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/work/projects/prj_1/members/ana":
+			w.WriteHeader(204)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/work/parse":
+			_, _ = w.Write([]byte(`{"title":"Pay rent","project":null,"project_id":null,"project_found":true,"labels":["bills"],` +
+				`"priority":1,"assignee":null,"due_at":null,"due_all_day":false}`))
+		case r.URL.Path == "/v1/work/projects/prj_1/tasks/tsk_1/activity":
+			_, _ = w.Write([]byte(`[{"id":2,"actor_id":"ana","kind":"completed","fields":[],"at":"2026-11-25T15:00:00Z"}]`))
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/comments"):
+			_, _ = w.Write([]byte(`[{"id":"cmt_1","author_id":"ana","body":"Call them","created_at":"2026-11-25T15:00:00Z"}]`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/comments"):
+			w.WriteHeader(201)
+			_, _ = w.Write([]byte(`{"id":"cmt_2","author_id":"ana","body":"x","created_at":"2026-11-25T15:00:00Z"}`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/sections"):
+			w.WriteHeader(201)
+			_, _ = w.Write([]byte(`{"id":"sec_1","project_id":"prj_1","name":"Later","position":0}`))
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/sections"):
+			_, _ = w.Write([]byte(`[{"id":"sec_1","project_id":"prj_1","name":"Later","position":0}]`))
 		default:
 			w.WriteHeader(404)
 			_, _ = w.Write([]byte(`{"error":"not_found","message":"no"}`))
@@ -85,6 +108,54 @@ func TestWorkAddDefaultsToTheMachineZoneAndPrintsDueTimeThere(t *testing.T) {
 		t.Fatalf("add %+v", r)
 	}
 	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "body Pay rent/America/New_York") {
+		t.Fatalf("requests %s", got)
+	}
+}
+
+func TestWorkProjectsParseActivityAndMembers(t *testing.T) {
+	seen := workHub(t)
+	if r := run(t, "", false, "work", "projects"); r.code != 0 || !strings.Contains(r.out, "prj_1") || !strings.Contains(r.out, "Home") {
+		t.Fatalf("projects %+v", r)
+	}
+	if r := run(t, "", false, "work", "project-edit", "prj_1", "--name", "House", "--ai-access", "read"); r.code != 0 ||
+		!strings.Contains(r.out, `"House" (AI access read)`) {
+		t.Fatalf("edit %+v", r)
+	}
+	if r := run(t, "", false, "work", "parse", "Pay", "rent", "@bills", "p1", "--tz", "UTC"); r.code != 0 ||
+		!strings.Contains(r.out, `title "Pay rent"`) {
+		t.Fatalf("parse %+v", r)
+	}
+	if r := run(t, "", false, "work", "activity", "prj_1", "tsk_1"); r.code != 0 || !strings.Contains(r.out, "completed") {
+		t.Fatalf("activity %+v", r)
+	}
+	for _, args := range [][]string{{"member-add", "prj_1", "ana"}, {"project-delete", "prj_1"}} {
+		if r := run(t, "", false, append([]string{"work"}, args...)...); r.code != 0 {
+			t.Fatalf("%v %+v", args, r)
+		}
+	}
+	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "PUT /v1/work/projects/prj_1/members/ana") ||
+		!strings.Contains(got, "DELETE /v1/work/projects/prj_1 ") {
+		t.Fatalf("requests %s", got)
+	}
+}
+
+func TestWorkNotesAndSections(t *testing.T) {
+	seen := workHub(t)
+	if r := run(t, "", false, "work", "notes", "list", "prj_1", "tsk_1"); r.code != 0 || !strings.Contains(r.out, "Call them") {
+		t.Fatalf("list %+v", r)
+	}
+	if r := run(t, "", false, "work", "notes", "add", "prj_1", "tsk_1", "Call", "them", "--idempotency-key", "n1"); r.code != 0 ||
+		!strings.Contains(r.out, "Added cmt_2") {
+		t.Fatalf("add %+v", r)
+	}
+	if r := run(t, "", false, "work", "notes", "section-add", "prj_1", "Later", "--idempotency-key", "s1"); r.code != 0 ||
+		!strings.Contains(r.out, "Added sec_1") {
+		t.Fatalf("section-add %+v", r)
+	}
+	if r := run(t, "", false, "work", "notes", "sections", "prj_1"); r.code != 0 || !strings.Contains(r.out, "Later") {
+		t.Fatalf("sections %+v", r)
+	}
+	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "POST /v1/work/projects/prj_1/tasks/tsk_1/comments n1|") {
 		t.Fatalf("requests %s", got)
 	}
 }

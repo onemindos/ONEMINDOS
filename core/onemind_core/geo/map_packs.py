@@ -168,16 +168,22 @@ class MapPacks:
             raise ApiError(503, "unavailable", "The map packs volume could not be read",
                            reason="map_storage_unavailable") from None
 
-    def _region(self, region_id: str) -> Region:
-        path = self.settings.region_catalog
+    def _catalog(self) -> dict[str, Region]:
+        path, key = self.settings.region_catalog, self.settings.region_key_file
+        if path is None or not os.path.lexists(path) or not os.path.lexists(key):
+            # A fresh box ships no signed region catalogue or key until the owner provisions them:
+            # not set up is a state the owner can change, so adding a pack is a 409 with a reason.
+            # Installed packs stay listable and removable, which never needs the catalogue.
+            raise ApiError(409, "conflict", "Offline map regions are not set up on this box: "
+                           "no signed region catalogue and key are installed", reason="map_catalog_not_configured")
         try:
-            if path is None:
-                raise ValueError("no region catalog configured")
-            regions = _load_catalog(path, self.settings.region_key_file)
+            return _load_catalog(path, key)
         except (OSError, ValueError, InvalidSignature, UnsupportedAlgorithm, RecursionError):
             raise ApiError(503, "unavailable", "No verified map region catalog is available",
                            reason="map_catalog_unavailable") from None
-        region = regions.get(region_id)
+
+    def _region(self, region_id: str) -> Region:
+        region = self._catalog().get(region_id)
         if region is None:
             raise ApiError(404, "not_found", "Map region not found")
         return region
@@ -276,6 +282,9 @@ class MapPacks:
                     staged.mkdir()
                     self._download(region, staged / PACK_FILE)
                     (staged / RECORD_FILE).write_text(pack.model_dump_json(), encoding="utf-8")
+                    staged.chmod(0o755)
+                    for file in (PACK_FILE, RECORD_FILE):
+                        (staged / file).chmod(0o644)
                     staged.rename(root / region.id)
             except ApiError as exc:
                 finish(ExecResult("failed", str(exc)))
