@@ -63,11 +63,12 @@ describe('screen registry', () => {
       ['migrate', '/migrate', 'System'],
       ['control-hub', '/control-hub', 'System'],
       ['agents', '/agents', 'System'],
+      ['plugins', '/plugins', 'System'],
     ];
     expected.splice(expected.findIndex(([id]) => id === 'storage'), 0, ['work', '/work', 'Your box']);
     expect(navItems(2).map((n) => [n.id, n.href, n.group ?? 'primary'])).toEqual(expected);
     expect(navItems(2).find((n) => n.id === 'approvals')).toMatchObject({ badge: 2, badgeLabel: '2 waiting' });
-    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'desktop-apps', 'file-sharing', 'library', 'machines', 'migrate', 'network', 'nodes', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
+    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'desktop-apps', 'file-sharing', 'library', 'machines', 'migrate', 'network', 'nodes', 'plugins', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
     // The Atlas default dock (final design 01); Map takes slot 2 when its screen is registered.
     expect(DOCK_ORDER.filter((id) => id !== 'map')).toEqual(['home', 'approvals', 'files', 'market', 'backups', 'machines']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
