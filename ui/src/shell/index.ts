@@ -58,7 +58,9 @@ export {
   toggleApp as toggleStarterApp,
   selectedMemoryMb as starterMemoryMb,
 } from './firstRun';
-export type { OnboardingDraft, StepId as OnboardingStepId, StarterApp, PasskeyState, BackupDestination } from './firstRun';
+export type { OnboardingDraft, StepId as OnboardingStepId, StarterApp, PasskeyState, BackupDestination, PracticeAnswer } from './firstRun';
+export { parseLocation, formatLocation, locationProblem, siteAnchors, siteIdFor } from './onboarding/location';
+export type { PlaceLocation } from './onboarding/location';
 
 export { StateView, Skeleton as StateSkeleton } from './StateView';
 export type { StateViewProps } from './StateView';

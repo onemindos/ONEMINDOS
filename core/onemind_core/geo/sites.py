@@ -67,6 +67,9 @@ def project(anchors: list[Anchor], x: float, y: float) -> tuple[float, float]:
 
 
 class GeoSite(NamedPlace):
+    # The owner's own words for where the place is, kept only on this box. The box never looks it up:
+    # there is no address index on it, and nothing is sent to an outside service (first run, #1016).
+    address: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     floors: Annotated[list[NamedPlace], Field(max_length=128)] = []
     areas: Annotated[list[SiteArea], Field(max_length=512)] = []
     anchors: Annotated[list[Anchor], Field(min_length=3, max_length=128)]

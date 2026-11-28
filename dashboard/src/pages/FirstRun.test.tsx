@@ -2,7 +2,7 @@
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { FirstRun, useWizardPending } from './FirstRun';
+import { FirstRun, firstSite, landingAfterSetup, useWizardPending } from './FirstRun';
 
 const h = vi.hoisted(() => ({
   get: vi.fn(), save: vi.fn(), state: vi.fn(), issue: vi.fn(), confirm: vi.fn(), plan: vi.fn(), request: vi.fn(), destinations: vi.fn(), done: vi.fn(), navigate: vi.fn(),
@@ -11,11 +11,12 @@ const h = vi.hoisted(() => ({
 vi.mock('../session', () => {
   const api = { onboardingSettings: h.get, saveOnboardingSettings: h.save, backupDestinations: h.destinations, onboardingState: h.state,
     issueKit: h.issue, confirmKit: h.confirm, appPlan: h.plan };
-  return { useSignedIn: () => ({ api }) };
+  return { useSignedIn: () => ({ api, token: 'owner-token', mock: false }) };
 });
 vi.mock('../data/hub', () => ({ useHub: () => ({ apps: { data: [] }, request: h.request }) }));
 vi.mock('react-router', () => ({ useNavigate: () => h.navigate }));
-vi.mock('@onemind/ui', () => ({
+vi.mock('@onemind/ui', async (actual) => ({
+  ...(await actual<typeof import('@onemind/ui')>()),
   useToast: () => ({ show: vi.fn() }), applyTheme: vi.fn(),
   Onboarding: (props: Record<string, unknown>) => { h.props = props; return <div>Existing wizard</div>; },
 }));
@@ -147,4 +148,48 @@ it('files each selected reviewed plan once and refuses an app with no preview', 
     ['app.install', 'notes', {}, 'sha-notes'],
     ['app.install', 'photos', {}, 'sha-photos'],
   ]);
+});
+
+const place = { placeName: 'Rivera Home', address: '12 Orchard Lane', location: { lat: 40.7128, lon: -74.006, source: 'typed' as const } };
+
+it('builds the first site from the place: its name, the owner\'s address text and three grid points', () => {
+  expect(firstSite({ ...place, location: undefined })).toBeUndefined();
+  const site = firstSite(place)!;
+  expect(site).toMatchObject({ id: 'rivera-home', name: 'Rivera Home', address: '12 Orchard Lane', floors: [], areas: [] });
+  expect(site.anchors).toHaveLength(3);
+  expect(site.anchors[0]).toEqual({ x: 0, y: 0, lat: 40.7128, lon: -74.006 });
+  expect(firstSite({ placeName: ' ', address: ' ', location: place.location })).not.toHaveProperty('address');
+  expect(firstSite({ placeName: ' ', address: '', location: place.location })).toMatchObject({ id: 'home', name: 'Home' });
+});
+
+it('ends on the desktop Map when this build has it, otherwise on Approvals or Home', () => {
+  expect(landingAfterSetup(2, [{ path: '/map' }, { path: '/approvals' }])).toBe('/map');
+  expect(landingAfterSetup(0, [{ path: '/map' }])).toBe('/map');
+  expect(landingAfterSetup(2, [{ path: '/approvals' }])).toBe('/approvals');
+  expect(landingAfterSetup(0, [{ path: '/approvals' }])).toBe('/');
+});
+
+it('saves the place through POST /v1/sites with the owner token, and keeps an existing site as it is', async () => {
+  h.get.mockResolvedValue({ ...values, saved: true });
+  h.destinations.mockResolvedValue([]);
+  const calls: Array<{ url: string; method: string; body: unknown; auth: string | null }> = [];
+  const replies = [Response.json(firstSite(place), { status: 201 }), Response.json({ error: 'conflict', message: 'Site ID already exists' }, { status: 409 }),
+    Response.json({ error: 'permission_denied', message: 'Only an owner can write map records' }, { status: 403 })];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const req = new Request(input, init);
+    calls.push({ url: new URL(req.url).pathname, method: req.method, body: await req.clone().json().catch(() => undefined), auth: req.headers.get('authorization') });
+    return replies.shift()!;
+  }));
+  try {
+    render(<FirstRun onDone={h.done} />);
+    await screen.findByText('Existing wizard');
+    const saveLocation = h.props.onSaveLocation as (d: unknown) => Promise<string>;
+    await expect(saveLocation(place)).resolves.toBe('saved');
+    expect(calls[0]).toMatchObject({ url: '/v1/sites', method: 'POST', auth: 'Bearer owner-token', body: firstSite(place) });
+    await expect(saveLocation(place)).resolves.toBe('exists');
+    await expect(saveLocation(place)).rejects.toThrow('Only an owner can write map records');
+    expect(calls).toHaveLength(3);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

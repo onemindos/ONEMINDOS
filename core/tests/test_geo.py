@@ -22,7 +22,15 @@ def test_site_is_persistent_and_requires_owner(client, settings, clock):
     assert client.post("/v1/sites", json=SITE, headers=OWNER).status_code == 201
     assert client.post("/v1/sites", json=SITE, headers=OWNER).status_code == 409
     with make_client(settings, clock) as restarted:
-        assert restarted.get("/v1/sites", headers=GUEST).json() == [SITE]
+        assert restarted.get("/v1/sites", headers=GUEST).json() == [{**SITE, "address": None}]
+
+
+def test_site_keeps_the_owners_address_text(client):
+    site = {**deepcopy(SITE), "id": "home", "address": "12 Orchard Lane, Springfield"}
+    assert client.post("/v1/sites", json=site, headers=OWNER).status_code == 201
+    assert client.get("/v1/sites", headers=OWNER).json() == [site]
+    for bad in ("", "x" * 257):
+        assert client.post("/v1/sites", json={**site, "id": "other", "address": bad}, headers=OWNER).status_code == 422
 
 
 @pytest.mark.parametrize("bad", ["two", "flat", "latitude", "longitude", "null_island", "area_floor"])

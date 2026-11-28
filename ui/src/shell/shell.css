@@ -197,6 +197,27 @@
 .oms-setup-map-pin { fill: var(--om-color-accent); stroke: var(--om-color-surface); stroke-width: 2; }
 .oms-setup-map figcaption { grid-area: 1 / 1; display: grid; gap: var(--om-space-1); align-self: start; justify-self: start; padding: var(--om-space-2); border-radius: var(--om-radius-md); background: var(--om-color-surface-raised); font-size: var(--om-font-size-xs); }
 .oms-setup-map button { justify-self: start; }
+.oms-setup-map-empty { fill: var(--om-color-border-strong); }
+.oms-setup-map-gate { stroke: var(--om-color-accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.oms-setup-map-backup { stroke: var(--om-color-text-muted); stroke-dasharray: 3 3; }
+.oms-setup-map-tile { fill: var(--om-color-surface-raised); stroke: var(--om-color-accent); }
+.oms-onb-foot-end { display: flex; gap: var(--om-space-2); align-items: center; }
+.oms-input-row { display: flex; gap: var(--om-space-2); align-items: flex-start; flex-wrap: wrap; }
+.oms-input-row > .oms-input { flex: 1 1 16rem; }
+.oms-textarea { min-height: 72px; padding: var(--om-space-3) var(--om-space-4); resize: vertical; }
+.oms-device-loc { display: grid; gap: var(--om-space-1); justify-items: start; }
+.oms-practice { display: grid; gap: var(--om-space-3); padding: var(--om-space-4); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-lg); background: var(--om-color-surface); }
+.oms-practice-tag { margin: 0; }
+.oms-practice-who { display: flex; gap: var(--om-space-3); align-items: center; }
+.oms-practice-av { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--om-radius-pill); background: var(--om-color-accent-soft); color: var(--om-color-accent-text); }
+.oms-practice-name { margin: 0; font-size: var(--om-font-size-md); }
+.oms-practice-ask { margin: 0; }
+.oms-practice-plan { display: grid; gap: var(--om-space-1); margin: 0; font-size: var(--om-font-size-sm); }
+.oms-practice-plan > div { display: flex; gap: var(--om-space-2); }
+.oms-practice-plan dt { min-width: 9rem; color: var(--om-color-text-muted); }
+.oms-practice-plan dd { margin: 0; }
+.oms-practice-actions { display: flex; flex-wrap: wrap; gap: var(--om-space-2); align-items: center; }
+.oms-practice-done { display: flex; flex-wrap: wrap; gap: var(--om-space-2); align-items: center; margin: 0; min-height: 44px; }
 .oms-onb-head { display: flex; flex-direction: column; gap: var(--om-space-2); }
 .oms-onb-title { font-size: var(--om-font-size-4xl); letter-spacing: -0.02em; outline: none; }
 .oms-onb-lede { color: var(--om-color-text-muted); font-size: var(--om-font-size-lg); max-width: 56ch; }

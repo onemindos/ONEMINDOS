@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// First-run wizard (ONB-P1, PU-05): name the box, create the owner with a passkey, choose the
-// look, pick starter apps by category, choose where backups go and save the emergency kit
-// (cannot be skipped, ONB-B2), then a summary with the headless twin (`onemind init`, ONB-B1).
+// First-run wizard (ONB-P1, PU-05; the mixed "map draws itself" experience, founder pick 2026-11-28):
+// name the place and box (the map draws itself), say where the place is (the map moves there and the
+// gateway saves it as the box's first site), practise the approval rule (You decide), create the owner
+// with a passkey, choose the look, pick starter apps by category, choose where backups go and save the
+// emergency kit (cannot be skipped, ONB-B2), then a summary with the headless twin (`onemind init`, ONB-B1).
 // Full-screen, no navigation; each step has one heading that receives focus.
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { cx } from '../lib/cx';
@@ -29,11 +31,15 @@ import {
   validateBoxName,
   type BackupDestination,
   type OnboardingDraft,
+  type StepId,
   type StarterApp,
 } from './firstRun';
 import { RecoveryKit, type OnboardingKit } from './RecoveryKit';
 import { animate, useReducedMotion } from '../motion';
 import { SetupMap } from './onboarding/SetupMap';
+import { AddressStep, browserLocation } from './onboarding/AddressStep';
+import { DecideStep } from './onboarding/DecideStep';
+import { formatLocation } from './onboarding/location';
 import './shell.css';
 
 export interface OnboardingProps {
@@ -56,6 +62,15 @@ export interface OnboardingProps {
   backupDestinations?: Array<{ id: string; kind: string; label: string }>;
   /** Connected recovery-kit step: the gateway issues the key once and confirms two typed-back groups. */
   kit?: OnboardingKit;
+  /**
+   * Saves the place (name, address, position) as the box's first site, when the owner gave a position.
+   * 'exists' when a site with that ID is already saved (it is kept as it is).
+   */
+  onSaveLocation?: (draft: OnboardingDraft) => Promise<'saved' | 'exists'>;
+  /** Asks this device for its position; defaults to the browser's, offered only on a secure page. */
+  deviceLocation?: () => Promise<{ lat: number; lon: number }>;
+  /** The last button's words (the connected wizard ends on the desktop Map). */
+  finishLabel?: string;
   /** Read-only plan summary for a starter app, shown before Finish files its install request. */
   previewPlan?: (appId: string) => Promise<string>;
   onFinish: (draft: OnboardingDraft, requests: ReturnType<typeof finishRequests>) => void | Promise<void>;
@@ -173,6 +188,9 @@ export function Onboarding({
   localAddress,
   kit,
   previewPlan,
+  onSaveLocation,
+  deviceLocation,
+  finishLabel = 'Go to Home',
   onFinish,
 }: OnboardingProps) {
   const [d, setD] = useState<OnboardingDraft>(() => ({ ...emptyDraft(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), ...initial }));
@@ -185,12 +203,15 @@ export function Onboarding({
   const [kitSkipped, setKitSkipped] = useState(false);
   const [kitDownloaded, setKitDownloaded] = useState(!!initial?.backup?.kitSaved);
   const [cat, setCat] = useState<CategorySlug | 'all'>('all');
+  const [site, setSite] = useState<'saved' | 'exists'>();
+  const [mapPlay, setMapPlay] = useState(0);
+  const askDevice = useMemo(() => deviceLocation ?? browserLocation(), [deviceLocation]);
   const heading = useRef<HTMLHeadingElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const changingStep = useRef(false);
   const reduced = useReducedMotion();
   const first = useRef(true);
-  const ids = { name: useId(), tz: useId(), owner: useId(), kit: useId(), issues: useId() };
+  const ids = { name: useId(), place: useId(), tz: useId(), owner: useId(), kit: useId(), issues: useId() };
   const tzList = useMemo(() => timeZones ?? zones(), [timeZones]);
   const offer = useMemo(() => offerable(apps), [apps]);
 
@@ -199,7 +220,8 @@ export function Onboarding({
   const issues = onSaveSettings && s.id === 'backups'
     ? (kit && !kitConfirmed && !kitSkipped ? ['Create and confirm your emergency kit first. Without it nobody can recover this box.'] : [])
     : stepIssues(s.id, d);
-  const reach = onSaveSettings ? Math.min(step, 4) : furthestReachable(d);
+  const reach = onSaveSettings ? Math.min(step, ONBOARDING_STEPS.length - 2) : furthestReachable(d);
+  const at = (id: StepId) => ONBOARDING_STEPS.findIndex((x) => x.id === id);
   const set = (patch: Partial<OnboardingDraft>) => setD((x) => ({ ...x, ...patch }));
 
   useEffect(() => {
@@ -245,10 +267,10 @@ export function Onboarding({
     }
   };
 
-  const next = async (e?: FormEvent) => {
+  const next = async (e?: FormEvent, skip = false) => {
     e?.preventDefault();
     if (savingRef.current || changingStep.current) return;
-    if (issues.length) {
+    if (issues.length && !skip) {
       setTried(true);
       return;
     }
@@ -257,8 +279,13 @@ export function Onboarding({
     setSaveError(undefined);
     try {
       if (s.id === 'backups') await onSaveSettings?.(d);
+      if (s.id === 'address' && !skip && d.location && onSaveLocation && !site) setSite(await onSaveLocation(d));
       if (s.id === 'done') await onFinish(d, finishRequests(d));
-      else await moveTo(Math.min(step + 1, ONBOARDING_STEPS.length - 1));
+      else {
+        await moveTo(Math.min(step + 1, ONBOARDING_STEPS.length - 1));
+        // Naming the place is what the map was waiting for: it draws itself as its own beat.
+        if (s.id === 'box') setMapPlay((n) => n + 1);
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Settings were not saved. Try again.');
     } finally {
@@ -275,6 +302,18 @@ export function Onboarding({
       case 'box':
         return (
           <>
+            <Field id={ids.place} label="Place name" hint="Shown on your Map and your phone. For example Rivera Home, the farm, the shop.">
+              <input
+                id={ids.place}
+                className="oms-input"
+                value={d.placeName}
+                placeholder="Home"
+                maxLength={128}
+                autoComplete="off"
+                aria-describedby={`${ids.place}-msg`}
+                onChange={(e) => set({ placeName: e.target.value })}
+              />
+            </Field>
             <Field id={ids.name} label="Box name" error={nameErr} hint={onSaveSettings ? (localAddress
               ? <>Current local address <strong>{localAddress}</strong>. The display name does not change it.</>
               : 'Software display name only. This does not change the network hostname.') : <>People on your network open it at <strong>{(d.boxName || 'your-name') + '.local'}</strong></>}>
@@ -321,6 +360,20 @@ export function Onboarding({
             )}
           </>
         );
+      case 'address':
+        return site ? (
+          <div className="oms-note om-tone-ok" role="status">
+            <ShellIcon name="check" size={16} />
+            <span>
+              {site === 'saved' ? 'Saved on this box as your first place' : 'A place with this name was already saved on this box; it was kept as it is'}:{' '}
+              <strong>{d.placeName.trim() || 'Home'}</strong>{d.address.trim() && <>, {d.address.trim()}</>}{d.location && <> · {formatLocation(d.location)}</>}. The Map opens on it.
+            </span>
+          </div>
+        ) : (
+          <AddressStep address={d.address} location={d.location} deviceLocation={askDevice} onChange={(patch) => set(patch)} />
+        );
+      case 'decide':
+        return <DecideStep answer={d.practice} onAnswer={(practice) => set({ practice })} />;
       case 'owner':
         return (
           <>
@@ -373,7 +426,7 @@ export function Onboarding({
                 <ShellIcon name="approvals" size={16} /> Agents and family members can ask for changes. Only the owner approves.
               </li>
               <li>
-                <ShellIcon name="lock" size={16} /> {onSaveSettings ? 'Recovery keys are managed separately by the secure backup flow, not this settings wizard.' : 'Lost every device? The emergency kit you save in step 5 recovers the owner.'}
+                <ShellIcon name="lock" size={16} /> {onSaveSettings ? 'Recovery keys are managed separately by the secure backup flow, not this settings wizard.' : `Lost every device? The emergency kit you save in step ${at('backups') + 1} recovers the owner.`}
               </li>
             </ul>
           </>
@@ -605,6 +658,19 @@ export function Onboarding({
             </div>
             <dl className="oms-summary">
               <div>
+                <dt>Place</dt>
+                <dd>
+                  <span>
+                    <strong>{d.placeName.trim() || 'Home'}</strong>
+                    {d.location ? <> · {formatLocation(d.location)} · {site ? 'saved on this box' : onSaveLocation ? 'not saved' : 'on your map'}</> : ' · no position yet; draw it later on the Map'}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt>You decide</dt>
+                <dd>{d.practice === 'approved' ? 'You approved the practice request' : d.practice === 'denied' ? 'You said no to the practice request' : 'Practice skipped'} · AI can ask, only you approve</dd>
+              </div>
+              <div>
                 <dt>Box</dt>
                 <dd>
                   <span>
@@ -652,7 +718,9 @@ export function Onboarding({
   })();
 
   const lede: Record<(typeof ONBOARDING_STEPS)[number]['id'], string> = {
-    box: onSaveSettings ? 'Choose a software display name and time-zone preference. Host settings stay unchanged.' : 'This is how you will find it on your network and on your phone.',
+    box: onSaveSettings ? 'The place name goes on your Map. The box name is a software display name and the time zone a preference; host settings stay unchanged.' : 'The place name shows on your Map and your phone. The box name is how you find it on your network.',
+    address: 'Type your address and your map moves there. Everything stays on this box: no outside account, no online lookup.',
+    decide: 'Agents and family members can ask. Only you approve, and nothing moves until you do. Try it once.',
     owner: 'The owner approves every change: installs, updates, restores. Agents can only ask.',
     appearance: 'Pick a theme and an accent. Everyone who signs in can choose their own later.',
     apps: 'Choose a few to start. Nothing is installed yet: each one becomes a request you approve.',
@@ -674,7 +742,7 @@ export function Onboarding({
         <ol className="oms-steps">
           {ONBOARDING_STEPS.map((x, i) => {
             const done = i < step && (onSaveSettings && x.id === 'backups' || stepIssues(x.id, d).length === 0);
-            const can = !saving && i <= Math.max(reach, step) && i !== step && !(onSaveSettings && i === 5);
+            const can = !saving && i <= Math.max(reach, step) && i !== step && !(onSaveSettings && x.id === 'done');
             return (
               <li key={x.id} className={cx('oms-step', i === step && 'oms-step-on', done && 'oms-step-done')}>
                 <button type="button" className="oms-step-btn" aria-current={i === step ? 'step' : undefined} disabled={!can} onClick={() => void moveTo(i)}>
@@ -690,7 +758,20 @@ export function Onboarding({
             );
           })}
         </ol>
-        <SetupMap boxName={d.boxName} timeZone={d.timeZone} ready={s.id === 'done'} />
+        <SetupMap
+          boxName={d.boxName}
+          timeZone={d.timeZone}
+          placeName={d.placeName}
+          address={d.address}
+          location={d.location}
+          drawn={step > at('box')}
+          play={mapPlay}
+          approvals={step > at('decide') || d.practice !== 'none'}
+          waiting={step >= at('apps') ? d.starterApps.length : 0}
+          backup={step > at('backups') && d.backup.destination !== 'later'}
+          ready={step > at('box')}
+        />
+        <p className="om-visually-hidden" role="status">{mapPlay > 0 && s.id === 'address' ? 'Your map is drawing itself. Press Escape to skip the animation.' : ''}</p>
         <p className="oms-onb-side-foot">Everything here can also be done with <code>onemind init</code>.</p>
       </aside>
       <div className="oms-onb-main">
@@ -729,10 +810,17 @@ export function Onboarding({
             ) : (
               <span />
             )}
-            <button type="submit" disabled={saving} aria-busy={saving || undefined} className="om-btn om-btn-primary oms-onb-next" aria-describedby={tried && issues.length ? ids.issues : undefined}>
-              {saving ? 'Saving…' : s.id === 'done' ? 'Go to Home' : s.id === 'backups' ? 'Finish setup' : 'Continue'}
-              <ShellIcon name="arrow" size={18} />
-            </button>
+            <span className="oms-onb-foot-end">
+              {((s.id === 'address' && !site) || (s.id === 'decide' && d.practice === 'none')) && (
+                <button type="button" disabled={saving} className="om-btn om-btn-ghost" onClick={() => void next(undefined, true)}>
+                  Skip
+                </button>
+              )}
+              <button type="submit" disabled={saving} aria-busy={saving || undefined} className="om-btn om-btn-primary oms-onb-next" aria-describedby={tried && issues.length ? ids.issues : undefined}>
+                {saving ? 'Saving…' : s.id === 'done' ? finishLabel : s.id === 'backups' ? 'Finish setup' : s.id === 'address' && d.location && onSaveLocation && !site ? 'Save my place' : 'Continue'}
+                <ShellIcon name="arrow" size={18} />
+              </button>
+            </span>
           </footer>
         </form>
       </div>
