@@ -3,8 +3,10 @@
 
 PY        ?= 3.12
 IMAGE     ?= onemind-core:dev
-# Extra pytest flags. CI runs `PYTEST_ARGS="-n auto --dist loadgroup"` (pytest-xdist, CI-03 #228);
-# the same works locally on any machine with more than one core.
+# Extra pytest flags, passed to both `test` and `test-integration`. CI runs
+# `PYTEST_ARGS="-n auto --dist loadgroup --durations=20"` (pytest-xdist on every core, CI-03 #228);
+# the same works locally on any machine with more than one core. Until 2026-11-25 `test` dropped
+# these flags, so every CI shard ran on one core (a PostgreSQL shard took 57 of its 60 minutes).
 PYTEST_ARGS ?=
 PLATFORMS ?= linux/amd64,linux/arm64
 REPO_ROOT := $(abspath $(CURDIR)/..)
