@@ -22,18 +22,20 @@ standing approval they created. Settings are computed defaults until the owner c
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from contextlib import nullcontext
+from datetime import datetime, timedelta, tzinfo
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import JSON, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from ..auth import Principal
 from ..errors import ApiError
 from ..jsonbody import JsonBody
 from ..ledger import Base, iso, utc
 from ..store import FeatureSchema, SqlRepository
-from .cron import WEEKDAYS, parse_ranges, window_open
+from .cron import WEEKDAYS, parse_ranges, resolve_tz, window_open
 from .policies import update_kind
 
 SCHEMA = FeatureSchema("updatepolicy")  # version 1 = the shape below
@@ -60,6 +62,10 @@ class AiSchedule(JsonBody):
     tz: str = Field(default="box", max_length=64)
     off: list[dict] = Field(default_factory=lambda: [{"days": list(WEEKDAYS), "start": "23:00", "end": "07:00"}])
 
+    def validate_timing(self, resolve_zone: Callable[[str], tzinfo] = resolve_tz) -> None:
+        parse_ranges(self.off)
+        resolve_zone(self.tz)
+
 
 class UpdatePolicyBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
@@ -76,15 +82,15 @@ class ResumeBody(BaseModel):
 
 
 class UpdatePolicyRepository(SqlRepository):
-    def get(self) -> dict | None:
-        with self.db.session() as s:
+    def get(self, *, session: Session | None = None) -> dict | None:
+        with (self.db.session() if session is None else nullcontext(session)) as s:
             r = s.get(UpdatePolicyRow, "global")
             return None if r is None else {"doc": dict(r.doc), "resumed": dict(r.resumed or {}),
                                            "updated_by": r.updated_by, "updated_at": utc(r.updated_at)}
 
-    def put(self, *, now: datetime, **values) -> None:
+    def put(self, *, now: datetime, session: Session | None = None, **values) -> None:
         values = {**values, "updated_at": now}
-        with self.db.session.begin() as s:
+        with (self.db.session.begin() if session is None else nullcontext(session)) as s:
             s.execute(self.db.insert()(UpdatePolicyRow).values(id="global", **{"resumed": {}, **values})
                       .on_conflict_do_update(index_elements=[UpdatePolicyRow.id], set_=values))
 
@@ -148,8 +154,7 @@ class UpdatePolicyService:
         if self.automation.repo.get_window(body.window_id) is None:
             raise ApiError(422, "conflict", f"no window {body.window_id!r}")
         try:
-            parse_ranges(body.ai_schedule.off)
-            self.automation.tz(body.ai_schedule.tz)
+            body.ai_schedule.validate_timing(self.automation.tz)
         except ValueError as exc:
             raise ApiError(422, "conflict", f"ai_schedule: {exc}") from None
         self.repo.put(now=self.gw.clock(), doc=body.model_dump(), updated_by=principal.as_dict())
