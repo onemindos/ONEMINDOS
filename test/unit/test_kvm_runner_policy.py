@@ -20,7 +20,7 @@ KIT = ROOT / "scripts" / "ci-runner-kvm"
 SECRET_USE = re.compile(r"secrets\.(?!GITHUB_TOKEN\b)|secrets:\s*inherit|toJSON\(secrets\)", re.I)
 LABEL = "onemind-kvm"
 MOVED = {("ci.yml", "mqtt-bridge"), ("ci.yml", "rauc-build"), ("ci-core.yml", "test-postgresql"),
-         ("ci-core.yml", "image"), ("ci-deploy.yml", "deploy-lint"), ("ci-deploy.yml", "compose-e2e"),
+         ("ci-core.yml", "image"), ("ci-deploy.yml", "deploy-lint"),
          ("ci-deploy.yml", "e2e-systemd"), ("cli-packages.yml", "packages"), ("ci-onemindd.yml", "go"),
          ("image.yml", "scope"), ("image.yml", "dataenc"), ("ci-apps.yml", "plan"),
          ("go-fuzz.yml", "fuzz"), ("reproducible.yml", "repro"),
@@ -41,6 +41,7 @@ def kvm_jobs():
 
 class KvmRunnerPolicy(unittest.TestCase):
     def test_the_x86_kvm_jobs_use_it(self):
+        # compose-e2e (ci-deploy.yml) stays hosted: two bake targets export the same tag, which the droplets' Docker refuses.
         # golden-path (e2e.yml) and spatial (xr-emulator.yml) stay hosted: their harness starts an 8 GiB QEMU guest
         # and the onemind-kvm label also lands on 8 GB hosts. Every hosted-only x86 job moved here to get past GitHub's free-plan hosted-job cap (a stated reason, not a
         # convenience): none reads a secret or an environment, none is on the release path.
