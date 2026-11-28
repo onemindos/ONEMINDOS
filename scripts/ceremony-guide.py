@@ -11,6 +11,11 @@ verifies each result before moving on, and prints the final sheet.
     python3 scripts/ceremony-guide.py --rehearsal     the same walk with throwaway keys in a temp
                                                       directory; ends with REHEARSAL PASSED
     python3 scripts/ceremony-guide.py --work DIR      resume an interrupted ceremony (same DIR)
+    python3 scripts/ceremony-guide.py --yubikey       the root keys are made ON three YubiKeys instead of
+                                                      key files on sticks (os/update/CEREMONY.md "Ceremony
+                                                      on YubiKeys (D-031)"); ONE person, three YubiKeys
+    python3 scripts/ceremony-guide.py --yubikey --rehearsal
+                                                      the same walk on three throwaway SoftHSM tokens
 
 D-010: THREE holders, three encrypted sticks, any 2 of the 3 sign. If one person must do it alone,
 pass --solo-differs-from-d010: the keys are the same, but custody is NOT what D-010 asks for and the
@@ -29,6 +34,9 @@ REHEARSAL_PASS = "rehearsal-throwaway-passphrase"
 SOLO_FLAG = "--solo-differs-from-d010"
 HOLDERS = ("A", "B", "C")
 STATE_VERSION = 1
+PIN_ENV = "ONEMIND_TUF_PIN"
+REHEARSAL_PIN = "123456"          # throwaway SoftHSM PIN, rehearsal only
+YUBIKEY_FLAG = "--yubikey"
 
 NEEDS = """\
 WHAT YOU NEED AND HOW LONG IT TAKES  (one page, read it before you start)
@@ -60,6 +68,31 @@ SOLO_WARNING = """\
 !! The keys and the 2-of-3 rule are the same; the custody is weaker. The founder has to decide
 !! whether to accept that before this root is used for real. The final sheet repeats this.
 """
+
+NEEDS_YUBIKEY = """\
+WHAT YOU NEED AND HOW LONG IT TAKES  (YubiKey ceremony; one page, read it before you start)
+
+  Time      About 45 to 60 minutes the first time. Rehearsal (SoftHSM tokens): about a minute.
+  People    You alone (D-031: the founder is the sole key holder). Only two YubiKeys sign, but all
+            three make a key; the three YubiKeys are kept in three different places afterwards.
+  Things    - 3 YubiKeys (YubiKey 5 series, PIV), each ALREADY PREPARED the day before
+              (os/update/CEREMONY.md "Prepare each YubiKey"): own PIN and PUK set, management key
+              changed and PIN-protected, slot 9c empty. Plug in only the one asked for.
+            - 1 USB stick (the "transfer stick") for root.json (public) and, only for the GitHub step,
+              the three online PRIVATE keys; it is wiped after that.
+            - This computer with the network OFF, ideally a Debian live USB.
+            - ykman (YubiKey Manager), Yubico's PKCS#11 module (libykcs11) and the python-tuf tools,
+              installed BEFORE going offline. PYKCS11LIB set to the module's full path.
+            - Yubico's PIV attestation CA, downloaded and compared (sha256 on the checklist) before going
+              offline, in YUBICO_PIV_CA. Required: the guide checks each key was made on a real YubiKey.
+  You        type each YubiKey's PIN at prompts that show nothing, and touch the YubiKey when it
+            blinks. Three wrong PINs lock the PIN (the PUK unlocks it). A PIN is never stored with its YubiKey.
+  The private keys never exist anywhere but inside the three YubiKeys. There is nothing to back up:
+  any two of the three YubiKeys can sign, so one lost YubiKey changes nothing by itself.
+  You can stop at any time (Ctrl+C) and continue later with the same --work folder.
+"""
+
+YUBIKEY_DIFFERS = "D-031 (2026-11-25): the first ceremony runs on the founder's three YubiKeys."
 
 D010 = ("D-010 requires: three root keys, each held by a different person on their own encrypted "
         "stick, and any 2 of the 3 must sign. One lost or stolen stick changes nothing by itself.")
@@ -194,6 +227,9 @@ def sha256_file(p):
 
 
 class Guide:
+    NEEDS = NEEDS
+    MODE = "sticks"
+
     def __init__(self, io, work, repo=REPO, rehearsal=False, solo=False, channels=("security",),
                  expect_commit=None, stop_after=None, python=None):
         self.io, self.work, self.repo = io, os.path.abspath(work), repo
@@ -202,13 +238,14 @@ class Guide:
         self.python = python or os.environ.get("PYTHON") or "python3"
         self.state_path = os.path.join(self.work, "state.json")
         self.state = {"v": STATE_VERSION, "done": [], "holders": {}, "signers": [], "channels": list(self.channels),
-                      "rehearsal": rehearsal, "solo": solo}
+                      "rehearsal": rehearsal, "solo": solo, "mode": self.MODE}
 
     # ---- state ----
     def load_state(self):
         if os.path.exists(self.state_path):
             s = json.load(open(self.state_path))
-            if s.get("v") != STATE_VERSION or s.get("rehearsal") != self.rehearsal or s.get("solo") != self.solo:
+            if (s.get("v") != STATE_VERSION or s.get("rehearsal") != self.rehearsal or s.get("solo") != self.solo
+                    or s.get("mode", "sticks") != self.MODE):
                 raise Stop("the work folder holds a ceremony started in a different mode; use a new --work folder")
             self.state = s
             self.channels = tuple(s["channels"])
@@ -505,10 +542,7 @@ class Guide:
             lines.append("  expires " + signed["expires"] + "   (put the renewal date in a calendar, 90 days before)")
         if solo_note:
             lines += ["", *solo_note.rstrip().splitlines()]
-        lines += ["", "WHAT TO DO WITH EACH STICK AND FILE",
-                  "  Holder sticks     Each holder keeps their own stick in their own place: home, off-site, a trusted person (D-010).",
-                  "                    The stick is the only copy of the private key. Never copy root.key anywhere else.",
-                  "  Passphrases       Each holder keeps their own safe. Never in the repo, chat or email.",
+        lines += ["", "WHAT TO DO WITH EACH STICK AND FILE", *self.custody_lines(),
                   "  Transfer stick    First carry out ONLY the public file(s): " + ", ".join(f"out-{c}/root.json" for c in self.channels) + ". Check",
                   "                    on the online computer that `shasum -a 256 root.json` matches the sha256 above (CEREMONY.md step 8).",
                   "  Online keys       online/*.key are PRIVATE. They go into the GitHub Environment tuf-signing (CEREMONY.md step 9) and",
@@ -521,6 +555,11 @@ class Guide:
         with open(os.open(os.path.join(self.work, "SHEET.txt"), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
             f.write(text + "\n")
         io.say(f"(the sheet is also saved in {os.path.join(self.work, 'SHEET.txt')}; it has public values only)")
+
+    def custody_lines(self):
+        return ["  Holder sticks     Each holder keeps their own stick in their own place: home, off-site, a trusted person (D-010).",
+                "                    The stick is the only copy of the private key. Never copy root.key anywhere else.",
+                "  Passphrases       Each holder keeps their own safe. Never in the repo, chat or email."]
 
     def release_proof(self):
         """Rehearsal only: the existing rehearsal signs a test release and checks it as a box would."""
@@ -536,7 +575,7 @@ class Guide:
         os.makedirs(self.work, mode=0o700, exist_ok=True)
         os.chmod(self.work, 0o700)
         io.open_log(os.path.join(self.work, "guide.log"))
-        io.say(NEEDS)
+        io.say(self.NEEDS)
         if self.rehearsal:
             io.say("REHEARSAL: throwaway keys in " + self.work + ". Nothing here is ever used for real.\n")
         if self.solo:
@@ -555,9 +594,180 @@ class Guide:
         self.step("sheet", self.verify_and_sheet)
         if self.rehearsal:
             self.step("release-proof", self.release_proof)
-            io.say(f"\n== REHEARSAL PASSED: guided 3-holder walk, 2-of-3 root, online keys, a signed release verified. Delete {self.work}.")
+            io.say(f"\n== REHEARSAL PASSED: guided 3-holder walk ({self.MODE}), 2-of-3 root, online keys, a signed release verified. Delete {self.work}.")
         else:
             io.say("\nCEREMONY COMPLETE. Thank you. Follow the list above, then wipe this computer.")
+
+
+def yubico_ca(environ):
+    """The Yubico PIV attestation CA file for a REAL YubiKey ceremony, or Stop. Required: without it the check
+    that each key was made on a real YubiKey proves nothing (any software can mint an f9-style certificate for
+    an imported key). The spare-trial bypass of scripts/tuf-bootstrap-root.sh is refused here."""
+    if environ.get("ONEMIND_ATTEST_WITHOUT_CA"):
+        raise Stop("ONEMIND_ATTEST_WITHOUT_CA is set. Skipping Yubico's CA is for the spare trial only, never the "
+                   "ceremony: unset it and run again.")
+    ca = environ.get("YUBICO_PIV_CA", "")
+    if not ca or not os.path.isfile(ca) or not os.path.getsize(ca):
+        raise Stop("set YUBICO_PIV_CA to Yubico's PIV attestation CA file, downloaded and compared (sha256 on the "
+                   "checklist) BEFORE going offline (CEREMONY.md). Without it the check that each key was made on a "
+                   "real YubiKey proves nothing.")
+    return ca
+
+
+class TokenGuide(Guide):
+    """The same walk with the root keys made ON hardware tokens: three YubiKeys for real (ykman, PIV slot 9c,
+    PIN and touch policy "always", attestation checked), three throwaway SoftHSM tokens in a rehearsal. The
+    signing, the check and the sheet are the same commands as the stick ceremony; only the keys differ."""
+    NEEDS = NEEDS_YUBIKEY
+    MODE = "yubikey"
+
+    def holders(self):
+        """D-031 and the founder's call of 2026-11-27: one person (the sole key holder) with three YubiKeys."""
+        io = self.io
+        io.say("\nSTEP 2 of 7: who is here")
+        io.say("One person, three YubiKeys: you are the sole key holder (D-031). The keys are named A, B and C.")
+        name = io.ask("Your name:", auto="Rehearsal Operator") or "operator"
+        self.state["holders"] = {h: name for h in HOLDERS}
+        io.say("holders: " + ", ".join(f"{h}={name}" for h in HOLDERS))
+
+    def token_ref(self, h):
+        if self.rehearsal:
+            return f"hsm:2?label=onemind-guide-{h.lower()}"
+        return f"hsm:2?yubikey={self.state['serials'][h]}"
+
+    def env(self):
+        env = super().env()
+        env.pop(PIN_ENV, None)
+        if self.rehearsal:
+            env.update(SOFTHSM2_CONF=os.path.join(self.work, "softhsm", "softhsm2.conf"), PYKCS11LIB=self.softhsm_lib(),
+                       **{PIN_ENV: REHEARSAL_PIN})
+        return env
+
+    def softhsm_lib(self):
+        for c in (os.environ.get("SOFTHSM2_LIB", ""), "/usr/lib/softhsm/libsofthsm2.so",
+                  "/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so", "/usr/lib/aarch64-linux-gnu/softhsm/libsofthsm2.so",
+                  "/usr/local/lib/softhsm/libsofthsm2.so", "/opt/homebrew/lib/softhsm/libsofthsm2.so"):
+            if c and os.path.exists(c):
+                return c
+        raise Stop("the rehearsal needs SoftHSM (apt-get install softhsm2, or brew install softhsm).")
+
+    def preflight(self):
+        super().preflight()
+        io = self.io
+        io.say(YUBIKEY_DIFFERS)
+        if self.rehearsal:
+            if not shutil.which("softhsm2-util"):
+                raise Stop("the rehearsal needs SoftHSM (apt-get install softhsm2, or brew install softhsm).")
+            self.softhsm_lib()
+            io.say("ok: SoftHSM found (rehearsal tokens are software, the commands are the same).")
+            return
+        if not shutil.which("ykman"):
+            raise Stop("ykman (YubiKey Manager) is missing. Install it BEFORE going offline (CEREMONY.md, YubiKey section).")
+        lib = os.environ.get("PYKCS11LIB", "")
+        if not lib or not os.path.exists(lib):
+            raise Stop("set PYKCS11LIB to the full path of Yubico's PKCS#11 module (libykcs11.so or libykcs11.dylib).")
+        ca = yubico_ca(os.environ)
+        io.say(f"ok: ykman, the PKCS#11 module and Yubico's CA ({ca}) are there.")
+
+    def plugged(self):
+        r = subprocess.run(["ykman", "list", "--serials"], capture_output=True, text=True)
+        if r.returncode:
+            raise Stop(f"ykman could not list the YubiKeys: {r.stderr.strip()}")
+        return [x.strip() for x in r.stdout.splitlines() if x.strip()]
+
+    def keys(self):
+        io = self.io
+        io.say("\nSTEP 3 of 7: each holder makes their own root key ON their YubiKey")
+        io.say("One holder at a time, with only their own YubiKey plugged in. The key is made inside it and can never leave it.")
+        done = self.state.setdefault("keys_done", [])
+        serials = self.state.setdefault("serials", {})
+        pubs = os.path.join(self.work, "pubs")
+        os.makedirs(pubs, mode=0o700, exist_ok=True)
+        if self.rehearsal and not os.path.exists(os.path.join(self.work, "softhsm", "softhsm2.conf")):
+            os.makedirs(os.path.join(self.work, "softhsm", "tokens"), mode=0o700)
+            with open(os.path.join(self.work, "softhsm", "softhsm2.conf"), "w") as f:
+                f.write(f"directories.tokendir = {os.path.join(self.work, 'softhsm', 'tokens')}\nobjectstore.backend = file\n"
+                        "log.level = ERROR\n")
+        for h in HOLDERS:
+            if h in done:
+                io.say(f"  holder {h}: key already made."); continue
+            io.say(f"\n--- YubiKey {h} of 3 ---")
+            pub = os.path.join(pubs, f"{h.lower()}.pub")
+            if self.rehearsal:
+                label = f"onemind-guide-{h.lower()}"
+                r = subprocess.run(["softhsm2-util", "--init-token", "--free", "--label", label, "--so-pin", "87654321",
+                                    "--pin", REHEARSAL_PIN], env=self.env(), capture_output=True, text=True)
+                if r.returncode:
+                    raise Stop(f"could not make the rehearsal token for holder {h}: {r.stderr.strip()}")
+                if self.run_script("token-keygen", self.token_ref(h)) != 0 or self.run_script("token-pub", self.token_ref(h), pub) != 0:
+                    raise Stop(f"making holder {h}'s token key failed (message above).")
+            else:
+                io.say(f"  >> Plug in YubiKey {h} now, and unplug every other YubiKey.")
+                io.pause()
+                seen = self.plugged()
+                if len(seen) != 1:
+                    raise Stop(f"exactly one YubiKey must be plugged in (seen {len(seen)}). Unplug the others and run again.")
+                ser = seen[0]
+                if ser in [v for k, v in serials.items() if k != h]:
+                    raise Stop("that YubiKey already holds another key of this ceremony. Each of the three keys needs its own YubiKey.")
+                io.confirm_word(f"  YubiKey serial {ser} (printed on its back). Is it YubiKey {h}, prepared the day before?", "MINE")
+                serials[h] = ser
+                self.save()
+                io.say("  ykman now asks for the management key or the PIN (prompts show nothing), then the key blinks: touch it.")
+                if self.run_script("yubikey-key", pubs, h.lower(), ser) != 0:
+                    raise Stop(f"making holder {h}'s YubiKey key failed (message above). If slot 9c already held a key, stop "
+                               "and ask: never reset a YubiKey at the table.")
+            if not os.path.isfile(pub) or b"PRIVATE" in open(pub, "rb").read():
+                raise Stop(f"holder {h}'s public key file is missing or wrong after the step.")
+            done.append(h); self.save()
+            io.say(f"  ok: holder {h}'s key is on their {'token' if self.rehearsal else 'YubiKey'}; public key in pubs/{h.lower()}.pub.")
+            if not self.rehearsal:
+                io.say("  Now unplug this YubiKey and put it aside.")
+
+    def sign(self):
+        io = self.io
+        io.say("\nSTEP 6 of 7: sign the root")
+        sigs = self.state["signers"]
+        pubs = os.path.join(self.work, "pubs")
+        if not self.rehearsal:
+            need = [self.state["serials"][h] for h in sigs]
+            io.say("Both signers plug in their YubiKeys now, AT THE SAME TIME (serials " + " and ".join(need) +
+                   "). The third YubiKey stays away.")
+            io.pause()
+            seen = self.plugged()
+            if sorted(need) != sorted(seen):
+                raise Stop(f"plugged in now: {seen or 'none'}; needed exactly {need}. Fix it and run the guide again.")
+        others = [os.path.join(pubs, f"{h.lower()}.pub") for h in HOLDERS if h not in sigs]
+        online = os.path.join(self.work, "online")
+        for ch in self.channels:
+            out = os.path.join(self.work, f"out-{ch}")
+            if os.path.exists(os.path.join(out, "root.json")):
+                io.say(f"channel {ch}: root already made; checking it."); continue
+            io.say(f"\nChannel {ch}: each signer types their PIN at the prompt that shows nothing, then touches their YubiKey when it blinks.")
+            args = ["create", out, ch, "2", *[self.token_ref(h) for h in sigs], *others, "--",
+                    os.path.join(online, "targets.pub"), os.path.join(online, "snapshot.pub"), os.path.join(online, "timestamp.pub")]
+            if self.run_script(*args) != 0:
+                raise Stop("signing failed (message above): a wrong PIN, a missed touch or an unplugged YubiKey. Nothing was "
+                           "written. Run the guide again with the same --work folder. Three wrong PINs lock the PIN: slow down.")
+            if not os.path.isfile(os.path.join(out, "root.json")):
+                raise Stop("signing reported success but root.json is missing.")
+
+    def custody_lines(self):
+        lines = ["  YubiKeys          Three YubiKeys in three different places; a PIN is never stored with its YubiKey.",
+                 "                    The key inside it cannot be copied; any two of the three sign, so one lost YubiKey breaks nothing.",
+                 "  PINs and PUKs     You keep them safe, apart from the YubiKeys. Never in the repo, chat or email."]
+        if not self.rehearsal:
+            lines.append("  Serials           " + "  ".join(f"{h}={self.state['serials'][h]}" for h in HOLDERS) +
+                         "  (write them on the checklist; they are public)")
+        lines.append("  Decision          " + YUBIKEY_DIFFERS + " D-010's sealed succession note still applies.")
+        return lines
+
+    def release_proof(self):
+        d = os.path.join(self.work, "release-proof")
+        if os.path.exists(d):
+            shutil.rmtree(d)
+        if self.run_script("rehearse-tokens", d, capture=True, quiet=True) != 0:
+            raise Stop("the release proof on tokens (a signed test release checked as a box would) FAILED.")
 
 
 def main(argv=None):
@@ -568,6 +778,8 @@ def main(argv=None):
     ap.add_argument("--expect-commit", help="commit hash from your checklist (otherwise you are asked to type it)")
     ap.add_argument(SOLO_FLAG, dest="solo", action="store_true",
                     help="ONE person does all three holders' parts. NOT what D-010 requires: the founder must accept it")
+    ap.add_argument(YUBIKEY_FLAG, dest="yubikey", action="store_true",
+                    help="make the root keys ON three YubiKeys (with --rehearsal: three throwaway SoftHSM tokens)")
     ap.add_argument("--stop-after", help=argparse.SUPPRESS)
     a = ap.parse_args(argv)
     io = Io(auto=a.rehearsal)
@@ -576,12 +788,16 @@ def main(argv=None):
             raise Stop("refusing: a root key is made by people, offline, never in CI.")
         if a.solo and a.rehearsal:
             raise Stop("--rehearsal already uses three throwaway holders; do not combine it with the solo flag.")
+        if a.yubikey and a.solo:
+            raise Stop("--yubikey is already a one-person ceremony (D-031); the solo flag is only for the stick ceremony.")
+        if os.environ.get(PIN_ENV) and not a.rehearsal:
+            raise Stop(f"{PIN_ENV} is set in this shell. A real PIN is typed, never kept in the environment: unset it and run again.")
         if os.environ.get(PASSPHRASE_ENV) and not a.rehearsal:
             raise Stop(f"{PASSPHRASE_ENV} is set in this shell. A real passphrase is typed, never kept in the environment: unset it and run again.")
         if not a.rehearsal and not (sys.stdin.isatty() and sys.stdout.isatty()):
             raise Stop("the real ceremony needs a person at a terminal (passphrases are typed at no-echo prompts).")
         work = a.work or os.path.join(tempfile.mkdtemp(prefix="onemind-ceremony-"), "work")
-        Guide(io, work, rehearsal=a.rehearsal, solo=a.solo, channels=a.channel or ["security"],
+        (TokenGuide if a.yubikey else Guide)(io, work, rehearsal=a.rehearsal, solo=a.solo, channels=a.channel or ["security"],
               expect_commit=a.expect_commit, stop_after=a.stop_after).run()
     except Stop as e:
         io.say(f"\nSTOP: {e}", err=True)
