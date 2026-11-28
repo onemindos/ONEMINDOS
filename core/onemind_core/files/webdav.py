@@ -403,7 +403,7 @@ class WebDav:
         self.writable(place, p, row)
         cap = self.files.settings.upload_max_bytes
         expected = headers.get("content-length") or headers.get("x-expected-entity-length")
-        expected_n = int(expected) if expected and expected.isdigit() else None
+        expected_n = int(expected) if expected and expected.isascii() and expected.isdigit() else None
         if expected_n is not None and expected_n > cap:
             raise DavError(413, f"files over {cap} bytes are not accepted")
         with self.files._space(self.files.target(p, place.root, place.path, "entry").root) as space:

@@ -898,7 +898,7 @@ POLICY |= {
 
 # ---- bring your own domain (NET-DOM-01, #238: core/onemind_core/routers/domains.py) -----------------------------
 _DOM = "core/onemind_core/routers/domains.py"
-_OFF = grid(503, 403, 403, 403, 403)  # owner reaches the service, which is off in this world (domains_disabled)
+_OFF = grid(409, 403, 403, 403, 403)  # owner reaches the service, which is off in this world (409 domains_disabled)
 POLICY |= {
     ("GET", "/v1/domains"): Row(ONLY_OWNER, w.p_static("/v1/domains"), f"{_DOM}: owner only, no-store"),
     ("POST", "/v1/domains"): Row(_OFF, w.p_missing("/v1/domains", json={"domain": "example.org"}),

@@ -20,11 +20,11 @@ from typing import Annotated, Literal
 from fastapi import Depends, FastAPI, Header, Path, Query, Request, Response, Security
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..auth import Principal
 from ..context import Gateway
-from ..errors import ErrorBody
+from ..errors import ErrorBody, SemanticValueError
 from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.index import CHANGES_MAX
@@ -111,16 +111,31 @@ class ChunkRef(_Body):
     size: int = Field(ge=1, le=CHUNK_LIMIT)
 
 
+def _commit_schema(schema: dict) -> None:
+    schema["oneOf"] = [{"required": ["chunks"]}, {"required": ["manifest_chunks"]}]
+    for name in ("chunks", "manifest_chunks"):  # absent, never null: drop the default pydantic prints
+        schema["properties"][name].pop("default", None)
+
+
 class CommitBody(_Body):
+    model_config = ConfigDict(extra="forbid", json_schema_extra=_commit_schema)
     root: Root
     path: str = Field(min_length=1, max_length=4096)
     size: int = Field(ge=0, le=MAX_QUOTA_BYTES)
     sha256: Hex                   # of the whole file
-    chunks: list[ChunkRef] | None = Field(None, max_length=MANIFEST_MAX_CHUNKS)
-    manifest_chunks: list[Hex] | None = Field(None, max_length=MISSING_MAX)
+    # Exactly one of the two: the schema says so (oneOf on "required"), and so does the model. Neither is
+    # nullable: absent means "not sent", and an explicit null would make the two readings differ.
+    chunks: list[ChunkRef] = Field(None, max_length=MANIFEST_MAX_CHUNKS)  # type: ignore[assignment]
+    manifest_chunks: list[Hex] = Field(None, max_length=MISSING_MAX)  # type: ignore[assignment]
     # The file's revision the client last saw (from /v1/sync/changes or a commit); null or absent:
     # the file must not exist yet. An If-Match header says the same and wins when both are sent.
     base_revision: int | None = Field(None, ge=0)
+
+    @model_validator(mode="after")
+    def _exactly_one_manifest(self):
+        if len(self.model_fields_set & {"chunks", "manifest_chunks"}) != 1:
+            raise SemanticValueError("send exactly one of chunks or manifest_chunks", reason="chunks_or_manifest")
+        return self
 
 
 class LockHolder(BaseModel):
@@ -184,10 +199,16 @@ class SyncVersions(BaseModel):
     versions: list[SyncVersion]   # newest first; the last few are kept and share chunks
 
 
+# If-Match on a commit: the base revision, as an ETag ("7", W/"7") or bare (7). The schema states it, so a
+# client (and the fuzzer) knows anything else is the 422 below rather than a value the server might take.
+IF_MATCH_RE = r'^(W/)?"?[0-9]{1,18}"?$'
+
+
 def _if_match(value: str | None) -> int | None:
     """If-Match: "<revision>" (quotes optional). Anything else is 422."""
     raw = value.strip().removeprefix("W/").strip('"') if value else ""
-    if not raw.isdigit() or len(raw) > 18:
+    # isdigit() alone also takes "²" or Arabic-Indic digits, which int() then refuses (a 500): ASCII only.
+    if not (raw.isascii() and raw.isdigit()) or len(raw) > 18:
         raise FilesError(422, "conflict", 'If-Match is "<revision>"', reason="invalid_precondition")
     return int(raw)
 
@@ -243,7 +264,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
                            "device changed the file; details carry its revision. 413 (quota_exceeded). "
                            "The replaced content stays as a version."),
               dependencies=SECURED, responses={**body_errs(401, 403, 404, 409, 413, 422, 503), **_412})
-    def commit(body: CommitBody, if_match: Annotated[str | None, Header(max_length=40)] = None,
+    # `str`, not `str | None`: an optional header is simply absent, and a nullable schema made clients
+    # (and the fuzzer) send the text "null", which is no revision.
+    def commit(body: CommitBody, if_match: Annotated[str, Header(max_length=40, json_schema_extra={
+                   "pattern": IF_MATCH_RE})] = None,  # type: ignore[assignment]
                p: Principal = Depends(principal)):
         base = _if_match(if_match) if if_match is not None else body.base_revision
         chunks = [c.model_dump() for c in body.chunks] if body.chunks is not None else None

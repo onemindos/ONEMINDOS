@@ -3,11 +3,13 @@
 import json
 
 import pytest
+from sqlalchemy import select
 
 from conftest import AGENT, GUEST, OWNER
 from onemind_core.auth import Principal
 from onemind_core.errors import ApiError
 from onemind_core.eventstream import events_for_record
+from onemind_core.work.db import ProjectMemberRow, ProjectRow, TaskRow
 from onemind_core.work.service import ProjectFields, TaskFields
 from test_identity import csrf, idc, setup_owner  # noqa: F401 (pytest fixture)
 from test_mcp import H, rpc
@@ -42,6 +44,40 @@ def test_capture_replays_and_partial_update_uses_task_revision(client):
         ids = {"task_id": task["id"], "project_id": task["project_id"]}
         assert record["data"]["payload"] == ids
         assert events_for_record(record)[0]["data"] == ids
+
+
+def test_task_saved_before_the_stricter_title_rules_still_loads_and_can_be_repaired(client):
+    # The version before NONBLANK stripped with pydantic's strip_whitespace, which keeps U+001C..U+001F,
+    # so it saved a title like "\x1c". After the upgrade GET, the list and PATCH answered 500 on that row.
+    created = client.post("/v1/work/capture", json={"title": "Old task", "labels": ["home"]},
+                          headers={**OWNER, "Idempotency-Key": "legacy-title"})
+    assert created.status_code == 201, created.text
+    task = created.json()
+    path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    work = client.app.state.work
+    with work.db.session.begin() as session:
+        row = session.get(TaskRow, (task["project_id"], task["id"]))
+        row.title, row.labels = "\x1c", ["\x1f"]
+        session.get(ProjectRow, task["project_id"]).name = "\x1d"
+    read = client.get(path, headers=OWNER)
+    assert read.status_code == 200, read.text
+    assert (read.json()["title"], read.json()["labels"]) == ("\x1c", ["\x1f"])
+    listed = client.get("/v1/work/tasks", headers=OWNER)
+    assert listed.status_code == 200, listed.text
+    assert [t["title"] for t in listed.json()] == ["\x1c"]
+    with work.db.session() as session:
+        member = session.scalars(select(ProjectMemberRow.person_id).where(
+            ProjectMemberRow.project_id == task["project_id"])).first()
+    assert work.get_project(Principal(member, "person", "owner"), task["project_id"]).name == "\x1d"
+    kept = client.patch(path, json={"status": "in_progress"}, headers={**OWNER, "If-Match": "1"})
+    assert kept.status_code == 200, kept.text
+    assert (kept.json()["title"], kept.json()["status"]) == ("\x1c", "in_progress")
+    # New input still follows the strict rules: the old value cannot be sent again.
+    refused = client.patch(path, json={"title": "\x1c"}, headers={**OWNER, "If-Match": "2"})
+    assert refused.status_code == 422, refused.text
+    repaired = client.patch(path, json={"title": "Fixed", "labels": ["home"]}, headers={**OWNER, "If-Match": "2"})
+    assert repaired.status_code == 200, repaired.text
+    assert (repaired.json()["title"], repaired.json()["labels"], repaired.json()["revision"]) == ("Fixed", ["home"], 3)
 
 
 @pytest.mark.parametrize("role", ["child", "teen"])

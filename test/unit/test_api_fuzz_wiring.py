@@ -287,6 +287,17 @@ class GatedRunsAreDeterministic(unittest.TestCase):
     def test_committed_seed_is_a_number(self):
         self.assertRegex(str(self.job["env"]["API_FUZZ_SEED"]), r"^\d{1,19}$")
 
+    def test_fuzz_job_runs_hook_regression_after_installing_locked_group(self):
+        install = next(i for i, step in enumerate(self.steps)
+                       if "uv sync --locked --python 3.12 --group fuzz" in step.get("run", ""))
+        hook_test = ("tests/test_fuzz_landing_regressions.py::"
+                     "test_the_fuzz_hook_lists_these_reasons_and_still_fails_any_other")
+        step = next((step for step in self.steps[install + 1:] if hook_test in step.get("run", "")), None)
+        self.assertIsNotNone(step, "run the hook test in the job that installs Schemathesis")
+        self.assertEqual(step.get("working-directory"), "core")
+        self.assertNotIn("if", step)
+        self.assertNotIn("continue-on-error", step)
+
     def test_every_fuzz_call_uses_the_picked_seed_one_worker_and_no_database(self):
         blocks = [s["run"] for s in self.steps if "bin/schemathesis" in s.get("run", "")]
         self.assertEqual(len(blocks), 3, "agent, owner and /mcp fuzz steps")

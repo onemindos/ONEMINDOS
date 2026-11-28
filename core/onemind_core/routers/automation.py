@@ -84,7 +84,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         svc.delete(p, rule_id)
         return Response(status_code=204)
 
-    @app.post("/v1/automation/rules/{rule_id}/dry-run", operation_id="automation.rules.dry_run", tags=tags, responses=error_responses(401, 404, 422))
+    @app.post("/v1/automation/rules/{rule_id}/dry-run", operation_id="automation.rules.dry_run", tags=tags, responses=error_responses(401, 403, 404, 422))
     def dry_run(rule_id: str, body: DryRunBody | None = None, p: Principal = Depends(principal)):
         return svc.dry_run(p, rule_id, body or DryRunBody())
 

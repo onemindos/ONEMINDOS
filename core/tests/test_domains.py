@@ -59,7 +59,7 @@ def test_off_by_default_and_changes_nothing(client):
     r = client.get("/v1/domains", headers=OWNER)
     assert r.status_code == 200 and r.json() == {"enabled": False, "acme": {"account_thumbprint": None, "issuance": "not_available_yet"}, "domains": []}
     bad = client.post("/v1/domains", headers=OWNER, json={"domain": "example.org"})
-    assert (bad.status_code, bad.json()["reason"]) == (503, "domains_disabled")
+    assert (bad.status_code, bad.json()["reason"]) == (409, "domains_disabled")
     assert not (client.app.state.domains.acme.path).exists()  # no key made while off
 
 

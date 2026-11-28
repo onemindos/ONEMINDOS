@@ -62,6 +62,12 @@ def test_fuzz_config_states_the_expected_statuses_and_no_operation_is_selected_b
     assert set(home[0]['checks']['positive_data_acceptance']['expected-statuses']) == {
         '2xx', '3xx', 401, 403, 404, 409, 412, 413, 422, 429, '5xx'}
     assert 'missing_required_header' not in doc['checks']
+    # Sync commit: a stale base revision is 412, on that one operation only, in both directions.
+    commit = [op for op in operations if op.get('include-operation-id') == 'sync.commit']
+    assert len(commit) == 1 and set(commit[0]['checks']) == {'positive_data_acceptance', 'negative_data_rejection'}
+    assert set(commit[0]['checks']['positive_data_acceptance']['expected-statuses']) == {
+        '2xx', '3xx', 401, 403, 404, 409, 412, 413, 422, 429, '5xx'}
+    assert 412 in commit[0]['checks']['negative_data_rejection']['expected-statuses']
 
 
 @pytest.mark.parametrize('method', ['GET', 'DELETE'])

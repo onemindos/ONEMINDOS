@@ -25,6 +25,20 @@ NAME_TOKEN = re.compile(rf"(?:{TOKEN}|\*)")
 MAX_SUBJECT = len(SUBJECT_PREFIX) + 5 * 40 + 4
 
 
+def _subject_regex() -> str:
+    """event_pattern()'s rule as one JSON Schema pattern: an enrolled domain, then 1 to 4 name tokens
+    with at most one `*`. Spelled out per length, as a JSON Schema pattern has no lookahead to count."""
+    names = []
+    for n in range(1, 5):
+        names.append(rf"(?:\.{TOKEN}){{{n}}}")
+        names += [rf"(?:\.{TOKEN}){{{k}}}\.\*(?:\.{TOKEN}){{{n - 1 - k}}}" for k in range(n)]
+    domains = "|".join(sorted(DOMAIN_SCOPE))
+    return rf"^{re.escape(SUBJECT_PREFIX)}(?:{domains})(?:{'|'.join(names)})$"
+
+
+SUBJECT_RE = _subject_regex()
+
+
 def event_pattern(subject: str) -> str:
     domain, *name = subject.removeprefix(SUBJECT_PREFIX).split(".")
     if (not subject.startswith(SUBJECT_PREFIX) or not DOMAIN_RE.fullmatch(domain) or domain not in DOMAIN_SCOPE
@@ -43,7 +57,10 @@ def can_read_subject(principal: Principal, scopes: frozenset[str] | None, patter
 class SubjectSource(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["subject"]
-    subject: str = Field(description="A gateway onemind.event subject with at most one wildcard in its name")
+    # The pattern documents event_pattern() (test_fuzz_landing_regressions holds them equal); the
+    # validator still answers 422 bad_subject, which the dashboard shows.
+    subject: str = Field(description="A gateway onemind.event subject with at most one wildcard in its name",
+                         json_schema_extra={"pattern": SUBJECT_RE})
 
     @field_validator("subject")
     @classmethod

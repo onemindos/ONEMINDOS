@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import get_args
 
 from fastapi import Depends, FastAPI, Header, Path, Query, Request, Response, Security
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -95,6 +96,32 @@ LINK = {"Link": {"description": 'The next page: `<...?cursor=...>; rel="next"` (
 IDEMPOTENCY = Header(None, alias="Idempotency-Key", min_length=1, max_length=80,
                      description="Sending the same key again returns the first answer")
 CLASS = Path(description="public, owner, private, location or activity")
+STREAM_END_REASONS = ("no_grant", "revoked")
+# One Server-Sent Event of GET /v1/data/classes/{data_class}/stream: `record` carries a record (RecordOut) as
+# JSON with its id, `end` carries {"reason": ...} as JSON. `retry:` and `: keepalive` frames are not events.
+DATA_SSE_EVENT_SCHEMA = {
+    "type": "object", "required": ["event", "data"],
+    "oneOf": [
+        {"properties": {
+            "event": {"const": "record"}, "id": {"type": "string", "pattern": "^[0-9]+$"},
+            "data": {"type": "string", "contentMediaType": "application/json", "contentSchema": {
+                "type": "object", "required": ["id", "data_class", "kind", "value", "source", "created_at"],
+                "properties": {
+                    "id": {"type": "integer"}, "data_class": {"enum": list(get_args(DataClass))},
+                    "kind": {"type": "string"}, "value": {}, "source": {"type": "string"},
+                    "created_at": {"type": "string"},
+                },
+            }},
+        }, "required": ["id"]},
+        {"properties": {
+            "event": {"const": "end"},
+            "data": {"type": "string", "contentMediaType": "application/json", "contentSchema": {
+                "type": "object", "required": ["reason"], "additionalProperties": False,
+                "properties": {"reason": {"enum": list(STREAM_END_REASONS)}},
+            }},
+        }},
+    ],
+}
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -134,7 +161,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 limit: int = Query(PAGE, ge=1, le=500), cursor: str | None = Query(None, max_length=20),
                 p: Principal = Depends(gw.principal)):
         """The class's records after `cursor`. Empty without a read grant (aggregate sees only the count)."""
-        if cursor is not None and not cursor.isdigit():
+        if cursor is not None and not (cursor.isascii() and cursor.isdigit()):
             raise ApiError(422, "conflict", "bad cursor", reason="invalid_cursor")
         rows = svc.read(p, data_class, after_id=int(cursor or 0), limit=limit + 1, scopes=scopes(request))["records"]
         if len(rows) > limit:
@@ -157,7 +184,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                           "Last-Event-ID), then `end` with a reason when the stream stops: no_grant at once "
                           f"without read, revoked within {int(STREAM_POLL_S) + 1} s of a revoke or expiry. "
                           "At most 5 open streams per principal (429)."),
-             responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"}}},
+             responses={200: {"content": {"text/event-stream": {"schema": DATA_SSE_EVENT_SCHEMA}},
                               "description": "The record stream"}, **error_responses(401, 403, 422, 429)})
     async def stream(request: Request, data_class: DataClass = CLASS,
                      last_event_id: str | None = Header(None, alias="Last-Event-ID", max_length=20),
@@ -167,7 +194,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if not slots.take(key):
             return JSONResponse({"error": "rate_limited", "message": "too many open data streams", "retry_after_s": 30},
                                 status_code=429, headers={"Retry-After": "30"})
-        last = int(last_event_id) if last_event_id and last_event_id.isdigit() else 0
+        last = int(last_event_id) if last_event_id and last_event_id.isascii() and last_event_id.isdigit() else 0
 
         def end(reason: str) -> bytes:
             return f"event: end\ndata: {json.dumps({'reason': reason})}\n\n".encode()

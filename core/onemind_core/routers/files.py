@@ -482,7 +482,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                              reason="content_type")
         cl = request.headers.get("content-length")
         patch = await run_in_threadpool(uploads.begin_patch, p, upload_id, upload_offset, upload_checksum,
-                                        int(cl) if cl and cl.isdigit() else None)
+                                        int(cl) if cl and cl.isascii() and cl.isdigit() else None)
         interrupted = False
         try:
             async for chunk in request.stream():

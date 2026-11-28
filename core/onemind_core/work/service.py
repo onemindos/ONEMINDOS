@@ -9,7 +9,7 @@ from hashlib import sha256
 from itertools import groupby
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
@@ -22,8 +22,19 @@ from ..store import Database, SqlRepository
 from .access import OWN_TASK_ONLY_ROLES, WORK_ROLES
 from .db import DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, TaskRow, WorkCreateRow
 
-Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
-Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
+# Every character str.strip() removes (str.isspace), spelled out: JSON Schema's \s (ECMA-262), Python's and
+# pydantic's differ (U+0085 and U+001C..U+001F), so one explicit class means the same to all of them.
+SPACE_CHARS = "\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f \x85\xa0\u1680" + "".join(map(chr, range(0x2000, 0x200B))) + "\u2028\u2029\u202f\u205f\u3000"
+NONBLANK = f"[^{SPACE_CHARS}]"  # unanchored: at least one character that is not space
+# The length is checked on what was sent (as the schema says), then the stored value is stripped. Stripping
+# first (strip_whitespace) let "   " fail a schema-valid minLength 1 and let 170 characters with spaces pass.
+Name = Annotated[str, StringConstraints(min_length=1, max_length=160, pattern=NONBLANK), AfterValidator(str.strip)]
+Label = Annotated[str, StringConstraints(min_length=1, max_length=64, pattern=NONBLANK), AfterValidator(str.strip)]
+# Rows already saved are read with the rules they were written under. The version before Name/Label above
+# stripped with pydantic's strip_whitespace, which keeps U+001C..U+001F, so a stored title or label can be
+# all "space" by NONBLANK and still be valid data: reading it strictly made GET and PATCH answer 500.
+StoredName = Annotated[str, StringConstraints(min_length=1, max_length=160)]
+StoredLabel = Annotated[str, StringConstraints(min_length=1, max_length=64)]
 PersonID = Annotated[str, StringConstraints(min_length=1, max_length=128)]
 AIAccess = Literal["none", "read", "work"]
 TaskView = Literal["all", "today", "upcoming", "inbox"]
@@ -39,6 +50,7 @@ class ProjectFields(BaseModel):
 
 class Project(ProjectFields):
     id: str
+    name: StoredName
 
 
 class PersonAssignee(BaseModel):
@@ -54,7 +66,7 @@ class TaskFields(BaseModel):
     title: Name
     body: str = Field(default="", max_length=10_000)
     status: Literal["todo", "in_progress", "done"] = "todo"
-    priority: int = Field(default=4, ge=1, le=4, strict=True)
+    priority: int = Field(default=4, ge=1, le=4)
     labels: tuple[Label, ...] = Field(default=(), max_length=32)
     assignee: PersonAssignee | None = None
     due_at: AwareDatetime | None = None
@@ -64,7 +76,14 @@ class CaptureFields(TaskFields):
     project_id: str | None = Field(default=None, min_length=1, max_length=40)
 
 
-class Task(TaskFields):
+class StoredTaskFields(TaskFields):
+    """Task fields as saved: new input passed the strict rules, rows from before them load as they are."""
+
+    title: StoredName
+    labels: tuple[StoredLabel, ...] = Field(default=(), max_length=32)
+
+
+class Task(StoredTaskFields):
     id: str
     project_id: str
     revision: int

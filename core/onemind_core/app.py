@@ -11,7 +11,7 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from . import __version__, ledger
 from .actions import ActionService
@@ -30,6 +30,7 @@ from .netconf import FabricSettings, NetSettings
 from .nodes import NodeRegistry
 from .netconf import MeshSettings
 from .policy import SandboxSettings
+from .querystrict import one_value_per_query_parameter
 from .routers import Register, discover
 from .routers.static import API_EXACT, API_TREES, is_api_path
 from .store import Database, migrate
@@ -134,6 +135,8 @@ def create_app(
         # Contract section 3: only /healthz (and /openapi.json) are open; no Swagger/ReDoc UIs.
         docs_url=None,
         redoc_url=None,
+        # A repeated single-valued query parameter is refused, not read as its last copy (querystrict.py).
+        dependencies=[Depends(one_value_per_query_parameter)],
     )
     install_handlers(app)
     app.state.settings = settings

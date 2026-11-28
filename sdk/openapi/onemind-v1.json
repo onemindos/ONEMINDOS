@@ -2152,6 +2152,7 @@
             "items": {
               "maxLength": 64,
               "minLength": 1,
+              "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
               "type": "string"
             },
             "maxItems": 32,
@@ -2191,6 +2192,7 @@
           "title": {
             "maxLength": 160,
             "minLength": 1,
+            "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
             "title": "Title",
             "type": "string"
           }
@@ -2589,16 +2591,9 @@
             ]
           },
           "body": {
-            "anyOf": [
-              {
-                "maxLength": 10000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Body"
+            "maxLength": 10000,
+            "title": "Body",
+            "type": "string"
           },
           "dependencies": {
             "anyOf": [
@@ -2628,60 +2623,37 @@
             "title": "Due At"
           },
           "labels": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "maxItems": 32,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Labels"
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Labels",
+            "type": "array"
           },
           "priority": {
-            "anyOf": [
-              {
-                "maximum": 4.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Priority"
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
           },
           "status": {
-            "anyOf": [
-              {
-                "enum": [
-                  "todo",
-                  "in_progress",
-                  "done"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "enum": [
+              "todo",
+              "in_progress",
+              "done"
             ],
-            "title": "Status"
+            "title": "Status",
+            "type": "string"
           },
           "title": {
-            "anyOf": [
-              {
-                "maxLength": 160,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
+            "title": "Title",
+            "type": "string"
           }
         },
         "title": "ChangeBody",
@@ -3002,6 +2974,18 @@
       },
       "CommitBody": {
         "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "chunks"
+            ]
+          },
+          {
+            "required": [
+              "manifest_chunks"
+            ]
+          }
+        ],
         "properties": {
           "base_revision": {
             "anyOf": [
@@ -3016,36 +3000,22 @@
             "title": "Base Revision"
           },
           "chunks": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ChunkRef"
-                },
-                "maxItems": 200000,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Chunks"
+            "items": {
+              "$ref": "#/components/schemas/ChunkRef"
+            },
+            "maxItems": 200000,
+            "title": "Chunks",
+            "type": "array"
           },
           "manifest_chunks": {
-            "anyOf": [
-              {
-                "items": {
-                  "maxLength": 64,
-                  "pattern": "^[0-9a-f]{64}$",
-                  "type": "string"
-                },
-                "maxItems": 3000,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Manifest Chunks"
+            "items": {
+              "maxLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "title": "Manifest Chunks",
+            "type": "array"
           },
           "path": {
             "maxLength": 4096,
@@ -9899,6 +9869,7 @@
           "name": {
             "maxLength": 160,
             "minLength": 1,
+            "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
             "title": "Name",
             "type": "string"
           }
@@ -13127,6 +13098,7 @@
           },
           "subject": {
             "description": "A gateway onemind.event subject with at most one wildcard in its name",
+            "pattern": "^onemind\\.event\\.(?:backup|node)(?:(?:\\.[a-z][a-z0-9_]{0,39}){1}|(?:\\.[a-z][a-z0-9_]{0,39}){0}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){0}|(?:\\.[a-z][a-z0-9_]{0,39}){2}|(?:\\.[a-z][a-z0-9_]{0,39}){0}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){1}|(?:\\.[a-z][a-z0-9_]{0,39}){1}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){0}|(?:\\.[a-z][a-z0-9_]{0,39}){3}|(?:\\.[a-z][a-z0-9_]{0,39}){0}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){2}|(?:\\.[a-z][a-z0-9_]{0,39}){1}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){1}|(?:\\.[a-z][a-z0-9_]{0,39}){2}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){0}|(?:\\.[a-z][a-z0-9_]{0,39}){4}|(?:\\.[a-z][a-z0-9_]{0,39}){0}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){3}|(?:\\.[a-z][a-z0-9_]{0,39}){1}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){2}|(?:\\.[a-z][a-z0-9_]{0,39}){2}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){1}|(?:\\.[a-z][a-z0-9_]{0,39}){3}\\.\\*(?:\\.[a-z][a-z0-9_]{0,39}){0})$",
             "title": "Subject",
             "type": "string"
           }
@@ -22037,6 +22009,16 @@
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -24485,6 +24467,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
           }
         },
         "security": [
@@ -24623,6 +24615,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
           },
           "404": {
             "content": {
@@ -25197,7 +25199,92 @@
             "content": {
               "text/event-stream": {
                 "schema": {
-                  "type": "string"
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "properties": {
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "data_class": {
+                                "enum": [
+                                  "public",
+                                  "owner",
+                                  "private",
+                                  "location",
+                                  "activity"
+                                ]
+                              },
+                              "id": {
+                                "type": "integer"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "value": {}
+                            },
+                            "required": [
+                              "id",
+                              "data_class",
+                              "kind",
+                              "value",
+                              "source",
+                              "created_at"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "string"
+                        },
+                        "event": {
+                          "const": "record"
+                        },
+                        "id": {
+                          "pattern": "^[0-9]+$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "reason": {
+                                "enum": [
+                                  "no_grant",
+                                  "revoked"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "reason"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "string"
+                        },
+                        "event": {
+                          "const": "end"
+                        }
+                      }
+                    }
+                  ],
+                  "required": [
+                    "event",
+                    "data"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -39163,16 +39250,10 @@
             "name": "if-match",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maxLength": 40,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "If-Match"
+              "maxLength": 40,
+              "pattern": "^(W/)?\"?[0-9]{1,18}\"?$",
+              "title": "If-Match",
+              "type": "string"
             }
           }
         ],
@@ -41940,6 +42021,7 @@
             "schema": {
               "maxLength": 12,
               "minLength": 1,
+              "pattern": "^(\"0*[1-9][0-9]*\"|0*[1-9][0-9]*)$",
               "title": "If-Match",
               "type": "string"
             }
@@ -42112,6 +42194,7 @@
             "schema": {
               "maxLength": 12,
               "minLength": 1,
+              "pattern": "^(\"0*[1-9][0-9]*\"|0*[1-9][0-9]*)$",
               "title": "If-Match",
               "type": "string"
             }

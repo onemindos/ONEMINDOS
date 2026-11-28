@@ -15,6 +15,8 @@ the JSON type itself:
     int     a JSON number (3 and 3.0; 3.5 is still refused by pydantic), never true/false or text
     float   a JSON number, never true/false or text
 
+    date-time, date   a JSON string, never a number (pydantic's lax mode read 0 as 1970-01-01)
+
 Nothing else changes: the generated schema, the constraints and the error envelope stay the same,
 and a wrong type answers 422 like any other schema violation. `str` needs nothing: pydantic 2
 already refuses a number where it expects text. Unions of several scalar types (an app's typed
@@ -23,12 +25,13 @@ already refuses a number where it expects text. Unions of several scalar types (
 
 from __future__ import annotations
 
+import datetime
 import types
 import typing
 from collections.abc import Callable
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, model_validator
+from pydantic import AwareDatetime, BaseModel, FutureDatetime, NaiveDatetime, PastDatetime, model_validator
 from pydantic_core import PydanticCustomError
 
 Check = Callable[[Any], tuple[str, Any] | None]  # None, or (the JSON type wanted, the offending value)
@@ -53,7 +56,14 @@ def _number(kind: str) -> Check:
     return lambda v: (kind, v) if isinstance(v, (bool, str)) else None
 
 
-_SCALARS: dict[type, Check] = {bool: _boolean, int: _number("integer"), float: _number("number")}
+def _text(v: Any) -> tuple[str, Any] | None:
+    # A date-time is text in JSON: a number or a boolean is refused (objects and lists stay pydantic's).
+    return ("string", v) if isinstance(v, (bool, int, float)) else None
+
+
+_SCALARS: dict[type, Check] = {bool: _boolean, int: _number("integer"), float: _number("number"),
+                               datetime.datetime: _text, datetime.date: _text, AwareDatetime: _text,
+                               NaiveDatetime: _text, PastDatetime: _text, FutureDatetime: _text}
 
 
 def scalar_check(annotation: Any) -> Check | None:

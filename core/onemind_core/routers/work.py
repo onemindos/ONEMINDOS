@@ -14,7 +14,8 @@ from ..identity.scopes import has_any, register_route_scope
 from ..jsonbody import JsonBody
 from ..work.access import WORK_ROLES, delegated_reader
 from ..work.parse import parse_quick_add
-from ..work.service import CaptureFields, PersonAssignee, Project, ProjectFields, Task, TaskFields, TaskView, WorkService
+from ..work.service import (CaptureFields, Label, Name, PersonAssignee, Project, ProjectFields, StoredTaskFields, Task,
+                            TaskFields, TaskView, WorkService)
 
 ORDER = 260
 BASE = "/v1/work"
@@ -23,7 +24,11 @@ register_route_scope("GET,HEAD", r"/v1/work(/.*)?", ("work:read",))
 register_route_scope("POST,PATCH,DELETE", r"/v1/work(/.*)?", ("work:write",))
 
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
-RevisionHeader = Annotated[str, Header(alias="If-Match", min_length=1, max_length=12)]
+# The task revision (1 or more), quoted as an ETag or bare: the schema says so, so anything else being the
+# handler's 422 bad_revision is documented rather than a surprise (_revision below is the same rule).
+REVISION_RE = r'^("0*[1-9][0-9]*"|0*[1-9][0-9]*)$'
+RevisionHeader = Annotated[str, Header(alias="If-Match", min_length=1, max_length=12,
+                                       json_schema_extra={"pattern": REVISION_RE})]
 
 
 class ProjectBody(ProjectFields, JsonBody):
@@ -43,14 +48,22 @@ class QuickAddBody(JsonBody):
     tz: str | None = Field(default=None, max_length=64)
 
 
+def _no_default(schema: dict) -> None:
+    """A left-out field means "keep it": its Python default None is not a value the schema offers."""
+    schema.pop("default", None)
+
+
 class ChangeBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
 
-    title: str | None = Field(default=None, max_length=160)
-    body: str | None = Field(default=None, max_length=10_000)
-    status: Literal["todo", "in_progress", "done"] | None = None
-    priority: int | None = Field(default=None, ge=1, le=4, strict=True)
-    labels: list[str] | None = Field(default=None, max_length=32)
+    # Leave a field out to keep it. Null clears assignee and due_at. For dependencies, null keeps
+    # the current list and [] clears it. The remaining fields reject null at validation, and title
+    # and labels follow the same rules as capture.
+    title: Name = Field(default=None, json_schema_extra=_no_default)
+    body: str = Field(default=None, max_length=10_000, json_schema_extra=_no_default)
+    status: Literal["todo", "in_progress", "done"] = Field(default=None, json_schema_extra=_no_default)
+    priority: int = Field(default=None, ge=1, le=4, json_schema_extra=_no_default)
+    labels: list[Label] = Field(default=None, max_length=32, json_schema_extra=_no_default)
     assignee: PersonAssignee | None = None
     due_at: AwareDatetime | None = None
     dependencies: list[str] | None = Field(default=None, max_length=100)
@@ -101,7 +114,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                    cursor: str | None = Query(None, pattern=r"^[A-Za-z0-9_-]{1,40}/[A-Za-z0-9_-]{1,40}$")) -> list[Task]:
         after_project, after = cursor.split("/") if cursor else (None, "")
         if project_id and after_project not in (None, project_id):
-            raise ApiError(422, "conflict", "Cursor does not belong to this project", reason="bad_cursor")
+            raise ApiError(422, "conflict", "Cursor does not belong to this project", reason="invalid_cursor")
         rows = service.list_tasks(p, project_id, after=after, after_project=after_project, limit=limit + 1,
                                   view=view, delegated=delegated_reader(request, p))
         if len(rows) > limit:
@@ -167,7 +180,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         fields = previous.model_dump(include=set(TaskFields.model_fields))
         changes = body.model_dump(exclude_unset=True, exclude={"dependencies"})
         try:
-            proposed = TaskFields.model_validate({**fields, **changes})
+            # The changes already passed ChangeBody's strict title and label rules; the fields kept from
+            # the saved task are checked as stored, so a row from before those rules can still be edited.
+            proposed = StoredTaskFields.model_validate({**fields, **changes})
         except ValidationError:
             raise ApiError(422, "conflict", "Invalid Work task fields", reason="bad_task") from None
         task = service.replace_task(p, project_id, task_id, expected_revision=_revision(revision),

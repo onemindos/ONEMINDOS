@@ -37,7 +37,7 @@ type Domain struct {
 }
 
 // DomainsSummary is GET /v1/domains. Enabled is false until the owner turns bring-your-own-domain on
-// for the box; adding then answers 503 domains_disabled.
+// for the box; adding then answers 409 domains_disabled.
 type DomainsSummary struct {
 	Enabled bool `json:"enabled"`
 	ACME    struct {

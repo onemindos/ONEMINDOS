@@ -45,7 +45,7 @@ func startDomainHub(t *testing.T, enabled bool) *domainHub {
 			})
 		case http.MethodPost:
 			if !h.enabled {
-				jsonOut(w, 503, map[string]string{"error": "domains_disabled", "message": "bring-your-own-domain is off; set ONEMIND_DOMAINS_ENABLED=1 to turn it on"})
+				jsonOut(w, 409, map[string]string{"error": "conflict", "reason": "domains_disabled", "message": "bring-your-own-domain is off; set ONEMIND_DOMAINS_ENABLED=1 to turn it on"})
 				return
 			}
 			b, _ := io.ReadAll(r.Body)

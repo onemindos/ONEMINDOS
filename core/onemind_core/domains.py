@@ -240,7 +240,10 @@ class DomainService(SqlRepository):
 
     def require_enabled(self) -> None:
         if not self.enabled:
-            raise DomainError(503, "domains_disabled", f"bring-your-own-domain is off; set {ENV}=1 to turn it on")
+            # Off is how the box is set up, not a fault (503 is for a dependency that is down, contract §6):
+            # 409, like map packs on a box without the Offline Maps volume. A DNS server that does not
+            # answer stays 503 dns_unavailable.
+            raise DomainError(409, "domains_disabled", f"bring-your-own-domain is off; set {ENV}=1 to turn it on")
 
     # -- views --
     def _view(self, row: DomainRow, hosts: list[HostRow]) -> dict:

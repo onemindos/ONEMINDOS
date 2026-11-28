@@ -208,7 +208,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.get("/v1/custom-apps", operation_id="customapps.list", tags=["custom-apps"], dependencies=CUSTOM_READ,
              response_model=list[CustomAppRow],
-             responses=error_responses(401))
+             responses=error_responses(401, 403))
     def list_custom_apps(p: Principal = Depends(principal)):
         """Apps linked from a Git repository, each with its revisions and what a rollback would go back to."""
         owner_only(p, "read custom apps")
@@ -216,7 +216,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.get("/v1/custom-apps/{app_id}", operation_id="customapps.get", tags=["custom-apps"], dependencies=CUSTOM_READ,
              response_model=CustomAppRow,
-             responses=error_responses(401, 404))
+             responses=error_responses(401, 403, 404))
     def get_custom_app(app_id: str, p: Principal = Depends(principal)):
         owner_only(p, "read a custom app")
         if not APP_ID_RE.match(app_id):

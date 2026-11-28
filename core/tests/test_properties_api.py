@@ -29,7 +29,8 @@ METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "TRACE"]
 # the §3 envelope, with the feature's own reason. Only these route trees may do so.
 SWITCHED_OFF_REASON = {
     "/v1/backups": "backups_disabled",
-    "/v1/domains": "domains_disabled",  # bring-your-own-domain, NET-DOM-01
+    # Not /v1/domains: bring-your-own-domain switched off is 409 domains_disabled (a setup state, like a
+    # switched-off built-in or map packs without their volume), so a 503 there is a failure too.
 }
 
 
@@ -100,8 +101,8 @@ def test_any_body_gets_a_documented_status(property_resources, operations, data,
 @pytest.mark.parametrize("path, status, body, ok", [
     ("/v1/backups/run", 503, {"error": "unavailable", "reason": "backups_disabled"}, True),
     ("/v1/backups", 503, {"error": "unavailable", "reason": "backups_disabled"}, True),
-    ("/v1/domains/{domain}/check", 503, {"error": "unavailable", "reason": "domains_disabled"}, True),
-    ("/v1/domains", 503, {"error": "unavailable", "reason": "domains_disabled"}, True),
+    ("/v1/domains/{domain}/check", 503, {"error": "unavailable", "reason": "domains_disabled"}, False),
+    ("/v1/domains", 503, {"error": "unavailable", "reason": "domains_disabled"}, False),
     # a 503 with no reason, anywhere, is not the documented answer
     ("/v1/machines/node-x/media", 503, {"error": "unavailable"}, False),
     ("/v1/domains", 503, {"error": "unavailable"}, False),

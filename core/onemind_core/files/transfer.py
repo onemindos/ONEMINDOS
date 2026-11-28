@@ -276,7 +276,7 @@ class Transfer:
         if not t.parts:
             raise FilesError(422, "conflict", "commit names a file, not the root", reason="invalid_path")
         if (chunks is None) == (manifest_chunks is None):
-            raise FilesError(422, "conflict", "send either chunks or manifest_chunks", reason="invalid_manifest")
+            raise FilesError(422, "conflict", "send either chunks or manifest_chunks", reason="chunks_or_manifest")
         if manifest_chunks is not None:
             if any(not HEX64.match(h) for h in manifest_chunks):
                 raise FilesError(422, "conflict", "hashes are 64 lowercase hex digits", reason="invalid_hash")
