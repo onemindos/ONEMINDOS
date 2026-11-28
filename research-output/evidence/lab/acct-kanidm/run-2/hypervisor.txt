@@ -1,0 +1,12 @@
+# Hypervisor-side evidence for the offline step (PK-2). Real output, MAC address masked, host details left out.
+# Proxmox VE 9 lab server, VM 502 (source), VM 503 (restore target), VM 504 (build only); all three on an internet-only
+# NAT bridge (no LAN, no host access). Times UTC. The guest was reached only through the QEMU guest agent.
+
+# cut the virtual cable, then reboot (2026-11-25T11:30:52Z)
+update VM 502: -net0 virtio=xx:xx:xx:xx:xx:xx,bridge=vmbr1,link_down=1
+net0: virtio=xx:xx:xx:xx:xx:xx,bridge=vmbr1,link_down=1
+
+# inside the guest after that boot (from PK-2.txt): eth0 NO-CARRIER, then set down; no default route; no DNS; ping "Network is unreachable"
+
+# plug it back in (2026-11-25T11:35Z), reboot
+net0: virtio=xx:xx:xx:xx:xx:xx,bridge=vmbr1

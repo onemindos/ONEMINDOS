@@ -1,0 +1,35 @@
+# AK-8b: the mitigation run-1 left UNVERIFIED: require passkeys for the household group through Kanidm's account policy, so a person cannot fall back to password + TOTP at all
++ admin_relogin
+idm_admin login ok
+  (exit 0)
++ kanidm group account-policy credential-type-minimum --help 2>&1 | head -12
+Set the minimum credential class that members may authenticate with. Valid values in order of weakest to strongest are: "any" "mfa" "passkey" "attested_passkey"
+
+Usage: kanidm group account-policy credential-type-minimum [OPTIONS] <NAME> <VALUE>
+
+Arguments:
+  <NAME>   
+  <VALUE>  [possible values: any, mfa, passkey, attested_passkey]
+
+Options:
+  -d, --debug                       Enable debugging of the kanidm tool [env: KANIDM_DEBUG=]
+  -I, --instance <INSTANCE>         Select the instance name you wish to connect to [env: KANIDM_INSTANCE=]
+  -H, --url <ADDR>                  The URL of the kanidm instance [env: KANIDM_URL=]
+  (exit 0)
++ k group account-policy credential-type-minimum onemind_adults passkey
+[2m2026-11-25T11:57:05.216205Z[0m [31mERROR[0m [2mkanidm_cli[0m[2m:[0m OperationId: "94418dec-f829-4c56-9bac-0a0d801d78d3"
+[2m2026-11-25T11:57:05.216263Z[0m [31mERROR[0m [2mkanidm_cli[0m[2m:[0m Cannot update account-policy attribute credential_type_minimum. Is account-policy enabled on this group?
+  (exit 0)
++ k group account-policy show onemind_adults
+error: unrecognized subcommand 'show'
+
+Usage: kanidm group account-policy [OPTIONS] <COMMAND>
+
+For more information, try '--help'.
+  (exit 2)
++ $PY signin adult2 passwordmfa refused
+{"detail": "success (mech passwordmfa)", "mech": "passwordmfa", "ok": true, "step": "signin", "user": "adult2", "whoami": "adult2@idm.onemind.test"}
+  (exit 1)
++ $PY signin adult2 passkey refused
+{"detail": "mech passkey not offered (offered ['passwordmfa'])", "mech": "passkey", "ok": false, "step": "signin", "user": "adult2", "whoami": null}
+  (exit 0)
