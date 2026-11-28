@@ -7163,75 +7163,6 @@
         "title": "FeatureActionRequest",
         "type": "object"
       },
-      "FileVersion": {
-        "properties": {
-          "cadence": {
-            "title": "Cadence",
-            "type": "string"
-          },
-          "mtime": {
-            "title": "Mtime",
-            "type": "string"
-          },
-          "size": {
-            "title": "Size",
-            "type": "integer"
-          },
-          "taken_at": {
-            "title": "Taken At",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "version",
-          "cadence",
-          "taken_at",
-          "size",
-          "mtime"
-        ],
-        "title": "FileVersion",
-        "type": "object"
-      },
-      "FileVersions": {
-        "properties": {
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "exists": {
-            "title": "Exists",
-            "type": "boolean"
-          },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          },
-          "root": {
-            "title": "Root",
-            "type": "string"
-          },
-          "versions": {
-            "items": {
-              "$ref": "#/components/schemas/FileVersion"
-            },
-            "title": "Versions",
-            "type": "array"
-          }
-        },
-        "required": [
-          "root",
-          "path",
-          "enabled",
-          "exists",
-          "versions"
-        ],
-        "title": "FileVersions",
-        "type": "object"
-      },
       "FirewallChain": {
         "additionalProperties": false,
         "properties": {
@@ -15606,55 +15537,6 @@
           "trash_id"
         ],
         "title": "RestoreTrashOp",
-        "type": "object"
-      },
-      "RestoreVersionOp": {
-        "additionalProperties": false,
-        "description": "Copy an earlier version of a file (GET /v1/files/versions) back as a new file; never overwrites.",
-        "properties": {
-          "op": {
-            "const": "restore_version",
-            "title": "Op",
-            "type": "string"
-          },
-          "path": {
-            "maxLength": 4096,
-            "title": "Path",
-            "type": "string"
-          },
-          "root": {
-            "maxLength": 205,
-            "pattern": "^(?:shared|home:[ -~]{1,200})$",
-            "title": "Root",
-            "type": "string"
-          },
-          "to_path": {
-            "anyOf": [
-              {
-                "maxLength": 4096,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Choose a path in an existing folder if the original folder is gone.",
-            "title": "To Path"
-          },
-          "version": {
-            "maxLength": 40,
-            "pattern": "^snapper-([1-9][0-9]{0,9})-([0-9]{8}T[0-9]{6}Z)$",
-            "title": "Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "op",
-          "root",
-          "path",
-          "version"
-        ],
-        "title": "RestoreVersionOp",
         "type": "object"
       },
       "ResumeBody": {
@@ -35991,13 +35873,6 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
-        "security": [
-          {
-            "bearer": [
-              "files:read"
-            ]
-          }
-        ],
         "summary": "Download",
         "tags": [
           "files"
@@ -36501,13 +36376,6 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
-        "security": [
-          {
-            "bearer": [
-              "files:read"
-            ]
-          }
-        ],
         "summary": "List Folder",
         "tags": [
           "files"
@@ -36527,7 +36395,6 @@
                     "move": "#/components/schemas/MoveOp",
                     "rename": "#/components/schemas/RenameOp",
                     "restore_trash": "#/components/schemas/RestoreTrashOp",
-                    "restore_version": "#/components/schemas/RestoreVersionOp",
                     "trash": "#/components/schemas/TrashOp"
                   },
                   "propertyName": "op"
@@ -36547,9 +36414,6 @@
                   },
                   {
                     "$ref": "#/components/schemas/RestoreTrashOp"
-                  },
-                  {
-                    "$ref": "#/components/schemas/RestoreVersionOp"
                   }
                 ],
                 "title": "Body"
@@ -36595,13 +36459,6 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
-        "security": [
-          {
-            "bearer": [
-              "files:write"
-            ]
-          }
-        ],
         "summary": "Ops",
         "tags": [
           "files"
@@ -36662,13 +36519,6 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
-        "security": [
-          {
-            "bearer": [
-              "files:read"
-            ]
-          }
-        ],
         "summary": "Preview",
         "tags": [
           "files"
@@ -37098,20 +36948,10 @@
           "401": {
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
-          "403": {
-            "description": "Not allowed for this principal (permission_denied)"
-          },
           "503": {
             "description": "unavailable: the files storage is not usable"
           }
         },
-        "security": [
-          {
-            "bearer": [
-              "files:read"
-            ]
-          }
-        ],
         "summary": "Roots",
         "tags": [
           "files"
@@ -37384,13 +37224,6 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
-        "security": [
-          {
-            "bearer": [
-              "files:read"
-            ]
-          }
-        ],
         "summary": "Stat",
         "tags": [
           "files"
@@ -37933,118 +37766,6 @@
           }
         },
         "summary": "Tus Patch",
-        "tags": [
-          "files"
-        ]
-      }
-    },
-    "/v1/files/versions": {
-      "get": {
-        "description": "Earlier copies of a file in the box's local snapshots (BAK-04). Same disk: not a backup.",
-        "operationId": "files.versions.list",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "root",
-            "required": true,
-            "schema": {
-              "maxLength": 205,
-              "pattern": "^(?:shared|home:[ -~]{1,200})$",
-              "title": "Root",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "path",
-            "required": true,
-            "schema": {
-              "maxLength": 4096,
-              "title": "Path",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FileVersions"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Missing or unknown bearer token (unauthenticated)"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "The principal may not do this (permission_denied)"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "No such resource (not_found)"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "stale_precondition, expired, conflict or policy_refused"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Request failed validation (conflict, with the bad fields in message)"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
-          }
-        },
-        "security": [
-          {
-            "bearer": [
-              "files:read"
-            ]
-          }
-        ],
-        "summary": "Versions",
         "tags": [
           "files"
         ]
