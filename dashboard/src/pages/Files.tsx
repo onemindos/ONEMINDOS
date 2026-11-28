@@ -10,7 +10,7 @@ import { FilesApi, human, type Entry, type FileRequest, type FileRoot, type Prev
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { FilesQuotas } from './FilesQuotas';
-import { CopiesCell, CopiesFooter, CopiesHeader, FilesDropZone, FilesLayout } from './files/FilesAtlas';
+import { FilesDropZone, FilesFooter, FilesLayout } from './files/FilesAtlas';
 import { Load, TextField, useRun } from './parts';
 
 type Tab = 'files' | 'trash' | 'sharing' | 'quotas';
@@ -111,15 +111,15 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
     {uploadError && <p role="alert">{uploadError}</p>}
     {entries.error && entries.data !== undefined && <p role="status">Could not refresh. Showing the folder as last fetched.</p>}
     <Load res={entries} what="Loading folder">{() => files.length === 0 ? <p>This folder is empty.</p> : <table className="om-table">
-      <thead><tr><th scope="col">Name</th><th scope="col">Size</th><th scope="col">Modified</th><CopiesHeader /><th scope="col">Actions</th></tr></thead>
+      <thead><tr><th scope="col">Name</th><th scope="col">Size</th><th scope="col">Modified</th><th scope="col">Actions</th></tr></thead>
       <tbody>{files.map((e) => <tr key={e.path}>
         <td><Button size="sm" variant="ghost" aria-label={`${e.type === 'dir' ? 'Open folder' : 'Preview'} ${e.name}`} onClick={() => open(e)}>{e.type === 'dir' ? '📁 ' : ''}{e.name}</Button></td>
-        <td>{e.type === 'dir' ? '' : human(e.size)}</td><td>{when(e.mtime)}</td><CopiesCell entry={e} />
+        <td>{e.type === 'dir' ? '' : human(e.size)}</td><td>{when(e.mtime)}</td>
         <td>{e.type !== 'dir' && <Button size="sm" variant="secondary" aria-label={`Download ${e.name}`} onClick={() => download(e)}>Download</Button>}{' '}
           {space.writable && <Button size="sm" variant="secondary" aria-label={`Move ${e.name} to trash`} onClick={() => setDoomed(e)}>Move to trash</Button>}</td>
       </tr>)}</tbody>
     </table>}</Load>
-    {files.length > 0 && <CopiesFooter entries={files} />}
+    {files.length > 0 && <FilesFooter entries={files} />}
     {space.writable && <FilesDropZone busy={!!progress} onFiles={(f) => void upload(f)} />}
     {seen && <Card as="article" title={`Preview: ${seen.entry.name}`} variant="sunken" aside={<Button size="sm" variant="ghost" onClick={() => setSeen(undefined)}>Close preview</Button>}>
       {seen.error ? <p role="alert">{seen.error}</p> : !seen.preview ? <p role="status">Loading preview…</p> : <>

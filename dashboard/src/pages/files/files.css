@@ -21,7 +21,6 @@
 .dash-files-dot-ok { background: var(--om-color-ok-fg); }
 .dash-files-dot-warn { background: var(--om-color-warn-fg); }
 .dash-files-dot-bad { background: var(--om-color-bad-fg); }
-.dash-files-copies { display: inline-flex; align-items: center; gap: var(--om-space-2); color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); white-space: nowrap; }
 .dash-files-foot { display: flex; flex-wrap: wrap; gap: var(--om-space-4); margin: 0; padding-top: var(--om-space-2); border-top: 1px solid var(--om-color-border); font-size: var(--om-font-size-sm); color: var(--om-color-text-muted); }
 .dash-files-foot strong { color: var(--om-color-text); }
 .dash-files-drop { display: flex; align-items: center; gap: var(--om-space-2); padding: var(--om-space-4); border: 1px dashed var(--om-color-border-strong); border-radius: var(--om-radius-lg); color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Atlas Files (prototype 07): the sidebar (spaces, Photos, disks with health, where the backup copies
-// live, machines that cannot be reached), the Copies column, the footer line and the drop zone.
+// Atlas Files (prototype 07): the sidebar (spaces, Photos, disks with health, backup destinations and
+// the last run to the primary, machines that cannot be reached), the footer line and the drop zone.
+// No per-file copy count: see backupFacts.ts.
 // Everything is read from the hub: GET /v1/files/roots (passed in), GET /v1/backups/status and /runs, the
 // owner-only GET /v1/storage/devices and the shared node poll. A value the hub does not give a
 // person (a 403 for their role) leaves that part out; nothing is filled in. This file changes nothing:
@@ -14,7 +15,7 @@ import { usePoll } from '../../lib/hooks';
 import { formatAgo, secondsSince } from '../../lib/time';
 import { useSignedIn } from '../../session';
 import { href } from '../../shell/routes';
-import { clock, copiesLabel, copiesOf, copiesSummary, toBackupState, type BackupState } from './copies';
+import { clock, toBackupState, type BackupState } from './backupFacts';
 import './files.css';
 
 const Ctx = createContext<BackupState | undefined>(undefined);
@@ -30,7 +31,7 @@ async function readOrNull(sdk: OneMind, path: string): Promise<unknown | null> {
   }
 }
 
-/** The Files window body: sidebar and page, with the backup state shared by the Copies cells. */
+/** The Files window body: sidebar and page, with the backup facts shared by the footer. */
 export function FilesLayout({ roots, current, onPick, children }: { roots: FileRoot[]; current: FileRoot | undefined; onPick: (r: FileRoot) => void; children: ReactNode }) {
   const { token, account, principal } = useSignedIn();
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
@@ -44,7 +45,7 @@ export function FilesLayout({ roots, current, onPick, children }: { roots: FileR
   const owner = (account?.role ?? principal?.role) === 'owner';
   const disks = usePoll(async () => (owner ? readOrNull(sdk, '/v1/storage/devices') : null), 60_000);
   useEffect(() => { if (owner) void disks.reload(); }, [owner]); // eslint-disable-line react-hooks/exhaustive-deps
-  // A later failed refresh clears the copies: an old answer is never shown as the current count.
+  // A later failed refresh clears the backup facts: an old answer is never shown as current.
   const state = backups.error ? undefined : backups.data ?? undefined;
   return (
     <Ctx.Provider value={state}>
@@ -97,19 +98,19 @@ function FilesSidebar({ roots, current, onPick, backups, disks }: { roots: FileR
       )}
       {backups && (
         <>
-          <h2 className="dash-files-head">Copies kept elsewhere</h2>
+          <h2 className="dash-files-head">Backups</h2>
           {!backups.primary ? (
             <p className="om-hint dash-files-pad">No backup destination yet. Set one up in <a href={href.backups}>Backups</a>.</p>
           ) : (
             <ul className="dash-files-list" aria-label="Backup destinations">
               <li className="dash-files-disk">
-                <span className="dash-files-row"><span className={`dash-files-dot dash-files-dot-${backups.lastPrimaryCopyAt ? 'ok' : 'warn'}`} aria-hidden="true" /><span className="dash-files-label">{backups.primary.label}</span></span>
-                <span className="om-hint">{backups.primary.kind} · hourly{backups.lastPrimaryCopyAt ? ` · last copy of Files ${clock(backups.lastPrimaryCopyAt, hub.now)}` : ' · no copy of Files yet'}</span>
+                <span className="dash-files-row"><span className={`dash-files-dot dash-files-dot-${backups.failing || !backups.lastPrimaryCopyAt ? 'warn' : 'ok'}`} aria-hidden="true" /><span className="dash-files-label">{backups.primary.label}</span></span>
+                <span className="om-hint">{backups.primary.kind} · hourly · {primaryFact(backups, hub.now)}</span>
               </li>
               {backups.others.map((d) => (
                 <li key={d.id} className="dash-files-disk">
                   <span className="dash-files-row"><span className="dash-files-dot dash-files-dot-muted" aria-hidden="true" /><span className="dash-files-label">{d.label}</span></span>
-                  <span className="om-hint">{d.kind} · daily · not counted</span>
+                  <span className="om-hint">{d.kind} · daily, not checked here</span>
                 </li>
               ))}
             </ul>
@@ -133,35 +134,26 @@ function FilesSidebar({ roots, current, onPick, backups, disks }: { roots: FileR
   );
 }
 
-/** The Copies column header; absent when this person may not read the backup status. */
-export function CopiesHeader() {
-  return useContext(Ctx) ? <th scope="col">Copies</th> : null;
-}
-
-export function CopiesCell({ entry }: { entry: { type: string; mtime: string } }) {
+/** "8 items · 1.4 GB · last backup to black-usb at 02:10 · Also set up: NAS (daily, not checked here)". A fact about runs,
+ *  never about a file. Not a live region: it re-renders on every refresh. */
+export function FilesFooter({ entries }: { entries: Array<{ type: string; size: number | null }> }) {
   const s = useContext(Ctx);
   const { now } = useHub();
-  const c = copiesOf(entry, s);
-  if (!c) return null;
-  if (c.kind === 'folder') return <td><span className="om-visually-hidden">Not counted for folders</span></td>;
-  const tone = c.kind === 'copied' ? 'ok' : 'warn';
-  return <td><span className="dash-files-copies"><span className={`dash-files-dot dash-files-dot-${tone}`} aria-hidden="true" />{copiesLabel(c, now)}{c.kind === 'copied' && <span className="om-visually-hidden">: on this box and on {c.primary}</span>}</span></td>;
-}
-
-/** "8 items · 6 have 2 copies · 2 wait for the copy at 02:10 · also copied to: NAS (daily)". Not a live region: it re-renders on every refresh. */
-export function CopiesFooter({ entries }: { entries: Array<{ type: string; mtime: string; size: number | null }> }) {
-  const s = useContext(Ctx);
-  const { now } = useHub();
-  const sum = copiesSummary(entries, s);
   const bytes = entries.reduce((n, e) => n + (e.type === 'dir' ? 0 : e.size ?? 0), 0);
   return (
     <p className="dash-files-foot">
       <strong>{entries.length} {entries.length === 1 ? 'item' : 'items'}</strong>{bytes ? ` · ${human(bytes)}` : ''}
-      {sum && sum.copied > 0 && <span><span className="dash-files-dot dash-files-dot-ok" aria-hidden="true" /> {sum.copied} {sum.copied === 1 ? 'has' : 'have'} 2 copies</span>}
-      {sum && sum.waiting > 0 && <span><span className="dash-files-dot dash-files-dot-warn" aria-hidden="true" /> {sum.waiting} {sum.waiting === 1 ? 'waits' : 'wait'} for {sum.next ? `the copy at ${clock(sum.next, now)}` : 'a backup destination'}</span>}
-      {s && s.others.length > 0 && <span>Also copied to: {s.others.map((d) => `${d.label} (daily)`).join(', ')}</span>}
+      {s && <span>{primaryFact(s, now)}</span>}
+      {s && s.others.length > 0 && <span>Also set up: {s.others.map((d) => `${d.label} (daily, not checked here)`).join(', ')}</span>}
     </p>
   );
+}
+
+/** One sentence about the last run to the primary that carried Files. */
+export function primaryFact(s: BackupState, now: number): string {
+  if (!s.primary) return 'No backup destination yet';
+  if (s.failing) return 'Backups need attention: open Backups';
+  return s.lastPrimaryCopyAt ? `Last backup to ${s.primary.label} at ${clock(s.lastPrimaryCopyAt, now)}` : `No backup of Files to ${s.primary.label} yet`;
 }
 
 /** Drop files to upload them here; the same tus upload as the Upload button. */

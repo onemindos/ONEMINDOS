@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// Atlas Files (07): the sidebar of spaces, disks and backup destinations, the Copies column read from
-// GET /v1/backups/status, the footer line and the drop zone (the same tus upload as the button).
+// Atlas Files (07): the sidebar of spaces, disks and backup destinations, facts about backup runs read from
+// backups/status and /runs (facts about runs only, never a per-file copy count), the footer and the drop zone.
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -10,7 +10,8 @@ import { DEMO_TOKENS } from '../../api/fixtures';
 import { MockApi } from '../../api/mock';
 import { SessionProvider } from '../../session';
 import { seriousViolations } from '../../test/helpers';
-import { copiesLabel, copiesOf, copiesSummary, toBackupState, EXPORT_FILE } from './copies';
+import { toBackupState, EXPORT_FILE } from './backupFacts';
+import { primaryFact } from './FilesAtlas';
 
 const LAST = '2026-11-21T02:10:00Z';
 const NEXT = '2026-11-22T02:10:00Z';
@@ -64,36 +65,29 @@ function mount(opts: { backups?: unknown; runs?: unknown; backupsStatus?: number
 }
 afterEach(() => vi.unstubAllGlobals());
 
-describe('copies rule', () => {
-  const s = toBackupState(status(), RUNS);
-  it('counts the box plus the primary only for a file changed before a run to the primary that carried Files', () => {
-    expect(copiesOf(entries[1]!, s)).toMatchObject({ kind: 'copied', count: 2, primary: 'black-usb' });
-    expect(copiesOf(entries[0]!, s)).toEqual({ kind: 'folder' });
-    expect(copiesSummary(entries, s)).toMatchObject({ copied: 1, waiting: 1 });
-    expect(s.others.map((d) => d.label)).toEqual(['rosa-box']);
+describe('backup facts', () => {
+  const now = Date.parse(LAST);
+  it('names the last run to the primary that carried Files', () => {
+    const st = toBackupState(status(), RUNS);
+    expect(st.lastPrimaryCopyAt).toBe(new Date(LAST).toISOString());
+    expect(primaryFact(st, now)).toMatch(/^Last backup to black-usb at /);
+    expect(st.others.map((d) => d.label)).toEqual(['rosa-box']);
   });
-  it('a file newer than the last primary run has 1 copy', () => {
-    expect(copiesOf(entries[2]!, s)).toEqual({ kind: 'waiting', next: NEXT });
-  });
-  it('a failed primary run (system unit or Files export) is not a copy', () => {
-    for (const r of [run('d1', LAST, { system: 'failed', state: 'failed' }), run('d1', LAST, { exportOk: false, state: 'partial' })])
-      expect(copiesOf(entries[1]!, toBackupState(status(), [r]))?.kind).toBe('waiting');
-  });
-  it('off-site down while the primary is healthy still claims only the box and the primary', () => {
-    const st = toBackupState(status({ health: 'failing' }), [run('d1', LAST), run('d2', '2026-11-20T02:10:00Z', { system: 'failed', state: 'failed' })]);
-    expect(copiesOf(entries[1]!, st)).toMatchObject({ kind: 'copied', count: 2 });
-  });
-  it('never counts a destination with no run (just added), a run to another destination, or folders that do not travel', () => {
-    expect(copiesOf(entries[1]!, toBackupState(status(), []))?.kind).toBe('waiting');
-    expect(copiesOf(entries[1]!, toBackupState(status(), [run('d2', LAST)]))?.kind).toBe('waiting');
-    expect(copiesOf(entries[1]!, toBackupState(status({ builtin_units: [{ unit: 'builtin:files', dirs: [{ configured: true, carried: false }] }] }), RUNS))?.kind).toBe('waiting');
-    expect(copiesLabel(copiesOf(entries[1]!, toBackupState(status({ destinations: [] }), RUNS))!)).toBe('1 copy · no backup');
+  it('a failed primary run, a run elsewhere, no run, or folders that do not travel give no time', () => {
+    for (const runs of [[run('d1', LAST, { system: 'failed', state: 'failed' })], [run('d1', LAST, { exportOk: false })], [run('d2', LAST)], []])
+      expect(toBackupState(status(), runs).lastPrimaryCopyAt).toBeNull();
+    expect(toBackupState(status({ builtin_units: [{ unit: 'builtin:files', dirs: [{ configured: true, carried: false }] }] }), RUNS).lastPrimaryCopyAt).toBeNull();
     expect(() => toBackupState([], [])).toThrow();
+  });
+  it('a failing system badge says backups need attention instead of a time', () => {
+    const st = toBackupState(status({ badges: { system: { state: 'failing', last_success_at: LAST } } }), RUNS);
+    expect(primaryFact(st, now)).toBe('Backups need attention: open Backups');
+    expect(primaryFact(toBackupState(status({ destinations: [] }), RUNS), now)).toBe('No backup destination yet');
   });
 });
 
 describe('Atlas Files', () => {
-  it('shows spaces, disks and destinations in the sidebar and a Copies column from the hub', async () => {
+  it('shows spaces, disks, destinations and the last primary run, and no per-file copy claim', async () => {
     mount();
     const nav = await screen.findByRole('navigation', { name: 'Places' });
     const spaces = within(nav).getByRole('list', { name: 'Spaces' });
@@ -101,13 +95,13 @@ describe('Atlas Files', () => {
     expect(await within(nav).findByText('hub NVMe')).toBeInTheDocument();
     expect(within(nav).getByText(/Health ok · 41 °C/)).toBeInTheDocument();
     expect(await within(nav).findByText('rosa-box')).toBeInTheDocument();
-    expect(await screen.findByRole('columnheader', { name: 'Copies' })).toBeInTheDocument();
-    const row = (await screen.findByRole('button', { name: 'Preview plan.pdf' })).closest('tr')!;
-    expect(row).toHaveTextContent('2 copies');
-    expect(screen.getByRole('button', { name: 'Preview vent-rules.yaml' }).closest('tr')!).toHaveTextContent(/1 copy · next/);
-    expect(await screen.findByText(/1 has 2 copies/)).toBeInTheDocument();
-    expect(screen.getByText('Also copied to: rosa-box (daily)')).toBeInTheDocument();
-    expect(within(nav).getByText(/daily · not counted/)).toBeInTheDocument();
+    await screen.findByRole('button', { name: 'Preview plan.pdf' });
+    expect(await screen.findByText(/Last backup to black-usb at/, { selector: '.dash-files-foot span' })).toBeInTheDocument();
+    expect(screen.getByText('Also set up: rosa-box (daily, not checked here)')).toBeInTheDocument();
+    expect(within(nav).getByText(/daily, not checked here/)).toBeInTheDocument();
+    // No per-file claim anywhere: mtime can be backdated.
+    expect(screen.queryByRole('columnheader', { name: 'Copies' })).toBeNull();
+    expect(screen.queryByText(/\bcop(y|ies)\b/)).toBeNull();
     expect(await seriousViolations(screen.getByRole('main'))).toEqual([]);
   });
 
@@ -124,11 +118,11 @@ describe('Atlas Files', () => {
     await waitFor(() => expect(calls.some((c) => c.path === '/v1/files/list' && c.search.get('root') === 'shared')).toBe(true));
   });
 
-  it('a role that may not read backups gets no Copies column and no destinations, and nothing is guessed', async () => {
+  it('a role that may not read backups gets no backup facts, and nothing is guessed', async () => {
     mount({ backupsStatus: 403 });
     await screen.findByRole('button', { name: 'Preview plan.pdf' });
-    expect(screen.queryByRole('columnheader', { name: 'Copies' })).toBeNull();
-    expect(screen.queryByText(/copies/)).toBeNull();
+    expect(screen.queryByText(/Last backup to/)).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Backup destinations' })).toBeNull();
   });
 
   it('dropping a file uploads it over tus into the open folder', async () => {
