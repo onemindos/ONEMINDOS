@@ -4,6 +4,7 @@
 // `components` types. Responses are checked at the edge: the spec leaves most of them as `unknown`.
 import { OneMind, OneMindError, PROTOCOL_HEADER, PROTOCOL_VERSION, type components, type paths } from '@onemind/sdk';
 import { ApiError } from '../api/types';
+import { getPasskey } from '../lib/webauthn';
 
 const P = {
   roots: '/v1/files/roots',
@@ -17,6 +18,7 @@ const P = {
   grant: '/v1/files/grants/{grant_id}',
   requests: '/v1/files/requests',
   approve: '/v1/files/requests/{request_id}/approve',
+  approveOptions: '/v1/actions/{action_id}/approve-options',
   deny: '/v1/files/requests/{request_id}/deny',
   cancel: '/v1/files/requests/{request_id}/cancel',
   uploads: '/v1/files/uploads',
@@ -33,7 +35,7 @@ export interface FileRoot { root: string; kind: string; name: string; path: stri
 export interface Entry { name: string; path: string; type: 'file' | 'dir' | string; size: number | null; mtime: string; mime?: string }
 export interface TrashItem { id: string; trash: 'home' | 'shared'; root: string; path: string; name: string; type: string; size: number; trashed_at: string; purge_at: string }
 export interface Grant { id: string; subject: { kind: string; id: string }; slot: string | null; root: string; path: string; access: string; revoked_at: string | null }
-export interface FileRequest { id: string; type: string; plan: { summary?: string }; risk: string; state: string; reason: string | null; requested_by: { id: string; kind: string }; expires_at: string; plan_sha256: string; deny_reason: string | null }
+export interface FileRequest { id: string; type: string; plan: { summary?: string; password?: boolean; items?: { root?: string; path?: string; hash?: string; kind?: string }[] }; risk: string; state: string; reason: string | null; requested_by: { id: string; kind: string }; expires_at: string; plan_sha256: string; deny_reason: string | null }
 /** One space's limit: a person's home, or the shared space (person_id null). limit_bytes null means no limit.
  *  Hand-written because GET/PUT /v1/files/quotas declare no response_model, so the spec has no schema to
  *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
@@ -42,7 +44,8 @@ export interface Quota { person_id: string | null; root: string; limit_bytes: nu
  *  Hand-written because GET/POST /v1/files/shares declare no response_model, so the spec has no schema to
  *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
 export interface ShareLink { id: string; name: string; created_by: string; state: 'active' | 'expired' | 'revoked' | string; items: { kind: string; root?: string; path?: string; hidden?: boolean }[]; password: boolean; created_at: string; expires_at: string; opened_count: number }
-export interface CreatedShare extends ShareLink { one_time: { token: string; path: string; url: string } }
+export interface CreatedShare { id: string; state: 'awaiting_approval'; one_time: { token: string; path: string; url: string } }
+type ShareBody = Omit<components['schemas']['ShareBody'], 'items'> & { items: components['schemas']['ShareFileItem'][] };
 export interface Preview { mime: string; kind: string; size: number; inline_safe: boolean; image?: { width: number; height: number } | null; text?: { excerpt: string; truncated: boolean } }
 
 function obj(v: unknown, what: string): Json {
@@ -101,19 +104,26 @@ export class FilesApi {
   async setQuota(personId: string, limitBytes: number | null) {
     try { return obj(await this.sdk.call<unknown>({ method: 'PUT', path: fill(P.quota, 'person_id', personId), body: { limit_bytes: limitBytes } }), 'quota') as unknown as Quota; } catch (e) { throw toApiError(e); }
   }
-  /** Rename in place: `name` is the new last segment only, never a path. */
-  async rename(root: string, path: string, name: string) { await this.post(P.ops, { op: 'rename', root, path, name }); }
+  async rename(root: string, path: string, name: string) {
+    return this.pendingRequest(await this.post(P.ops, { op: 'rename', root, path, name }));
+  }
   async shares() { return list<ShareLink>(await this.get(P.shares), 'share link', (j) => str(j.id) && str(j.state) && str(j.expires_at)); }
-  /** Creates a link to files (the gateway returns its secret URL once). Sent without an Idempotency-Key and
-   *  never retried: the endpoint does not replay by key, so a retry could make a second, unseen link. */
-  async createShare(body: { name?: string; items: { root: string; path: string }[]; expires_at: string; password?: string }) {
-    const out = obj(await this.post(P.shares, body), 'share link');
+  /** The URL comes back once when the request is filed. A retry could file a second request. */
+  async createShare(body: ShareBody) {
+    const out = this.pendingRequest(await this.post(P.shares, body));
     const one = obj(out.one_time, 'share link secret');
-    if (!str(out.id) || !str(one.url)) throw new Error('The hub returned an invalid share link.');
+    if (!str(one.url)) throw new Error('The hub returned an invalid share link.');
     return out as unknown as CreatedShare;
   }
   async revokeShare(id: string) {
-    try { await this.sdk.call<unknown>({ method: 'DELETE', path: fill(P.share, 'share_id', id) }); } catch (e) { throw toApiError(e); }
+    try {
+      return this.pendingRequest(await this.sdk.call<unknown>({ method: 'DELETE', path: fill(P.share, 'share_id', id), retry: false }));
+    } catch (e) { throw toApiError(e); }
+  }
+  private pendingRequest(data: unknown): Json & { id: string } {
+    const r = obj(data, 'file request');
+    if (typeof r.id !== 'string' || r.state !== 'awaiting_approval') throw new Error('The hub did not return a pending file request.');
+    return { ...r, id: r.id };
   }
   async mkdir(root: string, path: string) { await this.post(P.ops, { op: 'mkdir', root, path }); }
   async trash(root: string, path: string) { await this.post(P.ops, { op: 'trash', root, path }); }
@@ -125,7 +135,20 @@ export class FilesApi {
   async requestGrant(body: Omit<GrantBody, 'approve'>, key: string) { return this.post(P.grants, { ...body, approve: false }, key); }
   async requestTrashEmpty(which: 'home' | 'shared', key: string) { return this.post(P.trashEmpty, { trash: which, approve: false }, key); }
   /** Approve exactly the plan that was shown (409 plan_changed when it moved). */
-  async approve(r: FileRequest) { return this.post(fill(P.approve, 'request_id', r.id), { plan_sha256: r.plan_sha256 }); }
+  async approve(r: FileRequest) {
+    const path = fill(P.approve, 'request_id', r.id);
+    const body = { plan_sha256: r.plan_sha256 };
+    try {
+      return await this.post(path, body);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
+      const challenge = await this.post(fill(P.approveOptions, 'action_id', r.id), {}) as components['schemas']['ApprovalChallenge'];
+      if (challenge.plan_sha256 !== r.plan_sha256) {
+        throw new ApiError(409, 'stale_precondition', 'Review the current plan before approving.', 'plan_changed');
+      }
+      return this.post(path, { ...body, webauthn: await getPasskey(challenge.publicKey) });
+    }
+  }
   async deny(id: string) { return this.post(fill(P.deny, 'request_id', id), {}); }
   async cancel(id: string) { return this.post(fill(P.cancel, 'request_id', id), undefined); }
   async revoke(id: string) {

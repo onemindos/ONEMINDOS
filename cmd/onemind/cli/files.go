@@ -4,14 +4,9 @@ package cli
 
 // onemind files: your files and who else may reach them (GET /v1/files/*, PUT /v1/files/quotas/{id},
 // POST /v1/files/grants, POST /v1/files/trash/empty, DELETE /v1/files/grants/{id}). Browsing is
-// read-only. Giving an app or an agent a folder, and emptying a trash, only FILE a request an owner
-// approves in `onemind actions` or the dashboard; the CLI never sends the owner shortcut
-// ("approve": true). Taking a folder back and setting a space limit are owner calls the gateway
-// already restricts and audits. `rename` and `share create|list|revoke` (POST /v1/files/ops,
-// /v1/files/shares) are a deliberate exception: the gateway has no request path for them, so
-// they act at once on the caller's own files and links, exactly as the Files screen does, and the
-// gateway checks who may and audits it. Moving and uploading stay in the Files screen and in the
-// desktop and phone apps.
+// read-only. Folder grants, permanent trash deletion, person-initiated renames and share-link
+// changes file requests for an owner to approve in the Files dashboard. Agents can rename inside
+// an owner-approved read-write folder grant.
 
 import (
 	"encoding/json"
@@ -155,7 +150,7 @@ func filesCommands(a *App) []*cobra.Command {
 	var rnRoot string
 	rename := &cobra.Command{
 		Use:   "rename PATH NEW_NAME --root ROOT",
-		Short: "Give a file or folder a new name in the same folder (POST /v1/files/ops)",
+		Short: "Request a new name for a file or folder (POST /v1/files/ops)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if rnRoot == "" {
@@ -170,6 +165,9 @@ func filesCommands(a *App) []*cobra.Command {
 			v, err := a.gwDo(http.MethodPost, "/v1/files/ops", map[string]any{"op": "rename", "root": rnRoot, "path": args[0], "name": args[1]})
 			if err != nil {
 				return err
+			}
+			if str(obj(v)["state"]) == "awaiting_approval" {
+				return a.printFileRequest("rename "+args[0], v)
 			}
 			return a.printDone(v, "Renamed %s to %s.", args[0], args[1])
 		},
@@ -204,7 +202,7 @@ func filesShareCmd(a *App) *cobra.Command {
 	var expires time.Duration
 	create := &cobra.Command{
 		Use:   "create PATH... --root ROOT [--expires-in 168h] [--name NAME] [--password-stdin]",
-		Short: "Make a link to files (POST /v1/files/shares); the secret link is shown once",
+		Short: "Request a link to files (POST /v1/files/shares); the secret link is shown once",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if root == "" {
@@ -233,8 +231,7 @@ func filesShareCmd(a *App) *cobra.Command {
 				}
 				body["password"] = got[0]
 			}
-			// No Idempotency-Key and no retry: this endpoint does not replay by key, so a retried create
-			// could make a second link whose secret nobody sees.
+			// No Idempotency-Key and no retry: a retry could file a second request.
 			v, err := a.gwDo(http.MethodPost, "/v1/files/shares", body)
 			if err != nil {
 				return err
@@ -247,7 +244,7 @@ func filesShareCmd(a *App) *cobra.Command {
 				fmt.Fprintln(a.Stdout, url)
 				return nil
 			}
-			fmt.Fprintf(a.Stdout, "Created %s (expires %s).\nLink (shown only now): %s\n", str(obj(v)["id"]), str(obj(v)["expires_at"]), url)
+			fmt.Fprintf(a.Stdout, "Request %s is waiting for owner approval in the Files dashboard (Sharing).\nLink (shown only now): %s\nRecipients use an API client. Protected links require the OneMind-Share-Password header.\n", str(obj(v)["id"]), url)
 			return nil
 		},
 	}
@@ -258,17 +255,17 @@ func filesShareCmd(a *App) *cobra.Command {
 	var yes bool
 	rev := &cobra.Command{
 		Use:   "revoke SHARE_ID --yes",
-		Short: "End a link now (DELETE /v1/files/shares/ID)",
+		Short: "Request to end a link (DELETE /v1/files/shares/ID)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requireYes(cmd, yes, "revoking "+args[0]+" stops the link for everyone who has it"); err != nil {
+			if err := requireYes(cmd, yes, "the link stops working for everyone after the owner approves"); err != nil {
 				return err
 			}
 			v, err := a.gwDo(http.MethodDelete, "/v1/files/shares/"+pathID(args[0]), nil)
 			if err != nil {
 				return err
 			}
-			return a.printDone(v, "Revoked %s.", args[0])
+			return a.printFileRequest("end share link "+args[0], v)
 		},
 	}
 	rev.Flags().BoolVar(&yes, "yes", false, "confirm")
@@ -390,6 +387,10 @@ func (a *App) requestFiles(what, path string, body map[string]any) error {
 	if err != nil {
 		return err
 	}
+	return a.printFileRequest(what, v)
+}
+
+func (a *App) printFileRequest(what string, v any) error {
 	id := str(obj(v)["id"])
 	state := str(obj(v)["state"])
 	if a.G.JSON {
@@ -399,15 +400,14 @@ func (a *App) requestFiles(what, path string, body map[string]any) error {
 	} else if a.G.Quiet {
 		fmt.Fprintln(a.Stdout, id)
 	}
-	// The key is the same all day, so after a deny, cancel or expiry the gateway replays that old
-	// request instead of filing a new one. Say nothing new was filed, as printRequested does.
+	// A keyed request can replay an earlier decision, without filing a new request.
 	if state != "" && state != "awaiting_approval" {
 		return exitWith(ExitConflict, "conflict", fmt.Sprintf("%s: already %s today, nothing new filed (%s). Ask again tomorrow, or see `onemind files requests show %s`", what, state, id, id))
 	}
 	if a.G.JSON || a.G.Quiet {
 		return nil
 	}
-	fmt.Fprintf(a.Stdout, "Requested %s (%s, %s). An owner decides it in the dashboard (Files, Requests); see it with: onemind files requests show %s\n",
+	fmt.Fprintf(a.Stdout, "Requested %s (%s, %s). An owner decides it in the dashboard (Files → Sharing → Requests); see it with: onemind files requests show %s\n",
 		what, id, dash(state), id)
 	return nil
 }

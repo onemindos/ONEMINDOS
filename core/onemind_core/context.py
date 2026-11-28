@@ -49,6 +49,8 @@ ApprovalGuard = Callable[[Principal, str, dict, Request], None]
 # when the id is not this feature's. Every feature with its own approvable requests (files: frq_...)
 # registers one, so a guard can judge the requester, not only the approver (CORE-SEC-6).
 RequesterLookup = Callable[[str], dict | None]
+# Resolves a feature's approval request for the shared step-up challenge.
+ApprovalLookup = Callable[[Principal, str], dict | None]
 # Whether this principal may see and open an installed app (identity: per-app sharing, §12.6).
 AppFilter = Callable[[Request, Principal, str], bool]
 # (request, principal, value) -> may this caller see that asset value? `value` is a fanout.AssetValue:
@@ -88,6 +90,7 @@ class Gateway:
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     requester_lookups: list[RequesterLookup] = field(default_factory=list)
+    approval_lookups: list[ApprovalLookup] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
     asset_filters: list[AssetFilter] = field(default_factory=list)
     # #606: the current asset values from the hub's asset-state bucket (fanout.AssetState), set by routers/events.py.

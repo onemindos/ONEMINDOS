@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// The Files window (FILES-01, D-016): browse, upload over tus, download, preview, trash, and ask for
-// folder access. Putting a file in the trash is the person's own click on their own files; anything
-// that gives access away or destroys data for good (a grant, emptying the trash) is filed as an
-// approval request bound to its exact plan, and decided in the Sharing tab by a person, never by this page.
+// The Files window (FILES-01, D-016). The owner reviews rename, share link, folder grant and
+// permanent trash requests in Sharing. Approvals are bound to the reviewed plan.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { uuid4 } from '@onemind/sdk';
 import { Button, Card, Dialog, PageHeader, StatusPill } from '@onemind/ui';
@@ -30,7 +28,7 @@ function LiveFiles({ token, person, owner, canShare }: { token: string; person: 
   const [root, setRoot] = useState<FileRoot>();
   const current = root ?? roots.data?.[0];
   return <div className="dash-stack">
-    <PageHeader title="Files" lede="Your files on your box. Sharing access with an app or agent, and emptying the trash for good, are requests a person approves." />
+    <PageHeader title="Files" lede="Your files on your box. The owner reviews rename and sharing requests, folder access and permanent trash deletion in Sharing." />
     <div role="group" aria-label="Files sections">
       {(owner ? ['files', 'trash', 'sharing', 'quotas'] as const : ['files', 'trash', 'sharing'] as const).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
@@ -43,7 +41,7 @@ function LiveFiles({ token, person, owner, canShare }: { token: string; person: 
       </>}
       {tab === 'trash' && <TrashTab api={api} run={run} />}
       {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
-      {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} canShare={canShare} />}
+      {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} canShare={canShare} owner={owner} />}
     </>}</Load>
   </div>;
 }
@@ -59,6 +57,7 @@ function Browser({ api, space, run, canShare, onChanged }: { api: FilesApi; spac
   const [doomed, setDoomed] = useState<Entry>();
   const [renaming, setRenaming] = useState<Entry>();
   const [newName, setNewName] = useState('');
+  const [renameRequest, setRenameRequest] = useState('');
   const [sharing, setSharing] = useState<Entry>();
   const [progress, setProgress] = useState<{ name: string; done: number; total: number }>();
   const [uploadError, setUploadError] = useState('');
@@ -122,7 +121,7 @@ function Browser({ api, space, run, canShare, onChanged }: { api: FilesApi; spac
         <td>{e.type === 'dir' ? '' : human(e.size)}</td><td>{when(e.mtime)}</td>
         <td>{e.type !== 'dir' && <Button size="sm" variant="secondary" aria-label={`Download ${e.name}`} onClick={() => download(e)}>Download</Button>}{' '}
           {space.writable && <><Button size="sm" variant="secondary" aria-label={`Rename ${e.name}`} onClick={() => { setNewName(e.name); setRenaming(e); }}>Rename</Button>{' '}</>}
-          {canShare && e.type !== 'dir' && <><Button size="sm" variant="secondary" aria-label={`Share link for ${e.name}`} onClick={() => setSharing(e)}>Share link</Button>{' '}</>}
+          {canShare && e.type === 'file' && <><Button size="sm" variant="secondary" aria-label={`Share link for ${e.name}`} onClick={() => setSharing(e)}>Share link</Button>{' '}</>}
           {space.writable && <Button size="sm" variant="secondary" aria-label={`Move ${e.name} to trash`} onClick={() => setDoomed(e)}>Move to trash</Button>}</td>
       </tr>)}</tbody>
     </table>}</Load>
@@ -139,8 +138,9 @@ function Browser({ api, space, run, canShare, onChanged }: { api: FilesApi; spac
       actions={<Button disabled={!name.trim() || name.includes('/')} onClick={() => void run(async () => { await api.mkdir(space.root, dir === '/' ? `/${name.trim()}` : `${dir}/${name.trim()}`); setFolderOpen(false); await entries.reload(); }, 'Could not create the folder')}>Create folder</Button>}>
       <TextField id="files-new-folder" label="Folder name" value={name} onChange={setName} />
     </Dialog>
-    <Dialog open={!!renaming} onClose={() => setRenaming(undefined)} title={`Rename ${renaming?.name ?? ''}`} description="Gives it a new name in the same folder."
-      actions={<Button disabled={!newName.trim() || newName.includes('/') || newName.trim() === renaming?.name} onClick={() => void run(async () => { await api.rename(space.root, renaming!.path, newName.trim()); setRenaming(undefined); setSeen(undefined); await entries.reload(); }, 'Could not rename')}>Rename</Button>}>
+    {renameRequest && <p role="status">Rename request {renameRequest} is waiting for owner approval in Sharing.</p>}
+    <Dialog open={!!renaming} onClose={() => setRenaming(undefined)} title={`Rename ${renaming?.name ?? ''}`} description="The name changes after the owner approves the request in Sharing."
+      actions={<Button disabled={!newName.trim() || newName.includes('/') || newName.trim() === renaming?.name} onClick={() => void run(async () => { const r = await api.rename(space.root, renaming!.path, newName.trim()); setRenameRequest(r.id); setRenaming(undefined); setSeen(undefined); await entries.reload(); }, 'Could not request the rename')}>Request rename</Button>}>
       <TextField id="files-rename" label="New name" value={newName} onChange={setNewName} />
     </Dialog>
     {sharing && <ShareDialog key={sharing.path} api={api} run={run} space={space} entry={sharing} onClose={() => setSharing(undefined)} />}
@@ -165,7 +165,7 @@ function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: 
   const [busy, setBusy] = useState(false);
   const chars = [...password].length; // the gateway counts characters: 8 to 200
   const close = () => { if (!inFlight.current) onClose(); };
-  // One click, one POST: a create is never retried or repeated, as a second link's secret would be lost.
+  // One click, one POST so the user receives the only copy of the secret for this request.
   const create = () => {
     if (inFlight.current) return;
     inFlight.current = true; setBusy(true);
@@ -176,19 +176,20 @@ function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: 
         expires_at: new Date(Date.now() + ttl).toISOString(),
         ...(password ? { password } : {}),
       }));
-    }, 'Could not create the share link').finally(() => { inFlight.current = false; setBusy(false); });
+    }, 'Could not request the share link').finally(() => { inFlight.current = false; setBusy(false); });
   };
   return <Dialog open onClose={close} title={`Share link for ${entry.name}`}
-    description="Anyone who has the link can download this file until it expires or you end it. They need no account."
-    actions={made ? <Button onClick={onClose}>Done</Button> : <Button disabled={busy || (chars > 0 && (chars < 8 || chars > 200))} onClick={create}>Create link</Button>}>
+    description="After owner approval, anyone with the link and any required password can download this file until the link expires or is ended."
+    actions={made ? <Button onClick={onClose}>Done</Button> : <Button disabled={busy || (chars > 0 && (chars < 8 || chars > 200))} onClick={create}>Request link</Button>}>
     {made ? <>
-      <p role="status">The link is ready. It is shown only now: copy it before closing. Expires {when(made.expires_at)}.</p>
+      <p role="status">Request {made.id} is waiting for owner approval in Sharing. Copy the link before closing. It is shown only once.</p>
+      <p>Recipients use an API client. The link returns a JSON list, and password-protected links require the OneMind-Share-Password header.</p>
       <label htmlFor="share-url">Share link</label>
       <input id="share-url" readOnly value={made.one_time.url} onFocus={(e) => e.currentTarget.select()} />
       <Button variant="secondary" onClick={() => void copy()}>Copy link</Button>
       {copied && <p role="status">{copied}</p>}
     </> : <>
-      {busy && <p role="status">Creating the link…</p>}
+      {busy && <p role="status">Filing the request…</p>}
       <label htmlFor="share-ttl">Expires after</label>
       <select id="share-ttl" value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>{EXPIRIES.map(([l, ms]) => <option key={l} value={ms}>{l}</option>)}</select>
       <TextField id="share-password" label="Password (optional, 8 to 200 characters)" type="password" value={password} onChange={setPassword} />
@@ -223,20 +224,22 @@ function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
   </Card>;
 }
 
-function ShareLinks({ api, run }: { api: FilesApi; run: Run }) {
+function ShareLinks({ api, run, onRequested }: { api: FilesApi; run: Run; onRequested: () => void }) {
   const links = usePoll(() => api.shares(), 30_000);
   const [ending, setEnding] = useState<ShareLink>();
+  const [endRequest, setEndRequest] = useState('');
   return <Card title="Share links" aside={<span className="om-hint">Create one from a file in Files, with Share link.</span>}>
     <Load res={links} what="Loading share links">{(rows) => rows.length === 0 ? <p>No share links.</p> : <ul>
       {rows.map((l) => <li key={l.id}><strong>{l.name}</strong> · <StatusPill tone={l.state === 'active' ? 'ok' : 'neutral'} label={l.state} /> · {l.items.length} item{l.items.length === 1 ? '' : 's'}{l.password ? ' · password' : ''} · opened {l.opened_count} time{l.opened_count === 1 ? '' : 's'} · expires {when(l.expires_at)}{' '}
         {l.state === 'active' && <Button size="sm" variant="secondary" aria-label={`End share link ${l.name}`} onClick={() => setEnding(l)}>End link</Button>}</li>)}
     </ul>}</Load>
-    <Dialog role="alertdialog" open={!!ending} onClose={() => setEnding(undefined)} title={`End the link ${ending?.name ?? ''}?`} description="It stops working now. Anyone who has it can no longer download."
-      actions={<Button onClick={() => void run(async () => { await api.revokeShare(ending!.id); setEnding(undefined); await links.reload(); }, 'Could not end the link')}>End link</Button>}><p>Created {ending ? when(ending.created_at) : ''}.</p></Dialog>
+    {endRequest && <p role="status">Request {endRequest} filed. The link works until the owner approves or it expires.</p>}
+    <Dialog role="alertdialog" open={!!ending} onClose={() => setEnding(undefined)} title={`End the link ${ending?.name ?? ''}?`} description="The link stops working after the owner approves the request."
+      actions={<Button onClick={() => void run(async () => { const r = await api.revokeShare(ending!.id); setEndRequest(r.id); setEnding(undefined); onRequested(); await links.reload(); }, 'Could not request to end the link')}>Request to end link</Button>}><p>Created {ending ? when(ending.created_at) : ''}.</p></Dialog>
   </Card>;
 }
 
-function Sharing({ api, run, person, roots, canShare }: { api: FilesApi; run: Run; person: string; roots: FileRoot[]; canShare: boolean }) {
+function Sharing({ api, run, person, roots, canShare, owner }: { api: FilesApi; run: Run; person: string; roots: FileRoot[]; canShare: boolean; owner: boolean }) {
   const grants = usePoll(() => api.grants(), 30_000);
   const reqs = usePoll(() => api.requests(), 15_000);
   const [form, setForm] = useState(false);
@@ -247,6 +250,7 @@ function Sharing({ api, run, person, roots, canShare }: { api: FilesApi; run: Ru
   const [access, setAccess] = useState<'r' | 'rw'>('r');
   const [reason, setReason] = useState('');
   const [deciding, setDeciding] = useState<FileRequest>();
+  const [shareRevision, setShareRevision] = useState(0);
   const pending = useRef<string | undefined>(undefined);
   const reload = () => { void grants.reload(); void reqs.reload(); };
   const send = () => void run(async () => {
@@ -256,6 +260,7 @@ function Sharing({ api, run, person, roots, canShare }: { api: FilesApi; run: Ru
   }, 'Could not file the request');
   const decide = (r: FileRequest, how: 'approve' | 'deny' | 'cancel') => void run(async () => {
     await (how === 'approve' ? api.approve(r) : how === 'deny' ? api.deny(r.id) : api.cancel(r.id));
+    if (how === 'approve' && r.type.startsWith('files.shares.')) setShareRevision((n) => n + 1);
     setDeciding(undefined); reload();
   }, `Could not ${how} the request`);
   return <>
@@ -265,13 +270,13 @@ function Sharing({ api, run, person, roots, canShare }: { api: FilesApi; run: Ru
           <Button size="sm" variant="secondary" aria-label={`Revoke access for ${g.subject.id}`} onClick={() => void run(async () => { await api.revoke(g.id); reload(); }, 'Could not revoke')}>Revoke</Button></li>)}
       </ul>}</Load>
     </Card>
-    {canShare && <ShareLinks api={api} run={run} />}
+    {canShare && <ShareLinks key={shareRevision} api={api} run={run} onRequested={() => void reqs.reload()} />}
     <Card title="Requests">
       <Load res={reqs} what="Loading requests">{(rows) => rows.length === 0 ? <p>No file requests.</p> : <ul>
         {rows.map((r) => <li key={r.id}><StatusPill tone={r.state === 'awaiting_approval' ? 'warn' : 'neutral'} label={r.state.replace('_', ' ')} /> {r.plan.summary ?? r.type}
           {r.reason ? ` · "${r.reason}"` : ''} · risk {r.risk} · asked by {r.requested_by.id} · expires {when(r.expires_at)}{' '}
           {r.state === 'awaiting_approval' && <>
-            <Button size="sm" aria-label={`Review request ${r.id}`} onClick={() => setDeciding(r)}>Review</Button>{' '}
+            {owner && <Button size="sm" aria-label={`Review request ${r.id}`} onClick={() => setDeciding(r)}>Review</Button>}{' '}
             {r.requested_by.id === person && <Button size="sm" variant="secondary" aria-label={`Cancel request ${r.id}`} onClick={() => decide(r, 'cancel')}>Cancel request</Button>}</>}</li>)}
       </ul>}</Load>
     </Card>
@@ -289,7 +294,12 @@ function Sharing({ api, run, person, roots, canShare }: { api: FilesApi; run: Ru
     </Dialog>
     <Dialog role="alertdialog" open={!!deciding} onClose={() => setDeciding(undefined)} title="Review this request" description="Approving applies exactly this plan. If it changed since you opened it, the hub refuses."
       actions={<><Button variant="secondary" onClick={() => decide(deciding!, 'deny')}>Deny</Button><Button onClick={() => decide(deciding!, 'approve')}>Approve this plan</Button></>}>
-      <p>{deciding?.plan.summary}</p><p className="om-hint">Risk: {deciding?.risk}. Plan {deciding?.plan_sha256.slice(0, 19)}…</p>
+      <p>{deciding?.plan.summary}</p>
+      {deciding?.plan.items && <>
+        <ul>{deciding.plan.items.map((item, i) => <li key={i}>{item.path ? `${item.root ?? 'shared'}:${item.path}` : item.hash ?? (item.kind === 'photo' ? 'Private photo' : 'Private file')}</li>)}</ul>
+        <p>{deciding.plan.password ? 'Password required to open the link.' : 'Anyone with the link can open it.'}</p>
+      </>}
+      <p className="om-hint">Risk: {deciding?.risk}. Plan {deciding?.plan_sha256.slice(0, 19)}…</p>
     </Dialog>
   </>;
 }

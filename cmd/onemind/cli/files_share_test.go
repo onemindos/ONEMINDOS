@@ -31,13 +31,25 @@ func TestFilesRename(t *testing.T) {
 	}
 }
 
+func TestFilesRenamePrintsPendingOwnerRequest(t *testing.T) {
+	newRouteGW(t, map[string]func(map[string]any) (int, any){
+		"POST /v1/files/ops": func(map[string]any) (int, any) {
+			return 202, map[string]any{"id": "frq_rename", "state": "awaiting_approval"}
+		},
+	})
+	r := run(t, "", false, "files", "rename", "/a.txt", "b.txt", "--root", "shared")
+	outHas(t, r.out, "Requested rename", "frq_rename", "An owner decides")
+}
+
 func TestFilesShareLinks(t *testing.T) {
 	g := newRouteGW(t, map[string]func(map[string]any) (int, any){
 		"GET /v1/files/shares": ok([]any{map[string]any{"id": "shl_1", "name": "a.txt", "state": "active", "items": []any{map[string]any{"kind": "file"}}, "opened_count": 2.0, "expires_at": "2026-12-01T00:00:00Z"}}),
 		"POST /v1/files/shares": func(map[string]any) (int, any) {
-			return 201, map[string]any{"id": "shl_2", "expires_at": "2026-12-01T00:00:00Z", "one_time": map[string]any{"token": "oms_x", "url": "https://hub.test/v1/share/oms_x"}}
+			return 202, map[string]any{"id": "frq_create", "state": "awaiting_approval", "one_time": map[string]any{"token": "oms_x", "url": "https://hub.test/v1/share/oms_x"}}
 		},
-		"DELETE /v1/files/shares/shl_1": ok(map[string]any{"id": "shl_1", "state": "revoked"}),
+		"DELETE /v1/files/shares/shl_1": func(map[string]any) (int, any) {
+			return 202, map[string]any{"id": "frq_revoke", "state": "awaiting_approval"}
+		},
 	})
 	out := run(t, "", false, "files", "share", "list").out
 	outHas(t, out, "shl_1", "a.txt", "active", "2026-12-01")
@@ -46,7 +58,7 @@ func TestFilesShareLinks(t *testing.T) {
 	}
 	before := time.Now().UTC()
 	r := run(t, "longenough\n", false, "files", "share", "create", "/a.txt", "/b.txt", "--root", "shared", "--expires-in", "24h", "--name", "pics", "--password-stdin")
-	outHas(t, r.out, "shl_2", "https://hub.test/v1/share/oms_x", "shown only now")
+	outHas(t, r.out, "frq_create", "waiting for owner approval", "https://hub.test/v1/share/oms_x", "shown only now")
 	b := g.sent("POST", "/v1/files/shares")[0]
 	if b.idem != "" || b.body["name"] != "pics" || b.body["password"] != "longenough" {
 		t.Fatalf("create %+v", b)
@@ -107,9 +119,11 @@ func TestFilesShareLinks(t *testing.T) {
 	if r := run(t, "", false, "files", "share", "revoke", "shl_1"); r.code != ExitUsage {
 		t.Fatalf("needs --yes %+v", r)
 	}
-	if r := run(t, "", false, "files", "share", "revoke", "shl_1", "--yes"); r.code != 0 {
+	r = run(t, "", false, "files", "share", "revoke", "shl_1", "--yes")
+	if r.code != 0 {
 		t.Fatalf("revoke %+v", r)
 	}
+	outHas(t, r.out, "Requested end share link", "frq_revoke", "An owner decides")
 	if len(g.sent("DELETE", "/v1/files/shares/shl_1")) != 1 {
 		t.Fatal("one DELETE")
 	}
