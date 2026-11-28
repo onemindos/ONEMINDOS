@@ -17,7 +17,8 @@ export function fit(rect: Rect): Rect {
 export const close = (windows: Windows, id: string) => windows.filter(w => w.id !== id);
 export const minimise = (windows: Windows, id: string) => windows.map(w => w.id === id ? { ...w, minimised: true } : w);
 export const toggleMax = (windows: Windows, id: string) => windows.map(w => w.id === id ? { ...w, maximised: !w.maximised } : w);
-export const position = (windows: Windows, id: string, rect: Rect) => windows.map(w => w.id === id ? { ...w, rect: fit(rect) } : w);
+/** Placing a window (drag, keys, a snap layout) gives it that rectangle; a maximised window comes back down into it. */
+export const position = (windows: Windows, id: string, rect: Rect) => windows.map(w => w.id === id ? { ...w, rect: fit(rect), maximised: false } : w);
 /** The most recently focused open window, on one workspace when `ws` is given. */
 export const top = (windows: Windows, ws?: number) => windows.filter(w => !w.minimised && (ws === undefined || w.ws === ws)).at(-1);
 export const onWorkspace = (windows: Windows, ws: number) => windows.filter(w => w.ws === ws);

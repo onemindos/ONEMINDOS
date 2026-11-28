@@ -21,6 +21,8 @@ export const KEYMAP: readonly KeyEntry[] = [
   { id: 'close', group: 'Windows', description: 'Close the open window (back to the desktop)', keys: 'Esc', bindings: [{ mod: 'none', key: 'Escape' }] },
   { id: 'cycle-next', group: 'Windows', description: 'Next window on this workspace', keys: 'Alt ]', bindings: [{ mod: 'alt', code: 'BracketRight' }] },
   { id: 'cycle-previous', group: 'Windows', description: 'Previous window on this workspace', keys: 'Alt [', bindings: [{ mod: 'alt', code: 'BracketLeft' }] },
+  { id: 'snap-left', group: 'Windows', description: 'Snap the window to the left half', keys: 'Alt Shift ←', bindings: [{ mod: 'altshift', code: 'ArrowLeft' }] },
+  { id: 'snap-right', group: 'Windows', description: 'Snap the window to the right half', keys: 'Alt Shift →', bindings: [{ mod: 'altshift', code: 'ArrowRight' }] },
   ...digits.map((n): KeyEntry => ({ id: `workspace-${n}`, group: 'Workspaces', description: `Go to workspace ${n}`, keys: `Alt ${n}`, bindings: [{ mod: 'alt', code: `Digit${n}` }] })),
   ...digits.map((n): KeyEntry => ({ id: `send-${n}`, group: 'Workspaces', description: `Send the window to workspace ${n}`, keys: `Alt Shift ${n}`, bindings: [{ mod: 'altshift', code: `Digit${n}` }] })),
   { id: 'tiling', group: 'Tiling', description: 'Turn tiling on or off', keys: 'Alt T', bindings: [{ mod: 'alt', code: 'KeyT' }] },

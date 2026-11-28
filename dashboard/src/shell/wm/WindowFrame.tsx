@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useId, useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { Icon } from '@onemind/ui';
 import { COMPACT_WINDOWS, parentPath } from '../DesktopShell';
 import { ScreenRoutes, routeFor } from './ScreenRoutes';
+import { useKeymap } from '../keys/useKeymap';
+import { SnapFlyout } from './SnapFlyout';
 import { WORKSPACES, type DesktopWindow, type Rect } from './store';
-import { snapRect } from './tiling';
+import { SNAP_LAYOUTS, snapRect } from './tiling';
+import './snap.css';
+
+const HOVER_OPEN_MS = 350;
+const HOVER_CLOSE_MS = 250;
+const HALVES = SNAP_LAYOUTS[0]!.zones;
+/** On the focused maximise button (a menu button, not a global shortcut), the down arrow opens snap layouts. */
+const OPENS_SNAP: ReadonlySet<string> = new Set(['ArrowDown']);
 
 const edges = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as const;
 type Handle = 'move' | typeof edges[number];
@@ -39,7 +48,36 @@ export function WindowFrame({ item, z, active, narrow, here, tile, onSend, onPos
   const frame = useRef<HTMLElement>(null);
   const drag = useRef<{ handle: Handle; rect: Rect; x: number; y: number; width: number; height: number } | null>(null);
   const { id, path, rect, maximised, ws } = item;
-  const title = routeFor(path)!.screen.title;
+  const { title, icon } = routeFor(path)!.screen;
+  // Snap layouts (Atlas 01b): only for a free window on a wide screen (tiling and phones place windows themselves).
+  const canSnap = !narrow && !tile;
+  const snapId = useId();
+  const maxButton = useRef<HTMLButtonElement>(null);
+  const [snap, setSnap] = useState<{ keyboard: boolean } | null>(null);
+  const hover = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(hover.current), []);
+  const later = (fn: () => void, ms: number) => { window.clearTimeout(hover.current); hover.current = window.setTimeout(fn, ms); };
+  function snapTo(r: Rect) {
+    setSnap(null);
+    onPosition(r);
+  }
+  // Esc closes an open flyout (hover- or keyboard-opened), never the window: taken first, in the capture phase.
+  useEffect(() => {
+    if (!snap) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      setSnap(null);
+      if (snap.keyboard || maxButton.current?.parentElement?.contains(document.activeElement)) maxButton.current?.focus();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [snap]);
+  useKeymap({
+    'snap-left': () => (active && here && canSnap ? snapTo(HALVES[0]!.rect) : false),
+    'snap-right': () => (active && here && canSnap ? snapTo(HALVES[1]!.rect) : false),
+  });
   const up = parentPath(path.split(/[?#]/)[0]!);
   function pointerDown(e: PointerEvent<HTMLButtonElement>, handle: Handle) {
     if (e.button !== 0 || narrow || maximised || tile) return;
@@ -80,12 +118,23 @@ export function WindowFrame({ item, z, active, narrow, here, tile, onSend, onPos
   return <section ref={frame} data-window-id={id} className="dsk-window wm-frame" hidden={item.minimised || !here} data-tiled={!full && tile ? '' : undefined} style={style} aria-labelledby={label}
     data-size={COMPACT_WINDOWS.has(id) ? 'compact' : undefined} onPointerDownCapture={activate} onFocusCapture={activate}>
     <span id={label} className="om-visually-hidden">{title}</span>
-    <div className="dsk-window-bar">
+    <div className="dsk-window-bar wm-titlebar">
       {up && <button className="dsk-wbtn" aria-label="Back" onClick={() => navigate(up)}><Icon name="chevron" className="dsk-flip" size={18} /></button>}
+      {/* The title bar names the window for the eye; assistive tech hears the name once, from the region's label. */}
+      <span className="wm-title" aria-hidden="true"><Icon name={icon} size={16} /><span className="wm-title-text">{title}</span></span>
       {!narrow && <button className="wm-move" aria-label={`Move ${title}`} title="Drag or use arrow keys to move. Double-click to maximise." {...interaction('move')} onDoubleClick={onMax} />}
       <button className="dsk-wbtn" aria-label={`Minimise ${title}`} onClick={onMinimise}>−</button>
       {!narrow && <button className="dsk-wbtn wm-send" aria-label={`Workspace ${ws + 1}: Send ${title} to workspace ${(ws + 1) % WORKSPACES + 1}`} title={`On workspace ${ws + 1}. Send to the next one (Alt Shift 1 to 4 picks directly)`} onClick={() => onSend((ws + 1) % WORKSPACES)}>{ws + 1}</button>}
-      {!narrow && <button className="dsk-wbtn" aria-label={`${maximised ? 'Restore' : 'Maximise'} ${title}`} onClick={onMax}>□</button>}
+      {!narrow && (
+        <span className="wm-maxwrap" onPointerEnter={() => canSnap && later(() => setSnap((s) => s ?? { keyboard: false }), HOVER_OPEN_MS)} onPointerLeave={() => later(() => setSnap((s) => (s?.keyboard ? s : null)), HOVER_CLOSE_MS)}
+          onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSnap(null); }}>
+          <button ref={maxButton} className="dsk-wbtn" aria-label={`${maximised ? 'Restore' : 'Maximise'} ${title}`} onClick={onMax}
+            title={canSnap ? 'Maximise. Hover or press the down arrow for snap layouts.' : undefined}
+            aria-expanded={canSnap ? !!snap : undefined} aria-controls={canSnap && snap ? snapId : undefined}
+            onKeyDown={(e) => { if (OPENS_SNAP.has(e.key) && canSnap) { e.preventDefault(); setSnap({ keyboard: true }); } }}>□</button>
+          {canSnap && snap && <SnapFlyout id={snapId} title={title} focusFirst={snap.keyboard} onSnap={snapTo} />}
+        </span>
+      )}
       <button className="dsk-wbtn dsk-close" aria-label={`Close ${title}`} onClick={onClose}><Icon name="x" size={18} /></button>
     </div>
     <div inert={!active} aria-hidden={!active || undefined} tabIndex={0} className="dsk-window-body">
