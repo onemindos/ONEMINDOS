@@ -39,8 +39,8 @@ metadata:
 spec:
   # postgis/postgis publishes amd64 only, and so far OneMind has built TAK for amd64 only.
   archs: [amd64]
-  # Guide §3.2 minimum for the whole server (8 GB RAM, 40 GB disk; the schema has no field for the 4 cores). Research W8-R8 puts TAK Server on 16 GB machines.
-  requires: {gpu: false, minMemoryMb: 8192, storageFreeGb: 40}
+  # Guide §3.2 minimum for the whole server. Research W8-R8 puts TAK Server on 16 GB machines.
+  requires: {gpu: false, minMemoryMb: 8192}
   recommends: {memoryMb: 16384}
   manifests: manifests/
   updates: {channel: stable, automerge: none}

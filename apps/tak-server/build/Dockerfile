@@ -35,7 +35,7 @@ RUN ./gradlew --no-daemon clean bootWar bootJar shadowJar \
  && unzip -q takserver-package/build/distributions/takserver-docker-*.zip -d /unpacked \
  && mv /unpacked/takserver-docker-*/tak /opt/tak
 
-# Runtime: Java 17 JRE with keytool, openssl for certificates and Python for the XML guard.
+# Runtime: the Java 17 JRE (it includes keytool, which the certificate scripts call) plus openssl.
 FROM docker.io/library/eclipse-temurin:17.0.21.1_2-jre-noble@sha256:a9fc3bded7efe95fe0c06f3f5d7e5beea947925f729b71b61e39e0b9ddd4d7e3
 ARG TAK_TAG
 ARG TAK_COMMIT
@@ -46,7 +46,7 @@ LABEL org.opencontainers.image.title="TAK Server (OneMind build)" \
       org.opencontainers.image.licenses="GPL-3.0 AND Apache-2.0" \
       org.opencontainers.image.description="TAK Server built from source; the complete corresponding source is in /usr/share/doc/tak-server/"
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl python3 \
+ && apt-get install -y --no-install-recommends openssl \
  && rm -rf /var/lib/apt/lists/* \
  && (userdel -r ubuntu 2>/dev/null || true) \
  && groupadd -g 1000 tak && useradd -u 1000 -g 1000 -M -d /opt/tak -s /usr/sbin/nologin tak
@@ -55,8 +55,8 @@ COPY --from=build /opt/tak /opt/tak
 # licence and OneMind's build recipe (this file and the start script).
 COPY --from=build /takserver-source.tar.gz /usr/share/doc/tak-server/takserver-source.tar.gz
 COPY --from=build /src/LICENSE.md /usr/share/doc/tak-server/LICENSE.md
-COPY Dockerfile onemind-tak-start.sh onemind-tak-check-config.sh /usr/share/doc/tak-server/onemind-build/
-COPY --chmod=0755 onemind-tak-start.sh onemind-tak-check-config.sh /usr/local/bin/
+COPY Dockerfile onemind-tak-start.sh /usr/share/doc/tak-server/onemind-build/
+COPY --chmod=0755 onemind-tak-start.sh /usr/local/bin/onemind-tak-start.sh
 # Everything the server writes lives on the app's volume at /data (README "How it runs here"):
 # certificates, CoreConfig.xml, the user file and logs. The shipped certs/ folder (scripts and config.cfg)
 # is kept as certs.dist and copied to /data/certs on the first start.
