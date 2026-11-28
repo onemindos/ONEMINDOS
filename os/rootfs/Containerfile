@@ -204,7 +204,7 @@ COPY os/rootfs/layers/base/usr/share/initramfs-tools/ /usr/share/initramfs-tools
 # Brand boot splash (brand/generated/os/plymouth; logo = ONEMIND_BRAND_BOOT_LOGO in brand.env). It must be in
 # place before update-initramfs below, which puts the theme into the initramfs.
 COPY brand/generated/os/plymouth/onemind/ /usr/share/plymouth/themes/onemind/
-COPY brand/logo/png/white/onemind-mark-white-256.png /usr/share/plymouth/themes/onemind/logo.png
+COPY brand/logo/png/on-dark/onemind-mark-on-dark-256.png /usr/share/plymouth/themes/onemind/logo.png
 COPY os/rootfs/sources/strip-build-ssl-cert.sh /tmp/onemind/strip-build-ssl-cert.sh
 RUN set -eu; \
     cat /tmp/onemind/packages/${LEG}-common.txt /tmp/onemind/packages/${LEG}-${TARGETARCH}.txt \
