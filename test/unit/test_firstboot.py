@@ -474,14 +474,15 @@ class Hub(Box):
 
     def test_built_in_data_is_in_the_system_unit_on_a_new_hub(self):
         # #616: the gateway writes the built-ins' table export into backup-export before each run, and the
-        # agent's system unit copies it with the files root, so photos and files reach restic.
+        # agent's system unit copies it with both media folders.
         st = self.first_boot()
         system = json.load(open(self.p.backup_conf))["units"]["system"]
-        self.assertEqual(system["paths"][-2:], [self.p.backup_export, self.p.files])
+        self.assertEqual(system["paths"][-3:], [self.p.backup_export, self.p.files, self.p.photos])
         self.assertEqual(self.mode(self.p.backup_export), 0o700)
+        self.assertEqual(self.mode(self.p.photos), 0o700)
         for gw in (self.etc("gateway.env"), fb.gateway_env(self.p, st, MESH_IP)):
             self.assertIn(f"ONEMIND_BACKUPS_EXPORT_DIR={self.p.backup_export}\n", gw)
-            self.assertIn("ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT\n", gw)
+            self.assertIn("ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR\n", gw)
         self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_EXPORT_DIR="), 1)
 
     def test_a_hub_set_up_before_616_gets_the_built_in_paths_and_keeps_the_rest(self):
@@ -501,6 +502,26 @@ class Hub(Box):
         self.assertEqual({k: v for k, v in got.items() if k != "units"}, {k: v for k, v in conf.items() if k != "units"})
         self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_EXPORT_DIR="), 1)
         self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+
+    def test_a_hub_upgrades_existing_backup_configuration_to_include_photos(self):
+        self.first_boot()
+        photo_dir = os.path.join(self.p.gateway, "photos")
+        conf = json.loads(self.read(self.p.backup_conf))
+        conf["units"]["system"]["paths"] = [p for p in conf["units"]["system"]["paths"] if p != photo_dir]
+        conf["retention"]["daily"] = 9
+        self.put("data/onemind/backup/agent.json", json.dumps(conf))
+        env = self.etc("gateway.env").replace("ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR", "ONEMIND_FILES_ROOT")
+        self.put("data/onemind/etc/gateway.env", env)
+        if os.path.exists(photo_dir):
+            os.rmdir(photo_dir)
+
+        fb.apply(self.p)
+        fb.apply(self.p)
+        conf["units"]["system"]["paths"].append(photo_dir)
+        self.assertEqual(json.loads(self.read(self.p.backup_conf)), conf)
+        self.assertEqual(self.mode(photo_dir), 0o700)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_AGENT_DIRS="), 1)
+        self.assertIn("ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR\n", self.etc("gateway.env"))
 
     def test_a_failed_job_key_leaves_backups_off_but_the_box_boots(self):
         with mock.patch("onemind_core.backups.jobs.load_or_create_job_key", side_effect=OSError("disk full")):

@@ -36,7 +36,8 @@
         "/data/onemind/gateway/tls",
         "/data/onemind/nats/keys",
         "/data/onemind/gateway/backup-export",
-        "/data/onemind/files"
+        "/data/onemind/files",
+        "/data/onemind/gateway/photos"
       ],
       "sqlite": [
         {

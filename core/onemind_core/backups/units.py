@@ -81,14 +81,21 @@ def setting_path(settings, name: str) -> tuple[bool, Path | None]:
     return False, None
 
 
-def unit_set(gw, registry, *, export: bool = False, agent_dirs: frozenset[str] = frozenset()) -> list[dict]:
+def unit_set(gw, registry, *, export: bool = False, agent_dirs: frozenset[str] = frozenset(),
+             include_off_photos: bool = False) -> list[dict]:
     """The gateway database, then one `builtin:<id>` unit per switched-on built-in.
 
     `export`: the gateway writes the built-ins' table export into a folder the agent's `system` unit
-    copies (BackupsSettings.export_dir); `agent_dirs`: the folder settings that unit also copies."""
+    copies (BackupsSettings.export_dir); `agent_dirs`: the folder settings that unit also copies.
+    Include switched-off Photos in a recovery export so switching it off cannot strand existing data."""
     have = set(inspect(gw.db.engine).get_table_names())
     out = [{"unit": GATEWAY_UNIT, "kind": "database", "engine": gw.db.engine.dialect.name, "snapshot_unit": "system"}]
-    for d in registry.enabled() if registry is not None else []:
+    descriptors = registry.enabled() if registry is not None else []
+    if include_off_photos and registry is not None and "photos" in registry.descriptors:
+        photos = registry.descriptors["photos"]
+        if photos not in descriptors:
+            descriptors.append(photos)
+    for d in descriptors:
         tables, dirs, problems = [], [], []
         for u in d.spec["backup"]["units"]:
             if u["kind"] == "table":
@@ -215,7 +222,7 @@ def _write(path: Path, data: bytes) -> None:
 
 
 def export(gw, registry, dest: Path, *, include_dirs: bool = True) -> dict:
-    """Write the switched-on built-ins' units into `dest` (missing or empty); returns the manifest."""
+    """Export switched-on built-ins and Photos data into `dest` (missing or empty); return the manifest."""
     dest = Path(dest)
     if dest.exists() and any(dest.iterdir()):
         raise ValueError(f"{dest} is not empty")
@@ -223,7 +230,7 @@ def export(gw, registry, dest: Path, *, include_dirs: bool = True) -> dict:
     os.chmod(dest, 0o700)
     (dest / "tables").mkdir(mode=0o700)
     engine = gw.db.engine
-    units = [u for u in unit_set(gw, registry) if u["kind"] == "builtin"]
+    units = [u for u in unit_set(gw, registry, include_off_photos=True) if u["kind"] == "builtin"]
     if bad := [f"{u['unit']}: {p}" for u in units for p in u["problems"]]:
         raise ValueError("cannot export: " + "; ".join(bad))
     manifest = {"format": FORMAT, "engine": engine.dialect.name, "schema_versions": schema_versions(engine),

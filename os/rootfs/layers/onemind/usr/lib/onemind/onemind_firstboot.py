@@ -103,6 +103,7 @@ class Paths:
         self.secrets = j("data", "onemind", "secrets")
         self.identity = j("data", "onemind", "identity")
         self.gateway = j("data", "onemind", "gateway")
+        self.photos = os.path.join(self.gateway, "photos")                # default ONEMIND_PHOTOS_DIR
         self.tls = j("data", "onemind", "gateway", "tls")              # the box CA (ONEMIND_NET_TLS_DIR)
         self.accounts = j("data", "onemind", "gateway", "nats", "accounts.conf")
         self.nats_keys = j("data", "onemind", "nats", "keys")
@@ -591,14 +592,14 @@ K3S_BACKUP_VERSION = "v1.37.2-k3s1"     # os/versions.lock.yaml k3s.version, "+"
 def backup_system_paths(p: Paths) -> list[str]:
     """What the agent's `system` unit copies as files: settings, the box CA, NATS keys, and (#616) the
     built-ins' table export the gateway writes before each run plus the built-in folders on this box."""
-    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files]
+    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files, p.photos]
 
 
 def builtin_backup_env(p: Paths) -> str:
-    """Tells the gateway where to write the built-ins' export and which built-in folders the agent copies
-    (ONEMIND_FILES_ROOT = p.files above), so GET /v1/backups/status can say they are in a snapshot."""
+    """Tells the gateway where to write the built-ins' export and which default folders the agent copies."""
     return ("# Built-in apps' data in the system unit (#616; core/onemind_core/backups/units.py).\n"
-            f"ONEMIND_BACKUPS_EXPORT_DIR={p.backup_export}\nONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT\n")
+            f"ONEMIND_BACKUPS_EXPORT_DIR={p.backup_export}\n"
+            "ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR\n")
 
 
 def backup_gateway_env(p: Paths) -> str:
@@ -656,6 +657,18 @@ def upgrade_agent_conf(p: Paths) -> None:
         write(p.backup_conf, json.dumps(conf, indent=2) + "\n")
 
 
+def upgrade_backup_gateway_env(p: Paths) -> None:
+    """Upgrade the old generated folder list, preserving operator-managed backup settings."""
+    path = os.path.join(p.etc, "gateway.env")
+    old = _read(path)
+    if old is None or re.search(r"(?m)^ONEMIND_PHOTOS_DIR=", old):
+        return
+    new = re.sub(r"(?m)^ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT$",
+                 "ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR", old)
+    if new != old:
+        write(path, new)
+
+
 def ensure_backup(p: Paths, st: dict) -> None:
     """Make a hub able to back up: the gateway's job key (its public half for the agent), agent.json and the
     two env files. Idempotent, so boxes set up before backups get it on their next boot. Any failure is
@@ -682,6 +695,12 @@ def ensure_backup(p: Paths, st: dict) -> None:
         os.chmod(p.backup_export, 0o700)
         if ids:
             os.chown(p.backup_export, *ids)
+        # The agent requires every configured source to exist, even before the first upload.
+        # The gateway owns this folder and its parent, so create it as that user on the box.
+        if ids:
+            subprocess.run(["runuser", "-u", "onemind", "--", "mkdir", "-p", "-m", "0700", p.photos], check=True)
+        else:
+            os.makedirs(p.photos, mode=0o700, exist_ok=True)
         if not os.path.exists(p.backup_conf):
             write(p.backup_conf, json.dumps(backup_agent_conf(p, st["node_id"]), indent=2) + "\n")
         else:
@@ -691,6 +710,7 @@ def ensure_backup(p: Paths, st: dict) -> None:
                         f"ONEMIND_BACKUP_CONF={p.backup_conf}\n")
         _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_ENABLED", backup_gateway_env(p))
         _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_EXPORT_DIR", builtin_backup_env(p))
+        upgrade_backup_gateway_env(p)
     except Exception as e:  # noqa: BLE001
         log(f"backups not set up: {e}")
 

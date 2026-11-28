@@ -37490,7 +37490,7 @@
     },
     "/v1/settings/photos": {
       "get": {
-        "description": "Is Photos on? It is on unless the owner switched it off or the operator set ONEMIND_PHOTOS_ENABLED=0.",
+        "description": "Is Photos on? Pending approval details require an owner credential with approval permission.",
         "operationId": "photos.switch.get",
         "responses": {
           "200": {
@@ -37512,6 +37512,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
           }
         },
         "security": [
@@ -37568,7 +37578,7 @@
                 }
               }
             },
-            "description": "The same request is already open: this is that request; nothing new was filed"
+            "description": "A matching request is already open, or replaying the Idempotency-Key that filed an action returned it in its current state. No new request was filed."
           },
           "202": {
             "content": {

@@ -61,73 +61,60 @@ func switchCommand(a *App, typ, use, short string) *cobra.Command {
 		Short: short,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSwitch(a, cmd, noApprove, yes, wait, typ+" "+args[0], func(c *onemind.Client) (*onemind.Action, error) {
-				return c.Actions.Request(bg(), onemind.ActionRequest{Type: typ, AppID: args[0]})
-			})
+			waitSet := cmd.Flags().Changed("wait")
+			if !noApprove && !yes && !a.Interactive() {
+				return exitWith(ExitUsage, "usage", "stdin is not a terminal: pass --no-approve to only file the request (or --yes to approve it as the owner)")
+			}
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			act, err := c.Actions.Request(bg(), onemind.ActionRequest{Type: typ, AppID: args[0]})
+			if err != nil {
+				return err
+			}
+			if !a.G.JSON {
+				fmt.Fprintf(a.Stdout, "Requested action %s  %s %s\n", act.Id, typ, args[0])
+			}
+			if noApprove {
+				if waitSet {
+					return a.waitAction(c, act.Id, wait)
+				}
+				if a.G.JSON {
+					return printJSON(a.Stdout, act)
+				}
+				if a.G.Quiet {
+					fmt.Fprintln(a.Stdout, act.Id)
+				} else {
+					fmt.Fprintf(a.Stdout, "Waiting for an owner: onemind actions approve %s\n", act.Id)
+				}
+				return nil
+			}
+			ok := yes
+			if !ok {
+				if ok, err = a.confirm("Approve now?", "--yes"); err != nil {
+					return err
+				}
+			}
+			if !ok {
+				return exitWith(ExitPending, "pending", fmt.Sprintf("left waiting for approval: onemind actions approve %s", act.Id))
+			}
+			if _, err := c.Actions.Approve(bg(), act.Id); err != nil {
+				if errors.Is(err, onemind.ErrPermissionDenied) {
+					return exitWith(ExitPermissionDenied, "permission_denied",
+						fmt.Sprintf("requested %s, but this principal may not approve; an owner runs: onemind actions approve %s", act.Id, act.Id))
+				}
+				return err
+			}
+			if !waitSet {
+				wait = 10 * time.Minute
+			}
+			return a.waitAction(c, act.Id, wait)
 		},
 	}
-	addSwitchFlags(cmd, &noApprove, &yes, &wait)
-	return cmd
-}
-
-func addSwitchFlags(cmd *cobra.Command, noApprove, yes *bool, wait *time.Duration) {
-	cmd.Flags().BoolVar(noApprove, "no-approve", false, "only file the request (scripts, agents, non-owners)")
-	cmd.Flags().BoolVar(yes, "yes", false, "approve without asking (owner token)")
-	cmd.Flags().DurationVar(wait, "wait", 10*time.Minute, "wait for the outcome (default 10m)")
+	cmd.Flags().BoolVar(&noApprove, "no-approve", false, "only file the request (scripts, agents, non-owners)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "approve without asking (owner token)")
+	cmd.Flags().DurationVar(&wait, "wait", 10*time.Minute, "wait for the outcome (default 10m)")
 	cmd.Flags().Lookup("wait").NoOptDefVal = "10m"
-}
-
-// runSwitch files an approval request with `file`, then (unless --no-approve) asks the owner to approve
-// it and waits for the outcome. Nothing changes before an owner approves.
-func runSwitch(a *App, cmd *cobra.Command, noApprove, yes bool, wait time.Duration, what string,
-	file func(c *onemind.Client) (*onemind.Action, error)) error {
-	waitSet := cmd.Flags().Changed("wait")
-	if !noApprove && !yes && !a.Interactive() {
-		return exitWith(ExitUsage, "usage", "stdin is not a terminal: pass --no-approve to only file the request (or --yes to approve it as the owner)")
-	}
-	c, _, err := a.client()
-	if err != nil {
-		return err
-	}
-	act, err := file(c)
-	if err != nil {
-		return err
-	}
-	if !a.G.JSON {
-		fmt.Fprintf(a.Stdout, "Requested action %s  %s\n", act.Id, what)
-	}
-	if noApprove {
-		if waitSet {
-			return a.waitAction(c, act.Id, wait)
-		}
-		if a.G.JSON {
-			return printJSON(a.Stdout, act)
-		}
-		if a.G.Quiet {
-			fmt.Fprintln(a.Stdout, act.Id)
-		} else {
-			fmt.Fprintf(a.Stdout, "Waiting for an owner: onemind actions approve %s\n", act.Id)
-		}
-		return nil
-	}
-	ok := yes
-	if !ok {
-		if ok, err = a.confirm("Approve now?", "--yes"); err != nil {
-			return err
-		}
-	}
-	if !ok {
-		return exitWith(ExitPending, "pending", fmt.Sprintf("left waiting for approval: onemind actions approve %s", act.Id))
-	}
-	if _, err := c.Actions.Approve(bg(), act.Id); err != nil {
-		if errors.Is(err, onemind.ErrPermissionDenied) {
-			return exitWith(ExitPermissionDenied, "permission_denied",
-				fmt.Sprintf("requested %s, but this principal may not approve; an owner runs: onemind actions approve %s", act.Id, act.Id))
-		}
-		return err
-	}
-	if !waitSet {
-		wait = 10 * time.Minute
-	}
-	return a.waitAction(c, act.Id, wait)
+	return cmd
 }

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from dataclasses import replace
 from pathlib import Path
 
@@ -24,6 +25,8 @@ from onemind_core.app import create_app
 from onemind_core.backups import units as bu
 from onemind_core.backups.settings import BackupsSettings
 from onemind_core.ledger import Base
+from onemind_core.photos import PhotosSettings
+from onemind_core.sections import load_section
 from test_appstore import run
 from test_backups import FakeAgent
 from test_photos import Phone, blob, photos_settings
@@ -234,6 +237,60 @@ def test_back_up_wipe_restore_reads_the_same_rows_and_photo(box_a, settings, clo
     assert len(library) == 1 and library[0].read_bytes() == data
     stored = [p for p in (tmp_path / "photos-b" / "library" / ".shared-store").rglob("*") if p.is_file()]
     assert len(stored) == 1 and os.stat(stored[0]).st_ino == os.stat(library[0]).st_ino  # still one copy on disk
+
+
+@pytest.mark.parametrize("owner_off", [False, True], ids=["photos-on", "photos-off"])
+def test_default_hub_box_backup_restores_photo_bytes_and_records(settings, clock, tmp_path, monkeypatch, owner_off):
+    app_b = fresh_box(settings, clock, tmp_path)
+    root = Path(__file__).resolve().parents[2]
+    monkeypatch.syspath_prepend(str(root / "os/rootfs/layers/onemind/usr/lib/onemind"))
+    import onemind_firstboot as fb
+
+    paths = fb.Paths(str(tmp_path / "source"))
+    system = fb.backup_agent_conf(paths, "box-a")["units"]["system"]
+    photo_cfg = load_section(PhotosSettings, {"ONEMIND_DATA_DIR": paths.gateway})
+    s = replace(settings, sections={**settings.sections, "photos": photo_cfg})
+    snapshot = tmp_path / "snapshot"
+    for path in system["paths"]:
+        Path(path).mkdir(parents=True)
+
+    class SystemSnapshot(FakeAgent):
+        def job(self, kind, params, **kwargs):
+            result = super().job(kind, params, **kwargs)
+            if kind == "backup.run":
+                assert any(u["unit"] == "system" for u in result["units"])
+                for path in map(Path, system["paths"]):
+                    bu.copy_tree(path, snapshot / path.relative_to(paths.root))
+            return result
+
+    with TestClient(create_app(s, clock=clock)) as a:
+        phone = Phone(a, OWNER)
+        data = blob(8, 7000)
+        phone.upload(phone.key("asset-1"), data)
+        asset_id = a.get("/v1/photos/library", headers=OWNER).json()["items"][0]["id"]
+        before = rows(handles(a)[0], PHOTO_TABLES)
+        if owner_off:
+            assert run(a, clock, "app.disable", {"app_id": "photos"}).json()["state"] == "succeeded"
+            assert a.get("/v1/photos/library", headers=OWNER).status_code == 409
+        svc = a.app.state.backups
+        svc.s = replace(svc.s, export_dir=Path(paths.backup_export))
+        svc.agent = SystemSnapshot(clock)
+        assert svc.run_backup("manual", "box", None, None)["state"] == "succeeded"
+
+    shutil.rmtree(paths.root)
+    gw_b, reg_b = app_b.state.gateway, app_b.state.builtins
+    carried_export = snapshot / Path(paths.backup_export).relative_to(paths.root) / bu.EXPORT_FILE
+    bu.restore(gw_b, reg_b, carried_export)
+    assert rows(gw_b, PHOTO_TABLES) == before
+    carried_photos = snapshot / photo_cfg.dir.relative_to(paths.root)
+    assert carried_photos.is_dir(), "the generated system backup did not carry the default Photos folder"
+    bu.copy_tree(carried_photos, gw_b.settings.section(PhotosSettings).dir)
+    with TestClient(app_b) as b:
+        if owner_off:
+            assert b.get("/v1/photos/library", headers=OWNER).status_code == 409
+            assert run(b, clock, "app.enable", {"app_id": "photos"}).json()["state"] == "succeeded"
+        photo = b.get(f"/v1/photos/assets/{asset_id}/content", headers=OWNER)
+        assert photo.status_code == 200 and photo.content == data
 
 
 def test_a_box_that_already_has_rows_is_refused_unless_replace(box_a, settings, clock, tmp_path):

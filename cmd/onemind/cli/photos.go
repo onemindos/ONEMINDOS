@@ -6,11 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/spf13/cobra"
-
-	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
 // photosView is GET /v1/settings/photos: is Photos on, and why not.
@@ -26,15 +23,14 @@ type photosView struct {
 // photos_onboarding.go: Photos is built in and on by default.
 // With no flag it shows the switch (GET /v1/settings/photos). --on or --off files app.enable or
 // app.disable through PUT /v1/settings/photos; it waits in Approvals and nothing changes until an
-// owner approves it (here with --yes, or later with `onemind actions approve`). Photos data is kept.
+// owner approves it through the separate approval flow. Photos data is kept.
 func photosSettingsCommand(a *App) *cobra.Command {
-	var on, off, noApprove, yes bool
-	var wait time.Duration
+	var on, off bool
 	settings := &cobra.Command{
 		Use:   "settings [--on|--off]",
 		Short: "Show or change the Photos switch: on by default; changing it is an owner approval",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(*cobra.Command, []string) error {
 			if on && off {
 				return exitWith(ExitUsage, "usage", "photos settings: --on and --off together")
 			}
@@ -56,16 +52,13 @@ func photosSettingsCommand(a *App) *cobra.Command {
 			if on {
 				word = "on"
 			}
-			return runSwitch(a, cmd, noApprove, yes, wait, "switch Photos "+word, func(c *onemind.Client) (*onemind.Action, error) {
-				var act onemind.Action
-				err := c.Do(bg(), http.MethodPut, "/v1/settings/photos", map[string]any{"enabled": on}, &act)
-				return &act, err
-			})
+			return a.requestWrite("switch Photos "+word, http.MethodPut, "/v1/settings/photos", map[string]bool{"enabled": on})
 		},
 	}
 	settings.Flags().BoolVar(&on, "on", false, "ask to switch Photos on (owners approve)")
 	settings.Flags().BoolVar(&off, "off", false, "ask to switch Photos off; its photos are kept (owners approve)")
-	addSwitchFlags(settings, &noApprove, &yes, &wait)
+	settings.Flags().Bool("no-approve", false, "only file the request (the default)")
+	_ = settings.Flags().MarkHidden("no-approve")
 	return settings
 }
 
