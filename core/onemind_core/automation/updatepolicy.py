@@ -50,7 +50,8 @@ class UpdatePolicyRow(Base):
 
     __tablename__ = "update_policy"
     id: Mapped[str] = mapped_column(String(16), primary_key=True)
-    doc: Mapped[dict] = mapped_column(JSON)
+    # JSON null means the policy uses defaults, independently of per-app resume state.
+    doc: Mapped[dict | None] = mapped_column(JSON, nullable=False)
     resumed: Mapped[dict] = mapped_column(JSON, default=dict)  # app_id -> ISO time of the resume
     updated_by: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -85,7 +86,7 @@ class UpdatePolicyRepository(SqlRepository):
     def get(self, *, session: Session | None = None) -> dict | None:
         with (self.db.session() if session is None else nullcontext(session)) as s:
             r = s.get(UpdatePolicyRow, "global")
-            return None if r is None else {"doc": dict(r.doc), "resumed": dict(r.resumed or {}),
+            return None if r is None else {"doc": r.doc, "resumed": dict(r.resumed or {}),
                                            "updated_by": r.updated_by, "updated_at": utc(r.updated_at)}
 
     def put(self, *, now: datetime, session: Session | None = None, **values) -> None:
@@ -129,7 +130,7 @@ class UpdatePolicyService:
     # ---- the stored knobs ----------------------------------------------------------------------
     def policy(self) -> UpdatePolicyBody:
         row = self.repo.get()
-        return UpdatePolicyBody.model_validate(row["doc"]) if row else UpdatePolicyBody()
+        return UpdatePolicyBody.model_validate(row["doc"]) if row and row["doc"] is not None else UpdatePolicyBody()
 
     def resumed_at(self, app_id: str) -> datetime | None:
         row = self.repo.get()
@@ -139,7 +140,7 @@ class UpdatePolicyService:
     def to_json(self) -> dict:
         row = self.repo.get()
         body = self.policy()
-        return {**body.model_dump(), "customized": row is not None,
+        return {**body.model_dump(), "customized": row is not None and row["doc"] is not None,
                 "updated_at": iso(row["updated_at"]) if row else None,
                 "updated_by": row["updated_by"] if row else None,
                 "paused_apps": self.paused_apps()}

@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Box export and import
 
-**Status:** design, not yet decided by the founder. Phase 1 (the manifest schema and the box-config layer) is in code; everything else is a plan. The open founder calls are listed in §12. Phased plan: [#1285](https://github.com/onemindos/ONEMINDOS/issues/1285). Refs [#234](https://github.com/onemindos/ONEMINDOS/issues/234) (M-LIVE).
+**Status:** draft design with founder decisions recorded in §12. The manifest, box-config layer and first config-as-code export are implemented. Phased plan: [#1285](https://github.com/onemindos/ONEMINDOS/issues/1285). Refs [#234](https://github.com/onemindos/ONEMINDOS/issues/234) (M-LIVE).
 
-> **In plain words.** A *box bundle* is one file that says how your OneMind box is set up: its name and time zone, the people on it and their roles, the rules for what agents may do, which apps are installed with their settings and secrets, which machines have joined it, and the box's own keys. It is locked so that only your printed emergency kit can open it. It is also signed, so a new box can tell the bundle really came from your box. It does not hold your photos or app files: those stay in your backups, and the bundle says exactly which backup to pull them from.
+> **In plain words.** A *box bundle* is one file that says how your OneMind box is set up: its name and time zone, the people on it and their roles, the rules for what agents may do, which apps are installed with their settings and secrets, which machines have joined it, and the box's own keys. Your printed emergency kit can unlock it. You can also choose a passphrase recipient for a manual download. It is also signed, so a new box can tell the bundle really came from your box. It does not hold your photos or app files: those stay in your backups, and the bundle says exactly which backup to pull them from.
 >
-> You can download it, put it on a USB stick, or let the box copy it to your off-site backup on a schedule. If the box dies, you set up a new machine, choose **Restore a OneMind box**, plug in the USB stick or point at the backup, and type your kit. The box shows what it will put back, layer by layer. You approve it, and the box rebuilds itself: settings first, then people and rules, then apps, then each app's data from the backup.
+> You can download it, put it on a USB stick, or let the box store it with the data backups on each destination, on a schedule you choose. If the box dies, you set up a new machine, choose **Restore a OneMind box**, plug in the USB stick or point at the backup, and type your kit. The box shows what it will put back, layer by layer. You approve it, and the box rebuilds itself: settings first, then people and rules, then apps, then each app's data from the backup.
 
 The founder's request (2026-11-26): an export and import of the whole box config, for a box that fails, a move to another machine, or a saved config; backed up off-site too, "plug in and go", as deep as possible, with an import button.
 
@@ -61,7 +61,7 @@ Each layer is one canonical JSON file (`layers/<id>.json`) with its own schema i
 
 ### b. People and roles (`people`)
 - Usernames, display names, roles (owner, adult, teen, child), disabled flags, family profiles and app classifications, notification preferences, recovery contacts and legacy contacts (#1196, #1208).
-- **Passwords:** never in clear. The scrypt hash travels inside the encrypted bundle, so people keep their password on the new box. The founder can choose "reset every password" instead (§12).
+- **Passwords:** never in clear. The scrypt hash travels inside the encrypted bundle, so people keep their password on the new box.
 - **TOTP secrets** are stored in clear on the box today; they travel only inside the sensitive part of the layer.
 - **Passkeys cannot be exported, by design.** The private half of a passkey never leaves the person's phone or security key, and the browser binds it to the box's web name. The box only keeps the public half. So:
   - *restore or move with the same web name:* the public records can come back and the passkeys keep working. Each one is marked "check on first use", and a passkey whose sign-in counter goes backwards is refused;
@@ -83,7 +83,7 @@ Each layer is one canonical JSON file (`layers/<id>.json`) with its own schema i
 ### e. App data, by reference (`app_data_refs`)
 - For each app: the destination id, the restic run id and snapshot ids of its last **verified** restore point (BACKUPS.md §8), size, content-tier flag and app version at the time.
 - The bundle holds no data. On import, after layer d, each app's data is pulled through the existing `backup.restore` path (`portable` mode), one approval for the batch.
-- An option for very small boxes: include the built-in apps' table export (`backups/units.py`) inside the bundle when it is under a size limit (§12).
+- A combined config-and-data export may be offered separately. Each regular bundle points to verified backup snapshots.
 
 ### f. Machines and fabric (`fabric`)
 - Joined machines (name, role, public NATS key, certificate serial), machine settings, mesh settings, Headscale's node list.
@@ -124,20 +124,19 @@ payload (encrypted, chunked):              a deterministic tar of
 
 The manifest (built in phase 1) lists each layer's path, schema id, size, item count, sha256 and whether it is sensitive. Every layer is canonical JSON, so the same settings give the same bytes and checksum on any machine. That also makes "nothing changed since the last export" a cheap check.
 
-### 4.2 Encryption: only the kit opens it
+### 4.2 Encryption and recipients
 - The payload is sealed with the ChaCha20-Poly1305 cipher under a fresh random 256-bit data key, in 64 KiB chunks with a counter and last-chunk flag in each nonce, so a cut or reordered file fails.
-- The data key is wrapped for each recipient with HPKE (RFC 9180). The gateway's pinned `cryptography` 50.0.2 already ships `cryptography.hazmat.primitives.hpke` with X25519 and the hybrid post-quantum `MLKEM768_X25519` KEM (checked in the core virtual environment on 2026-11-26). No new dependency is needed.
-- **The kit recipient.** The kit's owner key is a restic password today, not a public key, and the box keeps only its fingerprint. So when the owner key is in memory for the one time it exists (kit issue, or kit attach in #1191), the box derives an X25519 key pair from it (HKDF-SHA256, info `onemind/box-bundle/kit-recipient/v1`) and keeps **only the public half**. From then on the box can encrypt bundles to the kit on a schedule without holding any secret that could open them. On import, typing or scanning the kit gives back the private half, in memory only.
-- **Optional second recipient:** the escrow key (BACKUPS.md §5.1) if the owner made one.
-- **A passphrase recipient** for "download to my laptop" is possible but weaker; it is a founder call (§12).
+- HPKE wraps the data key for the kit recipient using hybrid ML-KEM-768 plus X25519. The [released cryptography 50.0.2 API](https://cryptography.io/en/50.0.2/hazmat/primitives/hpke/) documents both components as one KEM, covered by the [API stability policy](https://cryptography.io/en/50.0.2/api-stability/). A wrap/unwrap round trip passed with the pinned wheel on macOS. Availability on the shipping image is **UNVERIFIED**. Phase 2 must exercise the actual image backend, which must support ML-KEM. Fail closed if the hybrid suite is unavailable.
+- **Kit recipient.** At issue or attach, derive both private key components from the kit's owner key with separate, versioned derivation labels. Store only the hybrid public key for scheduled encryption. On restore, derive the private halves again in memory. Phase 2 must specify the derivation and test it with fixed vectors.
+- **Optional recipients.** The owner can add an escrow key (BACKUPS.md §5.1) or a passphrase for a manual download. A passphrase protects its own copy of the data key and can be guessed offline, so the design requires a salted, memory-hard derivation. The kit recipient is always present.
 - Because the kit recipient key is public on the box, anyone who learns it could make a bundle the kit opens. **The signature is what stops a forged bundle**, so an import refuses any bundle whose signature does not check out.
 
 ### 4.3 Signature: it came from your box
-- The header is signed with an Ed25519 key for one purpose, "export", under the box's fabric root key (D-029 already plans one key per purpose under that root: jobs, policy snapshot, audit head, callout issuer). Adding "export" to that list is a founder call (§12).
-- A new box checks the signature against the fabric root fingerprint printed in the kit. The kit already carries the box CA fingerprint (BACKUPS.md §5.2). A bundle from an unknown box can still be imported, but only as a clone, with a red warning, and never with layer g.
+- The header is signed with an Ed25519 key for one purpose, "export", under the box's fabric root key (D-029 already plans one key per purpose under that root: jobs, policy snapshot, audit head, callout issuer). The founder approved the "export" purpose key (§12).
+- A new box checks the signature against the fabric root fingerprint printed in the kit. The kit already carries the box CA fingerprint (BACKUPS.md §5.2). Restore and move require a signer trusted by the kit. The 1.1 clone design must define how the owner establishes trust in the source before accepting settings.
 
 ### 4.4 Versions
-- `format.major` must match the reader's. A higher `format.minor` is accepted: newer bundles only add optional fields and new layers. Unknown layers are set aside and named on the preview (`manifest.check_manifest`). At the reader's own minor or older, an unknown field in the manifest, `source` or a layer entry is refused instead, because nothing newer could have written it; a box-config layer is held to the same rule (`box_config.check`). A backup destination's `config` is checked against a per-kind allow-list in the schema (`usbLocation`, `peerLocation`, `s3Location`), so a credential under any name is refused, not shown. From a newer minor, an unknown key inside a destination's `config` is set aside and named like any other unknown field (destinations are `needs_owner`, so it is never applied).
+- `format.major` must match the reader's. A higher `format.minor` is accepted: newer bundles only add optional fields and new layers. Unknown layers are set aside and named on the preview (`manifest.check_manifest`).
 - Each layer has its own schema id (`onemind.io/box-bundle/box-config/v1`). Fields a newer OneMind added are set aside, named and never applied (`box_config.check`).
 - An older bundle on a newer box is always readable. Each layer reader keeps the converters for its older versions.
 - A bundle from a **newer** OneMind version than the box is accepted only when the format allows it. Otherwise the preview says "update this box first", as `units.py` already does for schema versions.
@@ -161,19 +160,35 @@ A bundle is small enough to keep many copies: on the box, on a USB stick and off
 - **Download:** Settings → Backups and recovery → Box bundle → **Export now**. The browser saves the `.omb` file. The file is already encrypted on the box; it never exists in clear outside it.
 - **USB:** export straight to a USB destination already set up for backups (onemindd writes it), so it works with no laptop.
 
-### 5.2 Off-site, on a schedule
-- A new restic unit, `bundle`, holds the latest bundle file and is written on every backup run to every destination: USB, another OneMind box, S3 or Backblaze B2 (D-025). restic de-duplicates it, so an unchanged bundle costs almost nothing.
-- The file is encrypted twice: restic's own repository key, and the bundle's kit encryption inside it. The off-site copy is safe even if the bucket credentials leak.
-- On a new box, the first-run **Restore a OneMind box** step lists the bundles found in a destination (`restic snapshots --tag unit=bundle`), grouped by box, newest first.
-- **Known-good pins:** the owner can mark one bundle "known-good". Retention never removes a pinned bundle.
+### 5.2 Sovereign copies on every backup destination
 
-### 5.3 How this relates to GitOps (recommendation)
-- GitOps means "a Git repository holds the desired state; a controller makes the cluster match it". The founder's cloud cluster does this with Argo CD. The box deliberately does not: DEPLOYMENTS.md §4 keeps the good part (a declared, versioned desired state per app, as revisions) and drops the bad part for a home box (automatic correction, which would be a change nobody approved). The cluster-replacement plan retires the GitOps controller in phase P5.
-- **Recommendation: the bundle is the box's desired-state record for everything outside the apps' revisions,** and it is kept out of Git:
-  - its history is the series of bundles in the backups, with a **diff view** between any two ("what changed since the known-good one"). That is the GitOps view, without a public or third-party repository holding secrets;
-  - drift is shown, never auto-corrected: "this box differs from the known-good bundle in 3 rules"; putting it back is an import, so it is an approved owner action;
-  - app revisions (DEPLOYMENTS.md §4) stay the source of truth for each app's objects; the bundle carries the revision ids and sources, not a second copy of the truth.
-- **Optional, later:** a secret-free "config as code" export (layers a, c and d without the sensitive parts, as YAML) for owners who want it in their own private repository. It is a founder call (§12), and it never includes people or keys.
+Each destination holds an independently restorable copy of the box. Use a per-box namespace on a NAS share or S3-compatible storage, with this layout:
+
+| Path | What it holds |
+|---|---|
+| `boxes/<instance-id>/data/` | The encrypted restic repository with that destination's system, app, cluster and node snapshots for the selected backup tier |
+| `boxes/<instance-id>/copies/<copy-id>/box.omb` | The signed, encrypted config bundle with snapshot references into that same repository |
+| `boxes/<instance-id>/copies/<copy-id>/complete.json` | The signed completion record with format version, box and copy IDs, generation, creation time, bundle size and digest, repository identity and required snapshot IDs |
+
+The owner sets a schedule for each destination: every backup run, hourly, daily, weekly or manual. For a scheduled or manual copy, the box pairs the config with that destination's latest verified backup and shows both times. It publishes the completion record last, after verifying the bundle and referenced snapshots are present. Use atomic publication on a NAS and create-only writes for the completion record on object storage. An interrupted copy leaves the previous complete copy available. Restic retention protects snapshots referenced by retained copies, including ones the owner marks known-good.
+
+On first run, point the box to any available destination and unlock with the kit. List completion records for the kit's box. Check the export signature against the kit's fabric root and try records in descending signed generation and creation time, using copy ID to break ties. Verify the bundle's size, hash, signature, authenticated encryption and layer checksums. Match the signed repository and snapshot IDs to the bundle and check the required restic snapshots and data integrity before applying. Skip incomplete or invalid candidates and show which copy passed. Storage access credentials may still be needed to reach the destination. The kit supplies the recovery proof and keys. A destination can hide newer copies, so discovery finds the newest complete copy visible there. Keeping several destinations gives the owner duplicate copies under their control.
+
+### 5.3 Config as code for private Git
+
+`onemind config export --dir <path>` writes a fixed layout of plain YAML with a version identifier in each file. Sort map keys and unordered lists, preserve ordered lists, and omit timestamps so the same settings give the same bytes.
+
+| File | Contents |
+|---|---|
+| `settings.yaml` | Box settings and update policy, plus the backup choice and content-tier apps in the first slice |
+| `apps.yaml` | Installed apps, versions and schema-approved app settings |
+| `users.yaml` | Users and roles |
+| `schedules.yaml` | Backup and automation schedules, including the per-destination copy cadence |
+| `network.yaml` | Portable network settings, with interfaces described by role |
+
+The first slice writes `settings.yaml` with `schema: onemind.io/config-as-code/settings/v1`. Export only fields the bundle schema explicitly marks for cleartext export. A secret marker excludes the field and its contents. Keep passwords and hashes, tokens, passkey records, every key, and credential-bearing or free-form app and destination config out of Git. Later app exporters need explicit schemas for their safe fields. Keep the YAML in your own private repository since settings can identify people and devices.
+
+Before apply, validate file versions and show a dry-run diff against the live box. Bind approval to the proposed changes and current revision so the owner sees a fresh diff if either changes. The owner applies through the approval queue under D-027 and D-028. Any network change uses the automatic revert rule. Git updates never trigger automatic apply.
 
 ## 6. Import
 
@@ -223,19 +238,18 @@ On the old box: **Export now** to USB (or rely on the scheduled off-site copy) a
 ### 7.3 Save a known-good setup
 Settings → Box bundle → **Export now** → **Mark known-good**. Later, "Compare with known-good" shows what changed. **Put back** is an import of only the layers chosen, for example only rules.
 
-### 7.4 Clone to a second box
+### 7.4 Clone to a second box (1.1)
 On the second box: import with mode *Clone*. Settings, rules and apps come over. **What must differ:** box name and web name (asked during the import), instance id, every key in layer g (re-made), no fabric membership, no people unless ticked (and then with no passkeys and no approver keys), no app data unless chosen. Both boxes keep their own audit chains and backups.
 
 ## 8. Security rules
-1. **Export is an owner action.** It goes through the approval queue as `box.export`, with passkey step-up. D-028 says exporting and restoring never depend on a strong key. So export asks for **L1**, or the kit at the box; L2 is not needed. Every export is audited: who, which layers, size, digest, where it went. The key material is never recorded.
+1. **Recovery bundle export is an owner action.** It goes through the approval queue as `box.export`, with passkey step-up. D-028 says exporting and restoring never depend on a strong key. So export asks for **L1**, or the kit at the box; L2 is not needed. Every export is audited: who, which layers, size, digest, where it went. The key material is never recorded.
 2. **The bundle never exists in clear outside the box:** it is encrypted on the box before it is written anywhere.
 3. **Agents can never export or import.** The routes have no agent scope, `core/tests/sec_policy.py` and the route matrix assert it, and `box.export` / `box.import` join the never list for standing approvals and bypass (as restore and key rotation already are, D-027).
 4. **Children and teens cannot**, and neither can adults: owner only.
 5. **Import needs verification by what it does** (D-028):
    - first-run import onto an empty box: the kit typed in is the proof, as for today's first-run restore. This keeps "the owner's data first";
    - import onto a box that has data (destructive): **L2**. Before the first L2 key exists: L1 plus a confirmation at the box (D-028's stand-in rule);
-     **The printed kit at the box always works instead.** An owner who has lost every L2 key can still import by typing the printed emergency kit at the box, because restoring never depends on a strong key (D-028 "data first"). L2 is the way to approve an import remotely, not a lock on the owner's own data;
-   - bringing back approver keys or recovery contacts is "adding an approver or contact": **L2** (D-028).
+   - bringing back approver keys or recovery contacts is "adding an approver or contact": **L2** (D-028). First-run restore can stage those records, with activation deferred until L2 is available.
    - L2 is not in code yet (verification levels are in open PR #1184). Until then the gateway's existing passkey step-up applies (BUILDER-BRIEFING item 6).
 6. **Import cannot weaken security without the owner:** for every rule and mode the stricter of current and incoming wins. Standing approvals and Forever rules arrive paused, and bypass arrives off. Loosening anything is a separate line on the preview that needs L2 and an explicit tick.
 7. **Physical actions keep a person:** no bundle can create a standing approval for a physical action (D-027).
@@ -257,21 +271,22 @@ On the second box: import with mode *Clone*. Settings, rules and apps come over.
 | `GET /v1/box/imports/{id}`, `POST …/undo` | `box.imports.get/undo` | owner | progress, the to-do list, undo |
 
 - **Dashboard:** Settings → Backups and recovery → **Box bundle** card (Export now, schedule, saved bundles, known-good, compare); first run → **Restore a OneMind box**; the import preview as a per-layer checklist with the change lines. Through `@onemind/sdk` only.
-- **CLI (Cobra, `--json` everywhere):** `onemind box export [--layers a,b,…] [--to download|usb|<destination>]`, `onemind box inspect FILE` (kit on stdin, never echoed), `onemind box import FILE --mode restore|move|clone [--layers …] [--dry-run]`. Import and export only file requests; the owner approves in the dashboard or on the phone.
+- **Config-as-code CLI:** `onemind config export --dir <path>` reads the owner-only `GET /v1/config/export` and writes `settings.yaml` (§5.3).
+- **Recovery CLI (Cobra, `--json` everywhere):** `onemind box export [--layers a,b,…] [--to download|usb|<destination>]`, `onemind box inspect FILE` (kit on stdin, never echoed), `onemind box import FILE --mode restore|move|clone [--layers …] [--dry-run]`. Import and export only file requests; the owner approves in the dashboard or on the phone.
 - **Phone:** the approval card shows the plan; it approves at the level §8.5 requires.
 
 ## 10. Phases
-1. **Phase 1 (this PR):** bundle manifest schema `sdk/schema/onemind.box-bundle.schema.json`; `core/onemind_core/boxbundle/` with the manifest checks and layer a (collect, check, plan, safe apply); round-trip unit tests. No route.
+1. **Phase 1:** bundle manifest schema `sdk/schema/onemind.box-bundle.schema.json`; `core/onemind_core/boxbundle/` with the manifest checks and layer a (collect, check, plan, safe apply); round-trip unit tests. No route.
 2. **Phase 2:** the encrypted, signed envelope (HPKE to the kit recipient, chunked AEAD, Ed25519 export key); store the kit recipient public key at kit issue and attach (after #1191 and the kit-with-passkey fix); a test that proves or disproves the secret-store-key gap (§2 flag); size measurements on a real box.
 3. **Phase 3:** export routes, CLI `onemind box export/inspect`, the dashboard card (download and USB); the `box.export` action with step-up; audit.
 4. **Phase 4:** import of layer a, then b, c (stricter-of, paused rules) through `box.imports.inspect` and `box.import`, with the preview screen, the transaction and the undo.
 5. **Phase 5:** layer d (apps, re-encrypted secrets) and layer e (data references, then `backup.restore` per app).
-6. **Phase 6:** layers f and g, the three modes, fencing; first-run **Restore a OneMind box** and `onemind init --restore-bundle`.
-7. **Phase 7:** the off-site `bundle` restic unit, schedule, known-good pin, compare view.
+6. **Phase 6:** layers f and g, restore and move, fencing; first-run **Restore a OneMind box** and `onemind init --restore-bundle`.
+7. **Phase 7:** sovereign copies, per-destination schedule, known-good pin and compare view.
 8. **Phase 8:** QEMU round trip (§11) and the hardware drill on the daily hub after Step 5.
 
 ## 11. Testing
-- **Unit (phase 1, in this PR):** `core/tests/test_boxbundle.py`: round trip box A → bundle → empty box B → box B's box settings and update policy equal box A's (destinations and the content tier stay for the owner to finish); canonical bytes; credentials never in the layer; a changed or cut layer refused; newer minor read, newer major refused; unknown fields and layers set aside and named; a time zone the box lacks set aside; malformed layers refused; `apply` refuses unsafe sections.
+- **Unit (phase 1):** `core/tests/test_boxbundle.py`: round trip box A → bundle → empty box B → identical layer; canonical bytes; credentials never in the layer; a changed or cut layer refused; newer minor read, newer major refused; unknown fields and layers set aside and named; a time zone the box lacks set aside; malformed layers refused; `apply` refuses unsafe sections.
 - **Each later phase:** unit tests per layer (round trip and conflicts), the route matrix and `sec_policy` (owner only; agents, adults, teens and children refused), envelope tests (wrong kit, tampered chunk, truncated file, wrong signer, replayed header), and a "stricter of" property test for rules (Hypothesis, as `tests/test_properties_*.py` do).
 - **Round trip on the same box:** export → factory reset (`system.factory_reset`, `core/onemind_core/routers/system.py`) → first run → import → the box exports a bundle whose layer checksums match the first one (minus re-made keys) and every app passes the fresh health gate.
 - **QEMU check (phase 8, pre-registered before its code):** `test/qemu/CRITERIA-BOXBUNDLE.md` with the new prefix **BX** (checked free on 2026-11-26 against every `test/qemu/CRITERIA-*.md`):
@@ -281,21 +296,22 @@ On the second box: import with mode *Clone*. Settings, rules and apps come over.
   - BX4: a failure injected after layer c leaves box B as it was after Undo.
   Pre-register in its own commit and append its sha256 to `test/qemu/PREREGISTRATION.sha256` (BUILDER-BRIEFING item 4).
 
-## 12. Decisions for the founder (none is taken by this design)
-1. **Passwords on a move:** keep each person's password (the scrypt hash travels inside the encrypted bundle; recommended) or make everyone set a new one?
-2. **Passkeys on a restore with the same web name:** bring back the public records so passkeys keep working (recommended, with "check on first use"), or always re-enrol?
-3. **The export signing key:** add an "export" purpose key under the per-box fabric root key (D-029; recommended), or sign with an existing key?
-4. **Post-quantum:** wrap bundle keys with hybrid `MLKEM768_X25519` (bundles may sit off-site for years; recommended) or plain X25519?
-5. **A passphrase recipient** for downloaded bundles, besides the kit: yes (convenient, weaker) or kit only (recommended)?
-6. **Off-site schedule default:** every backup run (recommended; nearly free with restic) or daily?
-7. **Built-in apps' data inside the bundle** when small (Notes, home documents), or always by reference?
-8. **A secret-free "config as code" YAML export** for a private Git repository: build it, or leave it out?
-9. **Verification for a first-run import onto an empty box:** the kit alone (recommended, matches D-028 "data first" and today's first-run restore), or L2 as well? Note that the task brief said "L2 step-up" for import; this design applies L2 to imports onto a box with data and to adding approvers, and follows D-028 for an empty box. Either way, the printed kit at the box still imports when an owner has lost their L2 key. The founder decides.
-10. **Clone mode in 1.0** or 1.1?
+## 12. Founder decisions for #1287
+
+1. Keep passwords by carrying their hashes inside the encrypted bundle.
+2. Keep passkey records when the web name stays the same. Re-enrol for a new web name.
+3. Sign bundles with an "export" purpose key under the per-box fabric root (D-029).
+4. Prefer hybrid ML-KEM-768 plus X25519. The stable released library API and local round trip are verified (§4.2). Shipping image support remains **UNVERIFIED**.
+5. Offer an optional passphrase recipient for manual downloads.
+6. Let the owner choose every backup run, hourly, daily, weekly or manual per destination.
+7. Reference the app backups. A combined export may be offered separately.
+8. Export secret-free config as code for private Git (§5.3).
+9. First-run restore onto an empty box uses the kit alone as recovery proof (§8.5).
+10. Ship clone mode in 1.1.
 
 ## 13. Sources
 - Code on release/next at the time of writing: `core/onemind_core/backups/` (`kit.py`, `service.py`, `store.py`, `units.py`), `core/onemind_core/routers/backups.py`, `core/onemind_core/routers/onboarding.py`, `core/onemind_core/onboarding.py`, `core/onemind_core/automation/updatepolicy.py`, `core/onemind_core/migrate/bundle.py`, `core/onemind_core/appsecrets/crypto.py`, `core/onemind_core/identity/`, `internal/backup/units.go`, `os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py`, `os/rootfs/layers/base/etc/fstab`.
 - Docs: BACKUPS.md §2, §5, §6, §7.3; DEPLOYMENTS.md §4; `lab-kits/cluster-replacement/RUNBOOK.md`; DECISIONS.md D-019, D-020, D-025, D-027, D-028, D-029, D-031.
 - Open PRs and issues: #1190, #1191, #1193, #1194, #1196, #1197, #1198, #1208, #1184, #1200 to #1205, #1232.
-- RFC 9180 (HPKE), <https://www.rfc-editor.org/rfc/rfc9180>; the HPKE module in `cryptography` 50.0.2 was checked by importing it in the gateway's environment (`hpke.KEM.X25519`, `hpke.KEM.MLKEM768_X25519`, `hpke.AEAD.CHACHA20_POLY1305`).
+- RFC 9180 (HPKE), <https://www.rfc-editor.org/rfc/rfc9180>. The hybrid library and backend evidence is in §4.2.
 - WebAuthn binds a credential to its relying party id: W3C Web Authentication Level 2, §5.1 and §6.1, <https://www.w3.org/TR/webauthn-2/>.

@@ -8,10 +8,12 @@ import re
 import socket
 import threading
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 
 from conftest import ADULT, AGENT, GUEST, OWNER, action_body
 from onemind_core import openapi
@@ -129,10 +131,17 @@ def _free_port() -> int:
 
 
 @pytest.fixture
-def live(settings, clock, executor):
+def live(settings, clock, executor, request, tmp_path):
     import uvicorn
 
     from onemind_core.app import create_app
+
+    if getattr(request, "param", False):
+        tokens = yaml.safe_load(settings.tokens_file.read_text())
+        tokens["tokens"][AGENT["Authorization"].removeprefix("Bearer ")]["id"] = "owner"
+        token_file = tmp_path / "tokens.yaml"
+        token_file.write_text(yaml.safe_dump(tokens))
+        settings = replace(settings, tokens_file=token_file)
 
     port = _free_port()
     server = uvicorn.Server(uvicorn.Config(
@@ -194,6 +203,17 @@ def test_events_stream_live_and_resume(live, clock):
         d = json.loads(got[0]["data"])
         assert d["type"] == "action.requested" and d["subject"]["action_id"] == mine["id"]
         c2.close()
+
+
+@pytest.mark.parametrize("live", [True], indirect=True)
+def test_agent_event_replay_excludes_owner_with_the_same_id(live, clock):
+    with httpx.Client(base_url=live, timeout=15) as c:
+        _request(c, clock, "owner-request")
+        mine = _request(c, clock, "agent-request", headers=AGENT, app_id="whoami")
+        with c.stream("GET", "/v1/events?since_id=0&types=action.requested", headers=AGENT) as response:
+            assert response.status_code == 200
+            events = _read_events(response, 1)
+        assert [json.loads(event["data"])["subject"]["action_id"] for event in events] == [mine["id"]]
 
 
 def test_events_stream_reset_and_limit(live):

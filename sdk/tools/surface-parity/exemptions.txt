@@ -323,6 +323,8 @@ cli auth.setup cli-browser-ceremony
 group cli-visual-layout issue=#1232 A layout a person arranges on screen (Home, the dashboard card); a terminal has nothing to arrange. Founder to confirm.
 cli me.dashboard_card.save cli-visual-layout
 cli me.home.save cli-visual-layout
+group cli-starts-config-apply issue=#1285 Applying a settings bundle starts from the `onemind config apply --dir` command because the files are on the operator's machine; the dashboard shows the plan (config.diff) and the owner approves it in Approvals, but never posts the bundle itself.
+dashboard config.apply cli-starts-config-apply
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
 group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.
