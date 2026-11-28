@@ -13,3 +13,7 @@ Modules:
                   import would change, and write back the parts that are safe to write without a person
                   typing a secret again.
 """
+
+from .envelope import OpenedBundle, certify_export_key, kit_recipient_public_key, open_bundle, seal_bundle
+
+__all__ = ["OpenedBundle", "certify_export_key", "kit_recipient_public_key", "open_bundle", "seal_bundle"]

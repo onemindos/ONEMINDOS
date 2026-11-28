@@ -12,15 +12,15 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric import ed25519, mlkem
 
 from onemind_core.backups.kit import OwnerKey, new_owner_key
-from onemind_core.boxbundle import envelope
-from onemind_core.boxbundle.envelope import (
-    CHUNK_SIZE,
-    MAGIC,
+from onemind_core.boxbundle import (
+    OpenedBundle,
     certify_export_key,
+    envelope,
     kit_recipient_public_key,
     open_bundle,
     seal_bundle,
 )
+from onemind_core.boxbundle.envelope import CHUNK_SIZE, MAGIC
 from onemind_core.boxbundle.manifest import BundleRefused, canonical, sha256
 
 CREATED = datetime(2026, 11, 27, tzinfo=UTC)
@@ -80,7 +80,7 @@ def test_kit_opens_chunk_boundaries(keys, size):
     root, _, kit = keys
     payload = b"x" * size
     bundle = _seal(keys, payload)
-    assert open_bundle(bundle, root_fingerprint=_pin(root), owner_key=kit) == envelope.OpenedBundle(
+    assert open_bundle(bundle, root_fingerprint=_pin(root), owner_key=kit) == OpenedBundle(
         SOURCE, "Owner's box", CREATED, payload
     )
     with pytest.raises(BundleRefused, match="no passphrase recipient"):
