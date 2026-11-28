@@ -247,7 +247,9 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 			break
 		}
 	}
-	if !t.AppendOnly {
+	// Sovereign repositories keep their snapshot IDs stable for every published
+	// copy. Retiring copies and their snapshots needs a separate lifecycle.
+	if !t.AppendOnly && !t.Sovereign {
 		for _, u := range units {
 			if err := a.forget(ctx, repo, u.Name, keepClass(req.Reason)); err != nil {
 				a.Log.Warn("retention failed", "unit", u.Name, "error", err)

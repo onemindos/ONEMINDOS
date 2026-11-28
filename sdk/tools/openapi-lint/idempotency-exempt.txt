@@ -8,6 +8,7 @@ POST /v1/auth/login  # answers with fresh tokens, which a replay store must not 
 POST /v1/auth/refresh  # answers with fresh tokens; refresh-token rotation already rejects a replay
 DELETE /v1/auth/app-session  # clearing the caller's own cookie twice is the same as once
 POST /v1/auth/logout  # ending the caller's own session twice is the same as once
+POST /v1/onboarding/restore/copy  # read-only discovery takes the kit in the request body and stores no replay data
 POST /v1/auth/approver-keys  # a retry with the same public key answers 409 (already registered), so a repeat never adds a second key (#702)
 DELETE /v1/auth/approver-keys/{key_id}  # revoking twice is the same as once: a repeat finds no live key and changes nothing (#702)
 POST /v1/sites  # The caller supplies a unique site ID. A retry with that ID returns 409 before writing a site or a second creation audit record.

@@ -3081,6 +3081,88 @@
         "title": "CommitBody",
         "type": "object"
       },
+      "Completion": {
+        "additionalProperties": false,
+        "properties": {
+          "backed_up_at": {
+            "format": "date-time",
+            "title": "Backed Up At",
+            "type": "string"
+          },
+          "box_id": {
+            "pattern": "^[A-Za-z0-9._:-]{1,80}$",
+            "title": "Box Id",
+            "type": "string"
+          },
+          "copy_id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Copy Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "format": {
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Format",
+            "type": "integer"
+          },
+          "generation": {
+            "minimum": 0.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "repository": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Repository",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 655360.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "snapshots": {
+            "items": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Snapshots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "repository",
+          "run_id",
+          "snapshots",
+          "format",
+          "box_id",
+          "copy_id",
+          "generation",
+          "created_at",
+          "backed_up_at",
+          "size",
+          "sha256"
+        ],
+        "title": "Completion",
+        "type": "object"
+      },
       "ComposeBody": {
         "additionalProperties": false,
         "properties": {
@@ -3296,73 +3378,6 @@
           "enabled"
         ],
         "title": "ContentBody",
-        "type": "object"
-      },
-      "CopyBody": {
-        "additionalProperties": false,
-        "properties": {
-          "context": {
-            "anyOf": [
-              {
-                "maxLength": 253,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Context"
-          },
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
-          },
-          "kubeconfig": {
-            "maxLength": 65536,
-            "minLength": 1,
-            "title": "Kubeconfig",
-            "type": "string"
-          },
-          "pvcs": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "maxItems": 100,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pvcs"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          }
-        },
-        "required": [
-          "kubeconfig"
-        ],
-        "title": "CopyBody",
         "type": "object"
       },
       "Coverage": {
@@ -4269,6 +4284,64 @@
           "redaction"
         ],
         "title": "DiagnosticsBundle",
+        "type": "object"
+      },
+      "DiscoverCopyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "box_id": {
+            "pattern": "^[A-Za-z0-9._:-]{1,80}$",
+            "title": "Box Id",
+            "type": "string"
+          },
+          "destination_id": {
+            "pattern": "^dst_[0-9a-f]{16}$",
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "recovery_key": {
+            "pattern": "^(?:[A-Z2-7]{4}-){12}[A-Z2-7]{4}$",
+            "title": "Recovery Key",
+            "type": "string",
+            "writeOnly": true
+          },
+          "root_fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Root Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination_id",
+          "box_id",
+          "root_fingerprint",
+          "recovery_key"
+        ],
+        "title": "DiscoverCopyBody",
+        "type": "object"
+      },
+      "DiscoverCopyView": {
+        "properties": {
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Completion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejected_candidates": {
+            "title": "Rejected Candidates",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidate",
+          "rejected_candidates"
+        ],
+        "title": "DiscoverCopyView",
         "type": "object"
       },
       "DomainBody": {
@@ -16017,6 +16090,40 @@
         "title": "ApproveBody",
         "type": "object"
       },
+      "onemind_core__routers__backups__CopyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "destination_id": {
+            "pattern": "^dst_[0-9a-f]{16}$",
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recovery_key": {
+            "pattern": "^(?:[A-Z2-7]{4}-){12}[A-Z2-7]{4}$",
+            "title": "Recovery Key",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "destination_id",
+          "recovery_key"
+        ],
+        "title": "CopyBody",
+        "type": "object"
+      },
       "onemind_core__routers__domains__ApproveBody": {
         "additionalProperties": false,
         "properties": {
@@ -16063,6 +16170,73 @@
           }
         },
         "title": "ApproveBody",
+        "type": "object"
+      },
+      "onemind_core__routers__migrate__CopyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "kubeconfig": {
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Kubeconfig",
+            "type": "string"
+          },
+          "pvcs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pvcs"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "kubeconfig"
+        ],
+        "title": "CopyBody",
         "type": "object"
       }
     },
@@ -22340,6 +22514,133 @@
           }
         },
         "summary": "Set Content",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/v1/backups/copies": {
+      "post": {
+        "description": "File an owner approval for a sovereign copy of the destination's latest whole-box backup.",
+        "operationId": "backups.copies.request",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/onemind_core__routers__backups__CopyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Request Copy",
         "tags": [
           "backups"
         ]
@@ -31934,7 +32235,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CopyBody"
+                "$ref": "#/components/schemas/onemind_core__routers__migrate__CopyBody"
               }
             }
           },
@@ -34137,6 +34438,115 @@
           }
         },
         "summary": "Restore Candidates",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/v1/onboarding/restore/copy": {
+      "post": {
+        "description": "Find the newest complete copy that verifies against the owner's kit. Changes no box data.",
+        "operationId": "onboarding.restore.copy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverCopyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverCopyView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Discover Copy",
         "tags": [
           "onboarding"
         ]

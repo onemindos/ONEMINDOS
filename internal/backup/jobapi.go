@@ -108,6 +108,16 @@ func decodeParams(raw json.RawMessage, v any) error {
 
 func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 	switch j.Kind {
+	case "backup.copy":
+		var p copyJob
+		if err := decodeParams(j.Params, &p); err != nil {
+			return nil, err
+		}
+		if p.Operation == "publish" && j.ActionID == "" {
+			return nil, badParams{fmt.Errorf("publishing a copy requires an approved action")}
+		}
+		return a.sovereignCopy(ctx, p)
+
 	case KindConfigure:
 		var p ConfigureRequest
 		if err := decodeParams(j.Params, &p); err != nil {

@@ -160,6 +160,12 @@ func NewRestic(c *Config, t Target, r Runner) (*Restic, error) {
 	case KindUSB:
 		mount := filepath.Join(t.MountRoot, t.USBUUID)
 		rs.Repo = filepath.Join(mount, "onemind-restic")
+		if t.Sovereign {
+			rs.Repo = filepath.Join(mount, "boxes", c.BoxID, "data")
+			if err := safeParent(rs.Repo); err != nil {
+				return nil, fmt.Errorf("invalid sovereign repository path: %w", err)
+			}
+		}
 	case KindNode:
 		pw, err := readSecret(t.PasswordFile)
 		if err != nil {
@@ -182,6 +188,9 @@ func NewRestic(c *Config, t Target, r Runner) (*Restic, error) {
 		rs.Repo = "s3:" + strings.TrimSuffix(t.Endpoint, "/") + "/" + t.Bucket
 		if p := strings.Trim(t.Prefix, "/"); p != "" {
 			rs.Repo += "/" + p
+		}
+		if t.Sovereign {
+			rs.Repo += "/boxes/" + c.BoxID + "/data"
 		}
 		env = append(env, "AWS_ACCESS_KEY_ID="+ak, "AWS_SECRET_ACCESS_KEY="+sk)
 		if t.Region != "" {

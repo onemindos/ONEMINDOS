@@ -41,8 +41,9 @@ LAYER_ID = "box_config"
 LAYER_SCHEMA = "onemind.io/box-bundle/box-config/v1"
 # Location keys the backup agent reads per destination kind (BackupService._targets). Anything else in a
 # destination's config is left out and named: an allow-list, so a credential under a new name cannot slip through.
-LOCATION_KEYS = {"usb": frozenset({"usb_uuid"}), "box": frozenset({"url", "user", "append_only"}),
-                 "rest": frozenset({"url", "user", "append_only"}), "s3": frozenset({"endpoint", "bucket", "prefix", "region"})}
+LOCATION_KEYS = {"usb": frozenset({"usb_uuid", "sovereign"}), "box": frozenset({"url", "user", "append_only"}),
+                 "rest": frozenset({"url", "user", "append_only"}),
+                 "s3": frozenset({"endpoint", "bucket", "prefix", "region", "sovereign"})}
 SAFE_SECTIONS = frozenset({"box", "updates"})
 
 

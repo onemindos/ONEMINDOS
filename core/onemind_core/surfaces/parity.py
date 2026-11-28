@@ -317,6 +317,8 @@ HUMAN_ONLY: dict[str, str] = {
     "PUT /v1/notifications/sources/{source_id}": WRITE,
     "POST /v1/onboarding/restore/apps": WRITE,
     "POST /v1/onboarding/restore/candidates": WRITE,
+    "POST /v1/onboarding/restore/copy": WRITE,
+    "POST /v1/backups/copies": WRITE,
     "PUT /v1/onboarding/settings": WRITE,
     "POST /v1/photos/sources": WRITE,
     "POST /v1/photos/sources/{source_id}/check": WRITE,

@@ -921,6 +921,8 @@ class BackupService:
         for d in rows:
             c = d["config"]
             t = {"id": d["id"], "kind": AGENT_KIND[d["kind"]], "name": d["label"], "primary": d["primary"]}
+            if c.get("sovereign") is True:
+                t["sovereign"] = True
             if d["kind"] == "usb":
                 t["usb_uuid"] = c["usb_uuid"]
             elif d["kind"] in ("box", "rest"):

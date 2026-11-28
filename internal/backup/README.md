@@ -94,3 +94,37 @@ Restores never start on their own: the agent obeys only a job signed with the ga
 | sqlite3 CLI | Debian 13 package, pinned by the image stream | public domain | separate executable for online copies |
 
 No code from umbrelOS or any other noncommercial-licensed project was used. The retention ladder values come from BACKUPS.md §3.
+
+## Sovereign copies
+
+A mounted NAS or an owner-operated S3 endpoint can hold an independent copy.
+Set up a fresh sovereign destination with `onemind backup copy add-nas LABEL MOUNT_ID`
+or `onemind backup copy add-s3 LABEL ENDPOINT BUCKET`. The NAS must already be mounted
+at `/run/onemind/backup/MOUNT_ID` and support hard links and directory sync. S3
+credentials are read as JSON on stdin, and the bucket must support conditional
+PUT. Approve destination setup through the usual queue. Existing repositories
+keep their original paths. A sovereign destination stores restic data at
+`boxes/<box-id>/data/` and publishes each bundle under `boxes/<box-id>/copies/`.
+Sovereign repositories retain all snapshots until copy expiry and reference-aware
+deletion are available.
+
+On the source box, create an Ed25519 export key readable only by the gateway
+user. From an offline machine with the owner's Ed25519 fabric root, run
+`onemind backup copy certify BOX_ID ROOT_PRIVATE_PEM EXPORT_PUBLIC_PEM > trust.json`.
+Keep the printed fabric root fingerprint with the recovery kit. Put the export
+private key in `export.key` alongside `trust.json` in the gateway's configured
+`ONEMIND_BACKUPS_COPY_KEYS_DIR`. Keep the fabric root private key offline.
+
+Issue and confirm the recovery kit after setting up the destination, then run a
+whole-box backup to it. Read the kit key into `onemind backup copy start DESTINATION`
+on stdin and approve the resulting `box.export` action. On a fresh box, configure
+the same NAS mount or S3 bucket and prefix. Run
+`onemind backup copy discover DESTINATION OLD_BOX_ID ROOT_FINGERPRINT` with the kit
+key on stdin. Use the CLI's `--timeout` with large backups because discovery reads
+and verifies the required data. The result identifies the newest verified copy
+visible on that destination. The bundle contains box settings and snapshot
+references. Discovery leaves the fresh box untouched.
+
+Run the real restic and MinIO round trip on a Linux Docker worker with
+`ONEMIND_RESTIC` set to the pinned binary and
+`bash internal/backup/testdata/sovereign-integration.sh`.

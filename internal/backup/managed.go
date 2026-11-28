@@ -49,6 +49,7 @@ type TargetSpec struct {
 	Kind       string `json:"kind"`
 	Name       string `json:"name"`
 	Primary    bool   `json:"primary"`
+	Sovereign  bool   `json:"sovereign,omitempty"`
 	USBUUID    string `json:"usb_uuid,omitempty"`
 	URL        string `json:"url,omitempty"`
 	User       string `json:"user,omitempty"`
@@ -102,7 +103,8 @@ func (a *Agent) Configure(req ConfigureRequest) (Config, error) {
 			return cur, fmt.Errorf("target %s: kind must be usb, node or s3", s.ID)
 		}
 		t := Target{ID: s.ID, Kind: s.Kind, Name: s.Name, Primary: s.Primary, USBUUID: s.USBUUID, URL: s.URL,
-			User: s.User, AppendOnly: s.AppendOnly, Endpoint: s.Endpoint, Bucket: s.Bucket, Prefix: s.Prefix, Region: s.Region}
+			User: s.User, AppendOnly: s.AppendOnly, Endpoint: s.Endpoint, Bucket: s.Bucket, Prefix: s.Prefix, Region: s.Region,
+			Sovereign: s.Sovereign}
 		for _, f := range fields {
 			p := filepath.Join(secretDir, s.ID+"."+f)
 			keep[p] = true

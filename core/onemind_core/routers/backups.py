@@ -21,9 +21,11 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from ..auth import Principal
+from ..backups.copies import SovereignCopies
 from ..backups.jobs import AgentError
 from ..backups.service import BackupService, Unavailable
 from ..backups.settings import BackupsSettings
+from ..boxbundle.sovereign import KEY
 from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import ApiError, error_responses as _error_responses
@@ -35,6 +37,7 @@ from ..ledger import utc
 # switching the tier is owner-only, and `backups:admin` is a scope only the owner role holds.
 register_route_scope("GET,HEAD", r"/v1/backups/content", ("backups:read",))
 register_route_scope("POST", r"/v1/backups/content", ("backups:admin",))
+register_route_scope("POST", r"/v1/backups/copies", ("*",))
 
 
 def error_responses(*statuses: int) -> dict[int, dict]:
@@ -121,8 +124,18 @@ class KitConfirmBody(BaseModel):
     answers: dict[str, str] = Field(max_length=4)
 
 
+class CopyBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    destination_id: str = Field(pattern=DEST_RE)
+    recovery_key: str = Field(pattern=KEY, json_schema_extra={"writeOnly": True})
+    reason: str | None = Field(default=None, max_length=500)
+
+
 def _check_destination(b: DestinationBody) -> dict:
     c, creds = dict(b.config), b.credentials or {}
+    sovereign = c.get("sovereign", False)
+    if not isinstance(sovereign, bool) or (sovereign and b.kind not in ("usb", "s3")):
+        raise ApiError(422, "conflict", "sovereign copies require a mounted destination or S3")
     problem = None
     if b.kind == "usb":
         if not USB_UUID_RE.match(str(c.get("usb_uuid", ""))):
@@ -144,6 +157,8 @@ def _check_destination(b: DestinationBody) -> dict:
         problem = "credentials may hold password, ca, access_key and secret_key only"
     if problem:
         raise ApiError(422, "conflict", problem)
+    if sovereign:
+        c["sovereign"] = True
     return c
 
 
@@ -155,6 +170,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(BackupsSettings)
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))
     app.state.backups = svc
+    copies = app.state.sovereign_copies = SovereignCopies(svc)
     svc.builtins = getattr(app.state, "builtins", None)  # registered earlier (ORDER 135): the backup set, #616
     gw.on_startup(svc.startup)
     gw.on_shutdown(svc.shutdown)
@@ -222,6 +238,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return header or "auto:" + secrets.token_hex(16)
 
     tags = ["backups"]
+
+    @app.post("/v1/backups/copies", operation_id="backups.copies.request", tags=tags, status_code=202,
+              openapi_extra={"security": [{"bearer": ["*"]}]}, responses=error_responses(401, 403, 404, 409, 422))
+    def request_copy(body: CopyBody, p: Principal = Depends(owner), idem: IdemHeader = None):
+        """File an owner approval for a sovereign copy of the destination's latest whole-box backup."""
+        action, created = copies.request(p, body.destination_id, body.recovery_key, key(idem), body.reason)
+        headers = {"Location": f"/v1/actions/{action['id']}", "Cache-Control": "no-store"}
+        if not created:
+            headers["OneMind-Idempotent-Replay"] = "true"
+        return JSONResponse(status_code=202, content=action, headers=headers)
 
     @app.get("/v1/backups/status", operation_id="backups.status", tags=tags, responses=error_responses(401, 403))
     def status(_: Principal = Depends(reader)):

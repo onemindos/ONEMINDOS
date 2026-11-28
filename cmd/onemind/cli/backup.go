@@ -125,7 +125,7 @@ func backupCommands(a *App) []*cobra.Command {
 	restore.Flags().StringVar(&rPath, "path", "", "restore only this absolute path inside the app")
 	restore.Flags().StringVar(&reason, "reason", "", "why, shown to the owner")
 
-	root.AddCommand(run, verify, snaps, restore)
+	root.AddCommand(run, verify, snaps, restore, backupCopies(a))
 	return []*cobra.Command{root}
 }
 
