@@ -104,7 +104,10 @@ class Workflow(unittest.TestCase):
         self.assertIn("run_postgresql == 'true'", pg["if"])
         self.assertNotIn("services", sq)
         self.assertEqual(set(pg["services"]), {"nats", "postgres"})
-        self.assertEqual(pg["runs-on"], "ubuntu-24.04")
+        # Service containers need Docker: the onemind-kvm pool has it (never the Mac pools); reviewed in
+        # test_kvm_runner_policy.py. Anything else falls back to GitHub-hosted.
+        self.assertIn("fromJSON('[\"self-hosted\",\"onemind-kvm\"]') || 'ubuntu-24.04'", pg["runs-on"])
+        self.assertNotIn("onemind-local", pg["runs-on"])
         self.assertEqual(sq["name"], pg["name"])  # check names unchanged: test (<backend> <k>/<n>)
         for out in ("sqlite", "run_sqlite", "postgresql", "run_postgresql"):
             self.assertIn(out, jobs["plan"]["outputs"])
