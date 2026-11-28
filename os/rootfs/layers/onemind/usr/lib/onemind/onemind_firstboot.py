@@ -130,6 +130,9 @@ class Paths:
         self.backup_export = j("data", "onemind", "gateway", "backup-export")  # the built-ins' export (#616)
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
         self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
+        # The @storage subvolume (the owner's files on a btrfs box, #152): data_encrypt.py makes its mount point, and
+        # data-storage.mount mounts it here (Where=); snapper snapshots it. test_image_backups.py keeps the three equal.
+        self.storage = j("data", "storage")
         self.k3s_data = j("data", "k3s")                # k3s --data-dir (a leaf removes it, retire_k3s)
         self.k3s_run = j("run", "k3s")                  # tmpfs: exists only if k3s started on this boot
 
@@ -588,10 +591,22 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
 K3S_BACKUP_VERSION = "v1.37.2-k3s1"     # os/versions.lock.yaml k3s.version, "+" written as "-"
 
 
-def backup_system_paths(p: Paths) -> list[str]:
+def backup_system_paths(p: Paths, has_storage: bool | None = None) -> list[str]:
     """What the agent's `system` unit copies as files: settings, the box CA, NATS keys, and (#616) the
-    built-ins' table export the gateway writes before each run plus the built-in folders on this box."""
-    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files]
+    built-ins' table export the gateway writes before each run plus the built-in folders on this box, and (#1148) the
+    @storage mount (/data/storage) on a box that has one. Only then: the agent fails the whole unit when a source is
+    missing, and an ext4 box installed before #152 has no /data/storage. upgrade_agent_conf adds it on a later boot."""
+    if has_storage is None:
+        has_storage = os.path.isdir(p.storage)
+    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files] + ([p.storage] if has_storage else [])
+
+
+def backup_system_excludes(p: Paths, has_storage: bool | None = None) -> list[str]:
+    """snapper's snapshots live inside @storage (/data/storage/.snapshots): restic would walk every one of them on every
+    run, and they are on-disk undo copies of files the backup already holds, so the system unit leaves them out."""
+    if has_storage is None:
+        has_storage = os.path.isdir(p.storage)
+    return [os.path.join(p.storage, ".snapshots")] if has_storage else []
 
 
 def builtin_backup_env(p: Paths) -> str:
@@ -626,6 +641,7 @@ def backup_agent_conf(p: Paths, node_id: str) -> dict:
         "targets": [],
         "units": {
             "system": {"paths": backup_system_paths(p),
+                       **({"excludes": ex} if (ex := backup_system_excludes(p)) else {}),
                        "sqlite": [{"path": f"{p.gateway}/onemind.db", "name": "gateway.db"}],
                        "audit_log": f"{p.gateway}/audit.jsonl"},
             "k3s": {"paths": ["/data/k3s/server/token", "/data/k3s/server/tls",
@@ -644,15 +660,21 @@ def _append_missing(path: str, key: str, text: str) -> None:
 
 
 def upgrade_agent_conf(p: Paths) -> None:
-    """A box set up before #616 keeps its agent.json; add the system paths it lacks, change nothing else."""
+    """A box set up before #616 (or before its /data/storage existed, #1148) keeps its agent.json; add the system paths
+    and excludes it lacks, change nothing else."""
     conf = json.loads(_read(p.backup_conf) or "{}")
     system = conf.get("units", {}).get("system")
     if not isinstance(system, dict):
         return
     paths = list(system.get("paths") or [])
+    excludes = list(system.get("excludes") or [])
     missing = [x for x in backup_system_paths(p) if x not in paths]
+    missing_ex = [x for x in backup_system_excludes(p) if x not in excludes]
     if missing:
         system["paths"] = paths + missing
+    if missing_ex:
+        system["excludes"] = excludes + missing_ex
+    if missing or missing_ex:
         write(p.backup_conf, json.dumps(conf, indent=2) + "\n")
 
 
