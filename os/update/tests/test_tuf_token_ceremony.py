@@ -365,7 +365,19 @@ FAKE_YKMAN = textwrap.dedent('''\
             der = pkcs11.util.ec.encode_ec_public_key(k)
         return serialization.load_der_public_key(der)
     if a[:3] == ["piv", "keys", "info"]:
-        sys.exit(0 if st.get("key") else 1)
+        bad = os.environ.get("FAKE_YK_BAD", "")
+        if bad == "infoerror":                                # an unexpected failure: neither "key" nor "no key"
+            sys.exit("Error: Failed to connect to the YubiKey (smart card service not running)")
+        if st.get("key"):
+            sys.exit(0)
+        sys.exit("Error: No key stored in slot 9C.")
+    if a[:2] == ["piv", "info"]:
+        if os.environ.get("FAKE_YK_BAD", "") == "pivinfoerror":
+            sys.exit("Error: piv info failed")
+        print("PIV version: 5.4.3")
+        if st.get("key") or os.environ.get("FAKE_YK_BAD", "") == "pivinfo9c":   # keys info said empty, piv info disagrees
+            print("Slot 9C (SIGNATURE):\n  Algorithm: ECCP256")
+        sys.exit(0)
     if a[:3] == ["piv", "keys", "generate"]:
         pp, tp = a[a.index("--pin-policy") + 1], a[a.index("--touch-policy") + 1]
         with tok.open(rw=True, user_pin=os.environ["FAKE_YK_PIN"]) as s:
@@ -442,6 +454,16 @@ class YubikeyKeyScript(unittest.TestCase):
         other = run_script("yubikey-key", os.path.join(self.d, "pubs2"), "a", **self.env())
         self.assertEqual(other.returncode, 2)
         self.assertIn("already holds a key in slot 9c", other.stderr)
+
+    def test_the_slot_check_fails_closed(self):
+        for bad, word in (("infoerror", "could not tell whether slot 9c"),
+                          ("pivinfoerror", "'ykman piv info' failed"),
+                          ("pivinfo9c", "lists something in slot 9c")):
+            out = os.path.join(self.d, "pubs-" + bad)
+            r = run_script("yubikey-key", out, "a", **self.env(FAKE_YK_BAD=bad))
+            self.assertEqual(r.returncode, 2, bad + r.stdout + r.stderr)
+            self.assertIn(word, r.stderr)
+            self.assertNotIn("piv keys generate", open(self.log).read())      # nothing was generated
 
     def test_a_failed_attestation_leaves_no_public_key(self):
         for ser, bad, word in ((self.SERIALS[0], "otherkey", "NOT the key"),
@@ -538,7 +560,10 @@ class Guide(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("REHEARSAL PASSED: guided 3-holder walk (yubikey)", r.stdout)
         self.assertIn("YubiKey ceremony", r.stdout)
-        self.assertIn("needs the founder's decision entry", r.stdout)       # D-010 says sticks first
+        self.assertIn("D-031 (2026-11-25): the first ceremony runs on the founder's three YubiKeys.", r.stdout)
+        self.assertNotIn("differs from D-010", r.stdout + r.stderr)
+        self.assertNotIn("trusted person", r.stdout)                          # sole holder, 2026-11-27
+        self.assertIn("three different places", r.stdout)
         root = json.load(open(os.path.join(work, "out-security", "root.json")))["signed"]
         self.assertEqual({root["keys"][k]["keytype"] for k in root["roles"]["root"]["keyids"]}, {"ecdsa"})
         self.assertEqual(root["roles"]["root"]["threshold"], 2)
@@ -552,7 +577,7 @@ class Guide(unittest.TestCase):
     def test_refusals(self):
         r = self.guide("--yubikey", "--solo-differs-from-d010", "--work", os.path.join(self.d, "w1"))
         self.assertEqual(r.returncode, 1)
-        self.assertIn("does not have a solo mode", r.stderr)
+        self.assertIn("already a one-person ceremony", r.stderr)               # no solo flag: --yubikey is one person
         r = self.guide("--yubikey", "--work", os.path.join(self.d, "w2"), ONEMIND_TUF_PIN="123456")
         self.assertEqual(r.returncode, 1)
         self.assertIn("never kept in the environment", r.stderr)

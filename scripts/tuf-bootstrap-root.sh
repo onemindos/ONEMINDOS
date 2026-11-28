@@ -213,8 +213,22 @@ yubikey-key)
   fi
   for f in "$D/$N.pub" "$D/$N-attest.pem" "$D/$N-f9.pem" "$D/$N-ykman.pub" "$D/$N-attestation-FAILED"; do
     [ ! -e "$f" ] || { echo "refusing to overwrite $f (use a new folder)" >&2; exit 2; }; done
-  if ykman --device "$SER" piv keys info 9c >/dev/null 2>&1; then
+  # Slot-in-use check, fail closed: two independent questions, and any unexpected answer refuses.
+  # 1) `piv keys info 9c` exits 0 when a key is there; its "no key" error is the only accepted failure.
+  # 2) `piv info` must be readable, and must not list a key or certificate in slot 9C.
+  KI=$(ykman --device "$SER" piv keys info 9c 2>&1); KI_RC=$?
+  if [ "$KI_RC" -eq 0 ]; then
     echo "refusing: YubiKey $SER already holds a key in slot 9c. Never replace a root key by accident; reset only a spare." >&2; exit 2
+  fi
+  case "$KI" in
+    *[Nn]o\ key*|*[Nn]o\ private\ key*|*[Nn]o\ data*|*[Nn]ot\ found*|*[Ee]mpty*) ;;
+    *) echo "refusing: could not tell whether slot 9c of YubiKey $SER is empty (ykman said: $KI). Fix that and run again." >&2; exit 2 ;;
+  esac
+  if ! PI=$(ykman --device "$SER" piv info 2>&1); then
+    echo "refusing: 'ykman piv info' failed for YubiKey $SER, so slot 9c cannot be checked: $PI" >&2; exit 2
+  fi
+  if printf '%s\n' "$PI" | grep -Eiq 'slot[[:space:]]+9c|\(9c\)|^[[:space:]]*9c([[:space:]]|:)'; then
+    echo "refusing: 'ykman piv info' lists something in slot 9c of YubiKey $SER. Never replace a root key by accident." >&2; exit 2
   fi
   mkdir -p "$D"
   if [ "$CAARG" = --no-ca-spare-trial ]; then
