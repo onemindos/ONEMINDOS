@@ -199,12 +199,17 @@ export function requesterKind(kind: string | undefined): 'person' | 'agent' {
 export function toActionSummary(a: Action, appName?: (id: string) => string): ActionSummary {
   const rb = a.requested_by;
   const db = a.decided_by;
-  const appId = (a.params as Record<string, unknown>).app_id;
+  const params = a.params;
+  const { app_id: appId, wait_days: wait, cooling_off_days: coolingOff } = params;
+  const impact = a.type === 'legacy.contact.add' && typeof wait === 'number' && typeof coolingOff === 'number'
+    ? `After a ${coolingOff}-day cooling-off period, this contact can file a claim after your death. If you remain inactive during the ${wait}-day claim wait and a second person confirms when available, the contact has 12 months to download a read-only export of your personal files.`
+    : undefined;
   return {
     target_name: appName && typeof appId === 'string' ? appName(appId) : undefined,
     id: a.id,
     type: a.type,
-    params: a.params as Record<string, unknown>,
+    params,
+    impact,
     state: a.state,
     expires_at: a.expires_at,
     hold: a.approval?.hold ? { duration: Math.max(2000, a.approval.hold_ms ?? 2000), plan: a.plan_sha256 } : undefined,

@@ -23,7 +23,7 @@ const PLAN = { summary: 'Install Ollama.', objects: [], images: [], volumes: [{ 
 const SHA = 'sha256:plan-one';
 const future = () => new Date(Date.now() + 3600_000).toISOString();
 
-function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean } } = {}) {
+function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; legacy?: boolean } = {}) {
   const calls: Array<{ id: string; body?: ApproveBody }> = [];
   const options: string[] = [];
   const api = new MockApi('owner-demo');
@@ -31,6 +31,13 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
   if (opts.hold) {
     action.approval = { hold: true, hold_ms: 2000, physical: false } as Action['approval'];
     if (!opts.hold.plan) { action.plan = null; action.plan_sha256 = undefined; action.params = {}; action.type = 'machine.delete'; }
+  }
+  if (opts.legacy) {
+    action.type = 'legacy.contact.add';
+    action.params = { target: 'Ana', wait_days: 60, cooling_off_days: 14 };
+    action.plan = null;
+    action.plan_sha256 = undefined;
+    action.requested_by = { id: 'owner', kind: 'person', role: 'owner' };
   }
   Object.assign(api, {
     actions: async () => [action],
@@ -53,6 +60,18 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
 }
 
 describe('Approvals page', () => {
+  it('shows the contact, waits and potential export before a legacy invite is approved', async () => {
+    setup({ legacy: true });
+    const approve = await screen.findByRole('button', { name: 'Approve Add legacy contact Ana' }, T);
+    expect(approve).toBeVisible();
+    const impact = screen.getByText(/14-day cooling-off period/);
+    expect(impact).toBeVisible();
+    expect(impact).toHaveTextContent('60-day claim wait');
+    expect(impact).toHaveTextContent('read-only export of your personal files');
+    expect(screen.queryByText(/The hub has not described what this request will change/)).toBeNull();
+    expect(screen.getByText('Technical details').closest('details')).not.toHaveAttribute('open');
+  });
+
   it('a hold card replaces Approve with Hold to approve, and a plain click approves nothing', async () => {
     const { calls, user } = setup({ hold: { plan: true } });
     const hold = await screen.findByRole('button', { name: /^Hold to approve/ }, T);

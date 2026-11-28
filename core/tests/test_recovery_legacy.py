@@ -22,9 +22,10 @@ import anyio
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import OWNER
+from conftest import ADULT, OWNER
 from onemind_core.app import create_app
 from onemind_core.errors import ApiError
+from onemind_core.recovery.legacy import LegacyContacts
 from recovery_support import ContactPhone, owner_with_passkey as setup_passkey_owner
 from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, enrol, id_settings, register_passkey, setup_owner
 
@@ -43,13 +44,19 @@ def recovery_client(settings, clock, executor, tmp_path, **identity_options):
 
 
 @pytest.fixture
-def rc(settings, clock, executor, tmp_path):
+def enrollment_available(monkeypatch):
+    # Exercise the downstream enrollment and claim paths while the release hold is in place.
+    monkeypatch.setattr(LegacyContacts, "_require_enrollment", lambda self: None)
+
+
+@pytest.fixture
+def rc(settings, clock, executor, tmp_path, enrollment_available):
     with recovery_client(settings, clock, executor, tmp_path) as c:
         yield c
 
 
 @pytest.fixture(name="long_session_rc")
-def long_session_client(settings, clock, executor, tmp_path):
+def long_session_client(settings, clock, executor, tmp_path, enrollment_available):
     # A live password session can cancel a grant without signing in again first.
     with recovery_client(settings, clock, executor, tmp_path, session_idle_hours=24 * 90, session_max_days=90) as c:
         yield c
@@ -206,6 +213,33 @@ def test_a_second_person_must_confirm_when_one_exists(rc, clock):
     r = fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh))
     assert r.status_code == 200 and r.json()["state"] == "granted", r.text
     assert adult is not None
+
+
+@pytest.mark.parametrize("credential", ["static", "personal_token"])
+def test_only_a_live_adult_session_can_confirm_a_household_claim(rc, clock, credential):
+    owner_with_passkey(rc)
+    adult = enrol(rc, "adult", "ben")
+    adult_id = adult.get("/v1/me").json()["principal"]["id"]
+    headers = ADULT if credential == "static" else owner_pat(adult, "instance:read")
+    phone, key = legacy_phone(rc, wait_days=14)
+    clock.advance(7 * DAY + 1)
+    cid = claim(rc, phone, key).json()["id"]
+    clock.advance(14 * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    legacy.tick()
+    assert legacy._claim(cid).state == "awaiting_second"
+
+    client = TestClient(rc.app)
+    url = f"/v1/auth/legacy/claims/{cid}/confirm"
+    assert client.post(url, headers=headers).status_code == 403
+    assert legacy._claim(cid).second_by is None
+    assert client.get("/v1/legacy/export", headers=phone.auth).status_code == 403
+
+    session = client.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD, "client": "cli"})
+    assert session.status_code == 200, session.text
+    result = client.post(url, headers={"Authorization": f"Bearer {session.json()['access_token']}"})
+    assert result.status_code == 200 and result.json()["state"] == "granted", result.text
+    assert legacy._claim(cid).second_by == adult_id
 
 
 def test_the_household_sees_the_claim_and_certificate_and_an_owner_cancels_and_blocks(long_session_rc, clock):
@@ -940,6 +974,90 @@ def test_invite_requires_a_separate_owner_approval_with_a_bound_passkey(rc):
         assert client.get(invite, headers=credential).status_code == 403
 
 
+def test_shipping_gateway_refuses_new_legacy_enrollment_with_an_l1_key(settings, clock, executor, tmp_path):
+    with recovery_client(settings, clock, executor, tmp_path) as rc:
+        owner_with_passkey(rc)
+        response = request_invite(rc)
+        assert response.status_code == 503 and response.json()["reason"] == "legacy_enrollment_unavailable"
+        assert all(action.type != "legacy.contact.add" for action in rc.app.state.repo.list())
+
+
+@pytest.mark.parametrize("stage", ["approval", "pickup", "accept"])
+def test_shipping_gateway_blocks_preexisting_legacy_enrollment(settings, clock, executor, tmp_path, monkeypatch, stage):
+    with recovery_client(settings, clock, executor, tmp_path) as rc:
+        owner_with_passkey(rc)
+        with monkeypatch.context() as setup:
+            setup.setattr(LegacyContacts, "_require_enrollment", lambda self: None)
+            if stage == "approval":
+                queued = request_invite(rc)
+                assert queued.status_code == 202, queued.text
+                action_id = queued.json()["action_id"]
+                proof = invite_approval(rc, action_id)
+            else:
+                issued = add_legacy(rc)
+                assert issued.status_code == 200, issued.text
+                invite = issued.json()["invite"]
+                contact_id = issued.json()["id"]
+
+        if stage == "approval":
+            result = rc.post(f"/v1/actions/{action_id}/approve", json=proof, headers=csrf(rc))
+            assert result.status_code == 200 and result.json()["state"] == "failed", result.text
+            assert "Legacy enrollment requires" in result.json()["result"]["message"]
+            assert rc.get("/v1/auth/legacy/contacts").json() == []
+        else:
+            if stage == "pickup":
+                result = rc.get(f"/v1/auth/legacy/contacts/{contact_id}/invite")
+            else:
+                result = TestClient(rc.app).post(f"/v1/legacy/invites/{contact_id}/accept",
+                                                 json=ContactPhone().accept_body(invite))
+            assert result.status_code == 503 and result.json()["reason"] == "legacy_enrollment_unavailable"
+            assert rc.get("/v1/auth/legacy/contacts").json()[0]["state"] == "invited"
+
+
+@pytest.mark.parametrize("conflict", ["final_slot", "same_household_adult"])
+def test_parallel_approved_invites_preserve_contact_limits(rc, monkeypatch, conflict):
+    owner_with_passkey(rc)
+    if conflict == "final_slot":
+        for n in range(4):
+            assert add_legacy(rc, f"Contact {n}").status_code == 200
+        params, expected_count, message = {}, 5, "at most 5 legacy contacts"
+    else:
+        adult = enrol(rc, "adult", "ben")
+        params = {"kind": "household", "household_user_id": adult.get("/v1/me").json()["principal"]["id"]}
+        expected_count, message = 1, "already a legacy contact"
+
+    legacy = rc.app.state.legacy_contacts
+    other = LegacyContacts(legacy.gw, legacy.ident)
+    actions = []
+    for name in ("First", "Second"):
+        response = request_invite(rc, name, **params)
+        assert response.status_code == 202, response.text
+        actions.append(legacy.gw.repo.get(response.json()["action_id"]))
+    both_validated = Barrier(2)
+    details = legacy._invite_details
+
+    def validate(*args):
+        values = details(*args)
+        both_validated.wait(timeout=10)
+        return values
+
+    def run(service, action):
+        results = []
+        service._approve_invite(action, results.append)
+        return results[0]
+
+    monkeypatch.setattr(legacy, "_invite_details", validate)
+    monkeypatch.setattr(other, "_invite_details", validate)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(run, legacy, actions[0])
+        second = pool.submit(run, other, actions[1])
+        results = [first.result(timeout=10), second.result(timeout=10)]
+    failed, succeeded = sorted(results, key=lambda result: result.outcome)
+    assert failed.outcome == "failed" and message in failed.message
+    assert succeeded.outcome == "succeeded"
+    assert len(rc.get("/v1/auth/legacy/contacts").json()) == expected_count
+
+
 def test_legacy_revocation_refuses_owner_credentials_and_accepts_a_password_session(long_session_rc, clock):
     rc = long_session_rc
     owner_with_passkey(rc)
@@ -1188,6 +1306,77 @@ def test_missed_last_day_notice_is_sent_before_grant(rc, clock):
     ]
     feed = TestClient(rc.app).get("/v1/legacy/contact/notices", headers=phone.auth).json()
     assert [n["data"]["notice"] for n in feed if n["event"] == "legacy.claim.reminder"] == ["last_day"]
+
+
+def test_deadline_worker_rechecks_after_a_weekly_reminder_wins(rc, clock, monkeypatch):
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    cid = claim(rc, phone, key).json()["id"]
+    deadline = rc.app.state.legacy_contacts
+    weekly = LegacyContacts(deadline.gw, deadline.ident)
+    week_one = weekly.now() + timedelta(days=7, seconds=1)
+    monkeypatch.setattr(weekly, "now", lambda: week_one)
+    clock.advance(30 * DAY + 1)
+
+    deadline_read, weekly_done = Event(), Event()
+    check_active = deadline._owner_active_since
+
+    def after_claim_read(owner_id, since):
+        active = check_active(owner_id, since)
+        deadline_read.set()
+        assert weekly_done.wait(timeout=10)
+        return active
+
+    monkeypatch.setattr(deadline, "_owner_active_since", after_claim_read)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        waiting = pool.submit(deadline.tick)
+        try:
+            assert deadline_read.wait(timeout=10)
+            assert weekly.tick() == 1
+        finally:
+            weekly_done.set()
+        assert waiting.result(timeout=10) == 1
+
+    client = TestClient(rc.app)
+    feed = client.get("/v1/legacy/contact/notices", headers=phone.auth).json()
+    assert [n["data"]["notice"] for n in feed if n["event"] == "legacy.claim.reminder"
+            and n["data"]["claim_id"] == cid] == ["last_day", "week1"]
+    assert deadline._claim(cid).state == "granted"
+
+
+@pytest.mark.parametrize("interrupted_before_upgrade", [False, True])
+def test_interrupted_final_day_notice_is_retried_before_grant(rc, clock, monkeypatch, interrupted_before_upgrade):
+    from onemind_core.recovery.legacy import OPEN_STATES
+
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    cid = claim(rc, phone, key).json()["id"]
+    clock.advance(30 * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    if interrupted_before_upgrade:
+        # The old gateway committed a marker, then stopped before creating the notice.
+        assert legacy._set(legacy._claim(cid), OPEN_STATES,
+                           notices_sent=["start", "week1", "week2", "week3", "week4", "last_day"])
+    else:
+        def interrupted(*args, **kwargs):
+            raise RuntimeError("stopped before recording the notice")
+
+        with monkeypatch.context() as crash:
+            crash.setattr(legacy, "tell", interrupted)
+            with pytest.raises(RuntimeError, match="stopped before recording the notice"):
+                legacy.tick()
+    assert legacy._claim(cid).state == "waiting"
+
+    restarted = LegacyContacts(legacy.gw, legacy.ident)
+    log = _record_claim_notices(restarted)
+    assert restarted.tick() == 1 and restarted.tick() == 0
+    assert [event for event, claim_id in log if claim_id == cid] == ["legacy.claim.reminder", "legacy.claim.granted"]
+    feed = TestClient(rc.app).get("/v1/legacy/contact/notices", headers=phone.auth).json()
+    assert [n["data"]["notice"] for n in feed if n["event"] == "legacy.claim.reminder"
+            and n["data"]["claim_id"] == cid] == ["last_day"]
+    assert restarted._claim(cid).state == "granted"
 
 
 @pytest.mark.parametrize("notice", ["confirmed", "reminder", "awaiting_second"])

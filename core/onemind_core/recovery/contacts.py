@@ -31,6 +31,7 @@ from datetime import datetime, timedelta
 
 from fastapi import Request
 from sqlalchemy import select, update
+from sqlalchemy.orm import Session
 
 from ..auth import Principal
 from ..errors import ApiError
@@ -99,6 +100,11 @@ class RecoveryContacts:
             raise self.ident.deny(ctx.principal, what, reason="owner_only")
         return ctx.user
 
+    @staticmethod
+    def _lock_owner(s: Session, owner_id: str) -> None:
+        # PostgreSQL locks this owner row. SQLite serializes writers.
+        s.execute(update(UserRow).where(UserRow.id == owner_id).values(last_seen_at=UserRow.last_seen_at))
+
     def _rows(self, owner_id: str, *, live_only: bool = False) -> list[ContactRow]:
         q = select(ContactRow).where(ContactRow.owner_user_id == owner_id, ContactRow.role == self.role)
         if live_only:
@@ -134,19 +140,23 @@ class RecoveryContacts:
         }
 
     def tell(self, owner_id: str, event: str, data: dict, p: Principal | None = None, severity: str = "info",
-             audit_only: dict | None = None) -> None:
+             audit_only: dict | None = None, record: Callable[[Session], None] | None = None) -> None:
         """Tell every owner (a notification) and every contact of this owner (their notices feed).
-        `audit_only` facts go into the event (and so the audit) but not into the contacts' feed."""
+        `audit_only` facts go into the event (and so the audit) but not into the contacts' feed.
+        `record` can persist delivery bookkeeping in the same transaction as the feed entry."""
         domain, _, name = event.partition(".")
         self.gw.events.publish_event(domain, name, {"owner_user_id": owner_id, **data, **(audit_only or {})},
                                      principal=p.as_dict() if p else None, severity=severity)
         now = self.now()
+        notice_id = new_id("rn")
         with self.db.session.begin() as s:
-            s.add(NoticeRow(id=new_id("rn"), owner_user_id=owner_id, at=now, event=event, data=data))
-            old = list(s.scalars(select(NoticeRow.id).where(NoticeRow.owner_user_id == owner_id)
-                                 .order_by(NoticeRow.at.desc()).offset(NOTICES_KEPT)))
+            s.add(NoticeRow(id=notice_id, owner_user_id=owner_id, at=now, event=event, data=data))
+            old = list(s.scalars(select(NoticeRow.id).where(NoticeRow.owner_user_id == owner_id, NoticeRow.id != notice_id)
+                                 .order_by(NoticeRow.at.desc()).offset(NOTICES_KEPT - 1)))
             for nid in old:
                 s.delete(s.get(NoticeRow, nid))
+            if record is not None:
+                record(s)
 
     # ---- settings (the owner's waits) ------------------------------------------------------------------
     def settings(self, owner_id: str) -> dict:
@@ -220,13 +230,16 @@ class RecoveryContacts:
             if household_user_id is not None:
                 raise ApiError(422, "conflict", "household_user_id is only for a household contact")
             name = clean_profile_name(display_name or "")
-        now = self.now()
-        live = [r for r in self._rows(owner.id, live_only=True) if self.counts_toward_limit(r, now)]
+        return target.id if target else None, name, days
+
+    def _check_invite_limit(self, s: Session, owner_id: str, target: str | None, name: str, now: datetime) -> None:
+        rows = s.scalars(select(ContactRow).where(ContactRow.owner_user_id == owner_id,
+                                                 ContactRow.role == self.role, ContactRow.state.in_(LIVE_STATES)))
+        live = [r for r in rows if self.counts_toward_limit(r, now)]
         if len(live) >= MAX_CONTACTS:
             raise ApiError(422, "conflict", f"at most {MAX_CONTACTS} {self.noun}s; remove one first", reason="too_many")
-        if target is not None and any(r.household_user_id == target.id for r in live):
-            raise ApiError(409, "conflict", f"{target.display_name} is already a {self.noun}", reason="already_a_contact")
-        return target.id if target else None, name, days
+        if target is not None and any(r.household_user_id == target for r in live):
+            raise ApiError(409, "conflict", f"{name} is already a {self.noun}", reason="already_a_contact")
 
     def _issue_invite(self, owner: UserRow, p: Principal, kind: str, display_name: str, household_user_id: str | None,
                       cooling_off_days: int | None, *, via: str, extra: dict | None = None,
@@ -244,6 +257,8 @@ class RecoveryContacts:
             # replaces it with the contact's sealed secret, and removal clears it.
             row.sealed_secret = self.sealer.seal(nonce.encode(), f"invite:{cid}")
         with self.db.session.begin() as s:
+            self._lock_owner(s, owner.id)
+            self._check_invite_limit(s, owner.id, target, name, self.now())
             s.add(row)
         self.tell(owner.id, f"{self.role}.contact.invited", {"contact_id": cid, "kind": kind}, p,
                   audit_only={"household_user_id": row.household_user_id, "cooling_off_days": days, "via": via})

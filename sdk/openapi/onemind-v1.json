@@ -23588,7 +23588,7 @@
     },
     "/v1/auth/legacy/claims/{claim_id}/confirm": {
       "post": {
-        "description": "A household adult is the second person who confirms a claim (D-028).",
+        "description": "A signed-in household adult can be the second person who confirms a claim (D-028).",
         "operationId": "legacy.claims.confirm_adult",
         "parameters": [
           {
@@ -23728,7 +23728,7 @@
         ]
       },
       "post": {
-        "description": "Queue an invite for passkey approval by the requesting owner in the gateway's approvals.",
+        "description": "Queue an invite for the requesting owner's approval. Unavailable until D-028 enrollment checks are supported.",
         "operationId": "legacy.contacts.add",
         "requestBody": {
           "content": {
@@ -23810,6 +23810,16 @@
               }
             },
             "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "security": [
@@ -23970,6 +23980,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "security": [
@@ -35405,6 +35425,16 @@
               }
             },
             "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "security": [],

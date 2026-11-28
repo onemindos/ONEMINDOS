@@ -240,8 +240,8 @@ POLICY |= {
                                                                   "25f owners and adults read the evidence", ID),
     ("POST", "/v1/auth/legacy/claims/{claim_id}/cancel"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
         "/v1/auth/legacy/claims/lcl_none/cancel"), "25f any owner session (L0)", ID),
-    ("POST", "/v1/auth/legacy/claims/{claim_id}/confirm"): Row(cells(403, **GONE, adult=404, **PENDING_DENY), w.p_missing(
-        "/v1/auth/legacy/claims/lcl_none/confirm"), "25f a household adult is the second person", ID),
+    ("POST", "/v1/auth/legacy/claims/{claim_id}/confirm"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/legacy/claims/lcl_none/confirm"), "25f a signed-in household adult is the second person", ID),
     ("POST", "/v1/legacy/invites/{invite_id}/accept"): Row(cells(422), w.p_missing(
         "/v1/legacy/invites/rc_none/accept", json={}), "25f no principal: the signed invite is the credential", ID),
     ("GET", "/v1/legacy/contact"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/contact"),

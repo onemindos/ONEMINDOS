@@ -492,14 +492,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return legacy.list(ctx_of(request))
 
     @app.post("/v1/auth/legacy/contacts", operation_id="legacy.contacts.add", tags=TAGS, status_code=202,
-              response_model=LegacyInviteRequest, responses=R(401, 403, 409, 422, 429), openapi_extra=OWNER_SECURITY)
+              response_model=LegacyInviteRequest, responses=R(401, 403, 409, 422, 429, 503), openapi_extra=OWNER_SECURITY)
     def legacy_add(body: LegacyAddBody, request: Request, _: Principal = Depends(principal)):
-        """Queue an invite for passkey approval by the requesting owner in the gateway's approvals."""
+        """Queue an invite for the requesting owner's approval. Unavailable until D-028 enrollment checks are supported."""
         return legacy.request_invite(ctx_of(request), body.kind, body.display_name, body.household_user_id,
                                      body.cooling_off_days, body.wait_days)
 
     @app.get("/v1/auth/legacy/contacts/{contact_id}/invite", operation_id="legacy.contacts.invite", tags=TAGS,
-             response_model=LegacyAdded, responses=R(401, 403, 404), openapi_extra=OWNER_SECURITY)
+             response_model=LegacyAdded, responses=R(401, 403, 404, 503), openapi_extra=OWNER_SECURITY)
     def legacy_invite(contact_id: str, request: Request, response: Response, _: Principal = Depends(principal)):
         """Read your approved, unaccepted legacy invite from an owner session."""
         response.headers["Cache-Control"] = "no-store"
@@ -541,13 +541,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/legacy/claims/{claim_id}/confirm", operation_id="legacy.claims.confirm_adult", tags=TAGS,
               response_model=ClaimView, responses=R(401, 403, 404, 409), openapi_extra=HOUSEHOLD_SECURITY)
-    def household_confirm(claim_id: str, p: Principal = Depends(principal)):
-        """A household adult is the second person who confirms a claim (D-028)."""
-        return legacy.confirm(p, claim_id, None)
+    def household_confirm(claim_id: str, request: Request, p: Principal = Depends(principal)):
+        """A signed-in household adult can be the second person who confirms a claim (D-028)."""
+        return legacy.confirm(p, claim_id, None, ctx=ctx_of(request))
 
     # ---- 25f: the legacy contact's phone and principal -----------------------------------------------
     @app.post("/v1/legacy/invites/{invite_id}/accept", operation_id="legacy.invites.accept", tags=TAGS,
-              status_code=201, response_model=LegacyAccepted, responses=R(401, 403, 409, 422, 429),
+              status_code=201, response_model=LegacyAccepted, responses=R(401, 403, 409, 422, 429, 503),
               openapi_extra={"security": []})
     def legacy_accept(invite_id: str, body: AcceptBody, request: Request):
         """Accept a legacy invite. The answer holds, once, the token, the secret and the legacy access key."""

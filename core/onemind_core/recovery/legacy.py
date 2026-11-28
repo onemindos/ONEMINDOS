@@ -52,7 +52,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import DateTime, Index, String, cast, literal, or_, select, text, update
+from sqlalchemy import DateTime, Index, String, cast, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
@@ -65,6 +65,7 @@ from ..files.errors import FilesError
 from ..files.paths import open_file_at
 from ..identity.crypto import new_id
 from ..identity.models import ApproverKeyRow, PasskeyRow, TokenRow, UserRow, iso
+from ..identity.service import AuthContext
 from ..ledger import Base, utc
 from .contacts import ROLE_PATHS, RecoveryContacts
 from .models import ContactRow
@@ -75,6 +76,8 @@ DEFAULT_WAIT_DAYS = 30
 EXPORT_WINDOW = timedelta(days=365)  # D-028: 12 months; the data is never deleted afterwards
 INVITE_ACTION = "legacy.contact.add"
 NOTICE_EVERY = timedelta(days=7)
+# Older gateways could write "last_day" before the notice reached the feed.
+FINAL_NOTICE_RECORDED = "last_day_recorded"
 # The gateway takes request bodies up to 256 KiB (guard.py); base64 grows a file by a third, so the phone app
 # sends a downsized photo or a small PDF. Chunked uploads of bigger files are a follow-up.
 MAX_CERTIFICATE_BYTES = 180 * 1024
@@ -161,14 +164,24 @@ class LegacyContacts(RecoveryContacts):
             risk="sensitive", requesters=frozenset(), run=self._approve_invite, owner_passkey=True,
         ))
 
+    @staticmethod
+    def _require_enrollment() -> None:
+        # D-028 requires L2 or, before the first L2 key, L1 plus confirmation at the box.
+        # Keep the hold until the shared approval path can enforce both cases.
+        raise ApiError(503, "unavailable", "Legacy enrollment requires a verified hardware key or first-key setup at this OneMind.",
+                       reason="legacy_enrollment_unavailable")
+
     def request_invite(self, ctx, kind: str, display_name: str, household_user_id: str | None,
                        cooling_off_days: int | None, wait_days: int | None) -> dict:
         owner = self._session_owner(ctx, "request a legacy contact")
+        self._require_enrollment()
         wait = DEFAULT_WAIT_DAYS if wait_days is None else wait_days
         if wait not in WAIT_OPTIONS:
             raise ApiError(422, "conflict", f"wait_days must be one of {list(WAIT_OPTIONS)}", reason="not_an_option")
         target, name, days = self._invite_details(owner, ctx.principal, kind, display_name, household_user_id,
                                                   cooling_off_days)
+        with self.db.session() as s:
+            self._check_invite_limit(s, owner.id, target, name, self.now())
         contact_id = new_id("rc")
         action, _ = self.gw.actions.request_feature(
             ctx.principal, INVITE_ACTION, {"contact_id": contact_id, "kind": kind, "target": name,
@@ -184,6 +197,7 @@ class LegacyContacts(RecoveryContacts):
             return
         params = action.params
         try:
+            self._require_enrollment()
             self._issue_invite(owner, self.ident.principal_for(owner), params["kind"], params["target"],
                                params["household_user_id"], params["cooling_off_days"], via="action_passkey",
                                extra={"wait_days": params["wait_days"]}, contact_id=params["contact_id"],
@@ -199,6 +213,7 @@ class LegacyContacts(RecoveryContacts):
         if (row is None or row.owner_user_id != owner.id or self.state_of(row) != "invited"
                 or row.sealed_secret is None):
             raise ApiError(404, "not_found", "no pending legacy invite for this contact")
+        self._require_enrollment()
         nonce = self.sealer.open(row.sealed_secret, f"invite:{row.id}").decode()
         return self._invite_view(owner, row, nonce)
 
@@ -228,6 +243,7 @@ class LegacyContacts(RecoveryContacts):
         code must not read itself. Such an accept is recorded as `accepted_signed_in: False`, and the
         household's claim view shows it, so owners and adults know the second person cannot be checked
         against the claimant's account (see `_contact_users`)."""
+        self._require_enrollment()
         token = _ACCEPTED_BY.set(self._session_user(request))
         try:
             return super().accept(request, invite_id, *args, **kwargs)
@@ -266,14 +282,11 @@ class LegacyContacts(RecoveryContacts):
                 # PostgreSQL locks this owner row until the grant transaction commits.
                 self._lock_owner(s, row.owner_user_id)
                 where += (~self._activity_after(row.owner_user_id, utc(row.created_at)),
-                          ~self._granted_before(row.owner_user_id, row.contact_id))
+                          ~self._granted_before(row.owner_user_id, row.contact_id),
+                          cast(ClaimRow.notices_sent, String).contains(f'"{FINAL_NOTICE_RECORDED}"', autoescape=True))
             done = s.execute(update(ClaimRow).where(ClaimRow.id == row.id, ClaimRow.state.in_(expect), *where)
                              .values(**values).returning(ClaimRow.id)).scalar()
         return done is not None
-
-    @staticmethod
-    def _lock_owner(s, owner_id: str) -> None:
-        s.execute(update(UserRow).where(UserRow.id == owner_id).values(last_seen_at=UserRow.last_seen_at))
 
     @contextmanager
     def _claim_lock(self, claim_id: str):
@@ -487,10 +500,15 @@ class LegacyContacts(RecoveryContacts):
                            state=state, ended_at=self.now(), end_reason=reason, ended_by=by)
         return self._claim(c.id)
 
-    def confirm(self, p: Principal, claim_id: str, contact: ContactRow | None) -> dict:
+    def confirm(self, p: Principal, claim_id: str, contact: ContactRow | None, *, ctx: AuthContext | None = None) -> dict:
         """The second person: another usable legacy contact of the same owner, or a household adult."""
-        if contact is None and not (p.kind == "person" and p.role == "adult"):
-            raise self.ident.deny(p, "confirm a legacy claim", reason="adult_or_other_legacy_contact")
+        confirmer_id = p.id
+        if contact is None:
+            if ctx is None or ctx.session is None or ctx.user is None:
+                raise self.ident.deny(p, "confirm a legacy claim", reason="session_required")
+            if ctx.user.role != "adult":
+                raise self.ident.deny(p, "confirm a legacy claim", reason="adult_only")
+            confirmer_id = ctx.session.user_id
         c = self._claim(claim_id)
         if c is None:
             raise ApiError(404, "not_found", "no such claim")
@@ -500,12 +518,12 @@ class LegacyContacts(RecoveryContacts):
                     or not self._is_other_contact(claimant, contact) \
                     or self.state_of(contact) != "active":
                 raise self.ident.deny(p, "confirm this legacy claim", reason="not_a_second_person")
-        elif claimant is None or p.id in self._contact_users(claimant):
+        elif claimant is None or confirmer_id in self._contact_users(claimant):
             raise self.ident.deny(p, "confirm your own legacy claim", reason="not_a_second_person")
         if c.state not in OPEN_STATES:
             raise ApiError(409, "conflict", f"this claim is {c.state}", reason=c.state)
         if c.second_at is None:
-            self._set_and_tell(c, OPEN_STATES, ClaimRow.second_at.is_(None), second_by=p.id, second_at=self.now(),
+            self._set_and_tell(c, OPEN_STATES, ClaimRow.second_at.is_(None), second_by=confirmer_id, second_at=self.now(),
                                event="legacy.claim.confirmed", data={}, severity="warning", p=p)
         self.tick()
         return self.claim_view(self._claim(c.id))
@@ -569,6 +587,31 @@ class LegacyContacts(RecoveryContacts):
             self._end_claim(c, "cancelled", "contact_ended", f"legacy:{contact.id}", expect=LIVE_STATES)
 
     # ---- the clock ------------------------------------------------------------------------------------
+    def _remind(self, c: ClaimRow, now: datetime) -> tuple[ClaimRow, bool]:
+        with self._claim_lock(c.id):
+            # Another worker may have recorded a different reminder since tick read this row.
+            c = self._claim(c.id)
+            if c.state not in OPEN_STATES:
+                return c, False
+            sent = c.notices_sent or []
+            end = utc(c.ends_at)
+            weeks = int((min(now, end) - utc(c.created_at)) / NOTICE_EVERY)
+            due = [f"week{n}" for n in range(1, weeks + 1)]
+            if end - now <= timedelta(days=1):
+                due.append(FINAL_NOTICE_RECORDED)
+            new = [notice for notice in due if notice not in sent]
+            if not new:
+                return c, False
+
+            def record(s):
+                s.execute(update(ClaimRow).where(ClaimRow.id == c.id).values(notices_sent=[*sent, *new]))
+
+            notice = "last_day" if new[-1] == FINAL_NOTICE_RECORDED else new[-1]
+            self.tell(c.owner_user_id, "legacy.claim.reminder",
+                      {"claim_id": c.id, "ends_at": iso(c.ends_at), "notice": notice}, severity="critical",
+                      record=record)
+            return c, True
+
     def tick(self) -> int:
         """Notices during the wait; at the end, cancel if the owner was active, wait for the second person,
         or grant the 12-month read-only export. Idempotent."""
@@ -583,17 +626,10 @@ class LegacyContacts(RecoveryContacts):
                 continue
             if c.state == "granted":
                 continue
+            c, reminded = self._remind(c, now)
+            if c.state not in OPEN_STATES:
+                continue
             end = utc(c.ends_at)
-            sent = c.notices_sent or []
-            due = [f"week{n}" for n in range(1, int((min(now, end) - start) / NOTICE_EVERY) + 1)]
-            if end - now <= timedelta(days=1):
-                due.append("last_day")
-            new = [d for d in due if d not in sent]
-            reminded = bool(new) and self._set_and_tell(
-                c, OPEN_STATES, cast(ClaimRow.notices_sent, String) == cast(literal(c.notices_sent, type_=JSON), String),
-                notices_sent=[*sent, *new], event="legacy.claim.reminder",
-                data={"ends_at": iso(c.ends_at), "notice": new[-1]}, severity="critical",
-            )
             if now < end:
                 done += int(reminded)
                 continue
