@@ -7,6 +7,8 @@
 
 ## 1. Navigation
 
+> **Phone navigation is superseded** by [atlas-phone/README.md](atlas-phone/README.md) (Home, Approvals, Apps, Me; Map joins with #656). The Phone column and the phone bullet below are the older spec until #1225 lands.
+
 | Group | Item | Route | Badge | Phone |
 |---|---|---|---|---|
 | — | Home | `/` | — | Tab |
