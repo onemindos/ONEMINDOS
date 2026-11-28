@@ -15,6 +15,7 @@ spec:
       - GET /v1/tips/whats-new
       - GET /v1/tips/{tip_id}
       - POST /v1/tips/{tip_id}/state
+  search: {provider: tips, types: [tip]}
   backup:
     units:
       - {kind: table, name: tips_state}
