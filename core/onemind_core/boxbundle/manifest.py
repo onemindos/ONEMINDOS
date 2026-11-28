@@ -27,7 +27,8 @@ FORMAT_MAJOR = 1
 FORMAT_MINOR = 0
 SCHEMA_NAME = "onemind.box-bundle.schema.json"
 _REPO_SCHEMA = Path(__file__).resolve().parents[3] / "sdk" / "schema" / SCHEMA_NAME
-_IMAGE_SCHEMAS = [Path(root) / SCHEMA_NAME for root in ("/usr/lib/onemind/sdk/schema", "/opt/onemind/sdk/schema")]
+_APPLIANCE_SCHEMA = Path("/usr/lib/onemind/sdk/schema") / SCHEMA_NAME
+_CONTAINER_SCHEMA = Path("/opt/onemind/sdk/schema") / SCHEMA_NAME
 
 LAYER_IDS = ("box_config", "people", "policies", "apps", "app_data_refs", "fabric", "box_keys")
 
@@ -72,10 +73,11 @@ def sha256(data: bytes) -> str:
 @lru_cache(maxsize=1)
 def schema() -> dict:
     """The bundle schema: the repo copy in development and tests, the image copy on a box."""
-    for path in (_REPO_SCHEMA, *_IMAGE_SCHEMAS):
+    paths = (_REPO_SCHEMA, _APPLIANCE_SCHEMA, _CONTAINER_SCHEMA)
+    for path in paths:
         if path.is_file():
             return json.loads(path.read_text(encoding="utf-8"))
-    raise FileNotFoundError(f"{SCHEMA_NAME} not found in the checkout or installed SDK schema directories")
+    raise FileNotFoundError(f"{SCHEMA_NAME} not found in {', '.join(str(path.parent) for path in paths)}")
 
 
 def validator(ref: str | None = None) -> Draft202012Validator:
@@ -85,11 +87,12 @@ def validator(ref: str | None = None) -> Draft202012Validator:
     return Draft202012Validator(target, format_checker=FormatChecker())
 
 
-def problems_of(v: Draft202012Validator, doc: object) -> list[str]:
+def problems_of(v: Draft202012Validator, doc: object, *, redact_fields: frozenset[str] = frozenset()) -> list[str]:
     out = []
     for err in sorted(v.iter_errors(doc), key=lambda e: list(map(str, e.absolute_path))):
         where = "/".join(map(str, err.absolute_path)) or "(top)"
-        out.append(f"{where}: {err.message}")
+        message = "invalid value" if err.absolute_path and err.absolute_path[-1] in redact_fields else err.message
+        out.append(f"{where}: {message}")
     return out
 
 
@@ -160,53 +163,44 @@ def check_manifest(doc: object) -> ManifestCheck:
     major, minor = fmt.get("major"), fmt.get("minor")
     if major != FORMAT_MAJOR:
         raise BundleRefused([f"bundle format {major}.x needs a OneMind that reads it; this box reads {FORMAT_MAJOR}.x"])
-    newer = isinstance(minor, int) and minor > FORMAT_MINOR
-    unknown: list[str] = []
-    if newer and isinstance(doc.get("layers"), list):
-        # A newer minor may add layers this box does not know: set them aside (named on the preview), check the rest.
-        known = [entry for entry in doc["layers"] if not isinstance(entry, dict) or entry.get("id") in LAYER_IDS]
-        unknown = [str(entry.get("id")) for entry in doc["layers"] if isinstance(entry, dict) and entry.get("id") not in LAYER_IDS]
-        doc = {**doc, "layers": known}
-        if not known:
-            raise BundleRefused([f"every layer in this bundle is newer than this box understands ({', '.join(unknown)}); update this box first"])
     problems = problems_of(validator(), doc)
-    if not newer:  # this version wrote nothing else: an unknown field here is a typo or a hand edit, not a newer OneMind
-        problems += _unknown_fields(doc)
-    ids = [entry["id"] for entry in doc.get("layers", []) if isinstance(entry, dict) and "id" in entry]
+    if problems:
+        raise BundleRefused(problems)
+    newer = minor > FORMAT_MINOR
+    ids = [entry["id"] for entry in doc["layers"]]
     if len(set(ids)) != len(ids):
         problems.append(f"layers: a layer appears twice ({ids})")
     problems += [f"layers: {entry['id']} must be at layers/{entry['id']}.json, not {entry.get('path')!r}"
-                 for entry in doc.get("layers", []) if isinstance(entry, dict) and entry.get("id") in LAYER_IDS
-                 and entry.get("path") != f"layers/{entry['id']}.json"]
+                 for entry in doc["layers"] if entry["path"] != f"layers/{entry['id']}.json"]
+    clean, unknown_fields = _known_manifest_fields(doc)
+    if not newer:
+        problems += [f"{path}: not a field of bundle format {FORMAT_MAJOR}.{FORMAT_MINOR}" for path in unknown_fields]
     if problems:
         raise BundleRefused(problems)
-    known_fields = set(schema()["properties"])
-    return ManifestCheck(doc, newer_minor=newer, unknown_layers=unknown,
-                         unknown_fields=sorted(k for k in doc if k not in known_fields))
+    unknown_layers = [layer_id for layer_id in ids if layer_id not in LAYER_IDS]
+    clean["layers"] = [entry for entry in clean["layers"] if entry["id"] in LAYER_IDS]
+    if not clean["layers"]:
+        raise BundleRefused([f"every layer in this bundle is newer than this box understands ({', '.join(unknown_layers)}); "
+                             "update this box first"])
+    return ManifestCheck(clean, newer_minor=newer, unknown_layers=unknown_layers, unknown_fields=unknown_fields)
 
 
-def _unknown_fields(doc: dict) -> list[str]:
-    """Fields the manifest schema does not name, in the manifest, `source` and each layer entry."""
-    defs = schema()
-    top = defs["properties"]
-    out = [f"{key}: not a field of bundle format {FORMAT_MAJOR}.{FORMAT_MINOR}" for key in sorted(doc) if key not in top]
-    source = doc.get("source")
-    if isinstance(source, dict):
-        out += [f"source/{key}: not a field of bundle format {FORMAT_MAJOR}.{FORMAT_MINOR}"
-                for key in sorted(source) if key not in top["source"].get("properties", {})]
-    layer_props = _layer_entry_props()
-    for i, entry in enumerate(doc.get("layers", [])):
-        if isinstance(entry, dict):
-            out += [f"layers/{i}/{key}: not a field of bundle format {FORMAT_MAJOR}.{FORMAT_MINOR}"
-                    for key in sorted(entry) if key not in layer_props]
-    return out
+def _known_manifest_fields(doc: dict) -> tuple[dict, list[str]]:
+    """Keep only schema fields from a validated manifest and name the rest by path."""
+    top = schema()["properties"]
+    unknown = []
 
+    def project(node: dict, properties: dict, prefix: str) -> dict:
+        unknown.extend(prefix + key for key in node if key not in properties)
+        return {key: value for key, value in node.items() if key in properties}
 
-def _layer_entry_props() -> set[str]:
-    items = schema()["properties"]["layers"]["items"]
-    if "$ref" in items:
-        items = schema()["$defs"][items["$ref"].rsplit("/", 1)[-1]]
-    return set(items.get("properties", {}))
+    clean = project(doc, top, "")
+    for key in ("format", "source"):
+        clean[key] = project(doc[key], top[key]["properties"], f"{key}/")
+    for key, properties in (("layers", schema()["$defs"]["layerEntry"]["properties"]),
+                            ("excluded", top["excluded"]["items"]["properties"])):
+        clean[key] = [project(entry, properties, f"{key}/{i}/") for i, entry in enumerate(doc[key])]
+    return clean, sorted(unknown)
 
 
 def check_layer(entry: dict, data: bytes) -> None:

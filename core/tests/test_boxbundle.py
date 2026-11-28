@@ -9,17 +9,20 @@ left for the owner, so B has none). Plus the refusals that keep an import safe.
 import json
 from copy import deepcopy
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 import yaml
+from sqlalchemy.orm import Session
 
-from onemind_core.automation import updatepolicy
+from onemind_core.automation import store as automation_store, updatepolicy
 from onemind_core.backups import store as backups_store
 from onemind_core.backups.store import BackupsRepository, ContentTierRow, DestinationRow
 from onemind_core.boxbundle import box_config, config_export, manifest
 from onemind_core.boxbundle.manifest import BundleRefused, Source
 from onemind_core.ledger import make_engine
 from onemind_core.onboarding import SCHEMA as ONBOARDING, OnboardingService
+from onemind_core.routers.backups import DestinationBody, _check_destination
 from onemind_core.store import Database, migrate
 
 NOW = datetime(2026, 11, 26, 15, 0, tzinfo=UTC)
@@ -449,3 +452,198 @@ def test_apply_writes_in_one_transaction(make_box, monkeypatch):
     after = box_config.collect(b)[0]
     assert after["box"] == {"box_name": None, "time_zone": None} and after["updates"] is None
     assert box_config.apply(b, checked, now=NOW, by=OWNER, window_exists=YES) == ["box.box_name", "box.time_zone", "updates.policy"]
+
+
+@pytest.mark.parametrize("kind,key,address,via_route", [
+    ("box", "url", "https://peer.example.test/repo?token=not-for-export", True),
+    ("rest", "url", "https://peer.example.test/repo#not-for-export", True),
+    ("s3", "endpoint", "https://s3.example.test?token=not-for-export", True),
+    ("s3", "endpoint", "s3.example.test?token=not-for-export", False),
+    ("s3", "endpoint", "not-for-export" + "@" + "storage.example.test", False),
+    ("rest", "url", "not-for-export" + "@" + "peer.example.test/repo", False),
+])
+def test_credential_bearing_locations_are_left_out_of_export_and_refused_on_import(make_box, kind, key, address, via_route):
+    db = make_box("source")
+    config = {key: address, **({"bucket": "box"} if kind == "s3" else {"user": "backup"})}
+    if via_route:
+        config = _check_destination(DestinationBody(
+            kind=kind, label="Backup", config=config,
+            credentials={"access_key": "example", "secret_key": "example"} if kind == "s3" else {"password": "example"},
+        ))
+    repo = BackupsRepository(db)
+    repo.add_destination(DestinationRow(id="dst_example", kind=kind, label="Backup", is_primary=True,
+                                        append_only=False, config=config, action_id=None, created_at=NOW))
+    layer, excluded = box_config.layer(db)
+    assert b"not-for-export" not in layer.data
+    assert [entry["what"] for entry in excluded] == [f"backup destination dst_example: {key}"]
+    payload = json.loads(layer.data)
+    assert payload["backups"]["destinations"][0]["config"] == {k: v for k, v in config.items() if k != key}
+    assert repo.destinations()[0].config[key] == address
+    assert "not-for-export" not in json.dumps(box_config.plan(payload, box_config.check(payload)))
+
+    payload["backups"]["destinations"][0]["config"][key] = address
+    for newer_minor in (False, True):
+        with pytest.raises(BundleRefused, match=f"config/{key}") as exc:
+            box_config.check(payload, newer_minor=newer_minor)
+        assert "not-for-export" not in str(exc.value)
+    plain = "https://peer.example.test:8000/team@home/repo" if key == "url" else "s3.example.test:9443"
+    payload["backups"]["destinations"][0]["config"][key] = plain
+    assert box_config.check(payload).doc["backups"]["destinations"][0]["config"][key] == plain
+
+
+@pytest.fixture
+def valid_manifest():
+    layer = manifest.make_layer("box_config", box_config.LAYER_SCHEMA, {}, items=0, sensitive=False)
+    return manifest.build_manifest(Source("box-a", None, "0.1.0"), [layer], now=NOW)
+
+
+@pytest.mark.parametrize("minor", [0, 1])
+def test_manifest_refuses_null_layers(valid_manifest, minor):
+    valid_manifest["format"]["minor"] = minor
+    valid_manifest["layers"] = None
+    with pytest.raises(BundleRefused, match="layers"):
+        manifest.check_manifest(valid_manifest)
+
+
+@pytest.mark.parametrize("minor", [0, 1])
+def test_manifest_refuses_array_layer_id(valid_manifest, minor):
+    valid_manifest["format"]["minor"] = minor
+    valid_manifest["layers"].append({**valid_manifest["layers"][0], "id": []})
+    with pytest.raises(BundleRefused, match="layers/1/id"):
+        manifest.check_manifest(valid_manifest)
+
+
+@pytest.mark.parametrize("field", ["id", "sha256", "sensitive"])
+def test_newer_manifest_validates_common_fields_before_skipping_unknown_layers(valid_manifest, field):
+    valid_manifest["format"]["minor"] = 1
+    extra = {**valid_manifest["layers"][0], "id": "printers", "path": "layers/printers.json"}
+    del extra[field]
+    valid_manifest["layers"].append(extra)
+    with pytest.raises(BundleRefused, match=rf"layers/1: .*'{field}'"):
+        manifest.check_manifest(valid_manifest)
+
+
+def test_manifest_checks_array_limit_before_skipping_newer_layers(valid_manifest):
+    valid_manifest["format"]["minor"] = 1
+    valid_manifest["layers"].extend(
+        {**valid_manifest["layers"][0], "id": f"future_{a}{b}", "path": f"layers/future_{a}{b}.json"}
+        for a in "ab" for b in "abcdefghijklmnop"
+    )
+    with pytest.raises(BundleRefused, match="layers:"):
+        manifest.check_manifest(valid_manifest)
+
+
+def test_manifest_format_and_exclusions_follow_minor_version_rules(valid_manifest):
+    valid_manifest["format"]["extra"] = True
+    valid_manifest["excluded"][0] = {**valid_manifest["excluded"][0], "extra": "note"}
+    with pytest.raises(BundleRefused) as exc:
+        manifest.check_manifest(valid_manifest)
+    assert "format/extra" in str(exc.value) and "excluded/0/extra" in str(exc.value)
+    valid_manifest["format"]["minor"] = 1
+    read = manifest.check_manifest(valid_manifest)
+    assert read.unknown_fields == ["excluded/0/extra", "format/extra"]
+    assert "extra" not in read.manifest["format"]
+    assert "extra" not in read.manifest["excluded"][0]
+
+
+def test_invalid_ai_schedule_zone_leaves_both_rows_unchanged(make_box):
+    db = make_box("target")
+    set_up(db)
+    onboarding, policies = OnboardingService(db), updatepolicy.UpdatePolicyRepository(db)
+    before_settings, before_policy = onboarding.read(), policies.get()
+    doc = box_config.collect(db)[0]
+    doc["box"]["box_name"] = "replacement"
+    doc["updates"]["ai_schedule"].update(enabled=True, tz="Mars/Olympus_Mons")
+    checked = box_config.check(doc)
+
+    with pytest.raises(BundleRefused, match=r"updates: .*unknown time zone 'Mars/Olympus_Mons'"):
+        box_config.apply(db, checked, now=NOW, by=OWNER, window_exists=YES)
+    assert onboarding.read() == before_settings
+    assert policies.get() == before_policy
+
+
+def test_apply_preserves_a_backup_change_committed_during_validation(make_box):
+    db = make_box("target")
+    set_up(db)
+    onboarding = OnboardingService(db)
+    doc = box_config.collect(db)[0]
+    doc["box"]["box_name"] = "replacement"
+    checked = box_config.check(doc)
+
+    def window_exists(window_id):
+        assert window_id == "win_nightly"
+        onboarding.save({"box_name": "hub", "time_zone": "America/New_York", "backup_choice": "usb",
+                         "backup_destination_id": "dst_fedcba9876543210"})
+        return True
+
+    assert box_config.apply(db, checked, now=NOW, by=OWNER, window_exists=window_exists) == ["box.box_name"]
+    assert onboarding.read() == {
+        "box_name": "replacement", "time_zone": "America/New_York", "backup_choice": "usb",
+        "backup_destination_id": "dst_fedcba9876543210", "saved": True,
+    }
+
+
+def test_packaged_schema_lookup(monkeypatch):
+    expected = manifest.schema()
+    appliance = Path("/usr/lib/onemind/sdk/schema") / manifest.SCHEMA_NAME
+    container = Path("/opt/onemind/sdk/schema") / manifest.SCHEMA_NAME
+    installed = appliance
+    monkeypatch.setattr(Path, "is_file", lambda path: path == installed)
+    monkeypatch.setattr(Path, "read_text", lambda path, **kwargs: json.dumps(expected) if path == installed else "")
+    try:
+        manifest.schema.cache_clear()
+        assert manifest.schema() == expected
+        installed = container
+        manifest.schema.cache_clear()
+        assert manifest.schema() == expected
+    finally:
+        manifest.schema.cache_clear()
+
+
+def test_preview_shows_backup_choice_and_primary_destination(make_box):
+    a, b = make_box("source"), make_box("target")
+    set_up(a)
+    current, incoming = box_config.collect(b)[0], box_config.collect(a)[0]
+    rows = {row["field"]: row for row in box_config.plan(current, box_config.check(incoming))}
+    assert rows["choice"] == {
+        "section": "backups", "field": "choice", "current": "later", "incoming": "s3", "action": "needs_owner",
+    }
+    assert rows["primary_destination_id"] == {
+        "section": "backups", "field": "primary_destination_id", "current": None,
+        "incoming": "dst_0123456789abcdef", "action": "needs_owner",
+    }
+    same = {row["field"]: row["action"] for row in box_config.plan(incoming, box_config.check(incoming))}
+    assert same["choice"] == same["primary_destination_id"] == "same"
+
+
+def test_apply_can_resolve_a_selected_window_inside_the_import_transaction(make_box):
+    db = make_box("target")
+    migrate(db.engine, [automation_store.SCHEMA])
+    windows = automation_store.AutomationRepository(db)
+    doc = box_config.collect(db)[0]
+    doc["box"] = {"box_name": "restored", "time_zone": "UTC"}
+    doc["updates"] = updatepolicy.UpdatePolicyBody(window_id="win_custom").model_dump()
+    checked = box_config.check(doc)
+
+    def import_selected(session: Session):
+        ranges = [{"days": ["mon"], "start": "01:00", "end": "02:00"}]
+        windows.put_window("win_custom", "Custom window", "UTC", ranges, NOW, session=session)
+
+        def window_exists(window_id):
+            return windows.get_window(window_id, session=session) is not None
+
+        assert box_config.apply(db, checked, now=NOW, by=OWNER, session=session, window_exists=window_exists) == [
+            "box.box_name", "box.time_zone", "updates.policy",
+        ]
+
+    with pytest.raises(RuntimeError, match="later layer failed"), db.session.begin() as session:
+        import_selected(session)
+        raise RuntimeError("later layer failed")
+    assert windows.get_window("win_custom") is None
+    assert box_config.collect(db)[0]["box"] == {"box_name": None, "time_zone": None}
+    assert updatepolicy.UpdatePolicyRepository(db).get() is None
+
+    with db.session.begin() as session:
+        import_selected(session)
+    assert windows.get_window("win_custom") is not None
+    assert updatepolicy.UpdatePolicyRepository(db).get()["doc"]["window_id"] == "win_custom"

@@ -64,11 +64,12 @@ def test_export_survives_restart_and_installed_schema_path(settings, clock, monk
         assert preview(client, before)["changes"] == []
 
     # Emulate the installed filesystem with the repo copy unavailable and no warm schema cache.
-    installed = tmp_path / manifest._IMAGE_SCHEMAS[0].relative_to("/")
+    installed = tmp_path / manifest._APPLIANCE_SCHEMA.relative_to("/")
     installed.parent.mkdir(parents=True)
     copyfile(manifest._REPO_SCHEMA, installed)
     monkeypatch.setattr(manifest, "_REPO_SCHEMA", tmp_path / "missing-checkout-schema")
-    monkeypatch.setattr(manifest, "_IMAGE_SCHEMAS", [installed])
+    monkeypatch.setattr(manifest, "_APPLIANCE_SCHEMA", installed)
+    monkeypatch.setattr(manifest, "_CONTAINER_SCHEMA", tmp_path / "missing-container-schema")
     manifest.schema.cache_clear()
     try:
         with TestClient(create_app(settings, clock=clock)) as restarted:

@@ -6,6 +6,12 @@
   "description": "The inside of a box export (docs/architecture/BOX-EXPORT-IMPORT.md): the manifest that lists every layer, and the shape of each layer this version defines. The recovery bundle travels inside an encrypted, signed envelope. The separate config-as-code projection only emits nodes explicitly marked x-config-export and refuses any node marked x-secret or writeOnly. Forward compatibility: a reader refuses a bundle whose format major is higher than its own, accepts a higher minor, ignores manifest fields it does not know, and reports layer fields it does not know as skipped. Only the box_config layer is defined in v1.0; the other layer ids are reserved so a v1.0 reader can name them in a dry run.",
   "type": "object",
   "required": ["schema", "format", "bundle_id", "created_at", "source", "layers", "excluded"],
+  "allOf": [
+    {
+      "if": {"properties": {"format": {"properties": {"minor": {"const": 0}}}}},
+      "then": {"properties": {"layers": {"items": {"properties": {"id": {"$ref": "#/$defs/layerId"}}}}}}
+    }
+  ],
   "properties": {
     "schema": {"const": "onemind.io/box-bundle/v1"},
     "format": {
@@ -60,7 +66,7 @@
       "type": "object",
       "required": ["id", "schema", "path", "sha256", "size", "items", "sensitive"],
       "properties": {
-        "id": {"$ref": "#/$defs/layerId"},
+        "id": {"type": "string", "pattern": "^[a-z_]+(?![\\s\\S])"},
         "schema": {"type": "string", "pattern": "^onemind\\.io/box-bundle/[a-z-]+/v[0-9]+$"},
         "path": {"type": "string", "pattern": "^layers/[a-z_]+\\.json$"},
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -73,10 +79,16 @@
       "type": "object", "additionalProperties": false,
       "properties": {"usb_uuid": {"type": "string", "maxLength": 200}}
     },
+    "destinationAddress": {
+      "type": "string",
+      "maxLength": 500,
+      "pattern": "^(?:https://)?(?:[A-Za-z0-9.-]+|\\[[0-9A-Fa-f:.]+\\])(?::[0-9]+)?(?:/[^?#\\\\\\s\\u0000-\\u001f\\u007f]*)?(?![\\s\\S])",
+      "description": "Host with optional port and path. Userinfo, queries and fragments are excluded. Peer URLs require HTTPS; S3 endpoints also accept legacy host-only addresses."
+    },
     "peerLocation": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "url": {"type": "string", "maxLength": 500, "pattern": "^(?![^/]*//[^/]*@)"},
+        "url": {"$ref": "#/$defs/destinationAddress", "pattern": "^https://"},
         "user": {"type": "string", "maxLength": 200},
         "append_only": {"type": "boolean"}
       }
@@ -84,7 +96,7 @@
     "s3Location": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "endpoint": {"type": "string", "maxLength": 500, "pattern": "^(?![^/]*//[^/]*@)"},
+        "endpoint": {"$ref": "#/$defs/destinationAddress"},
         "bucket": {"type": "string", "maxLength": 200},
         "prefix": {"type": "string", "maxLength": 500},
         "region": {"type": "string", "maxLength": 100}
@@ -176,7 +188,7 @@
                 ],
                 "properties": {
                   "id": {"type": "string", "minLength": 1, "maxLength": 40},
-                  "kind": {"enum": ["usb", "box", "rest", "s3"]},
+                  "kind": {"enum": ["usb", "box", "rest", "s3"], "description": "Adding a destination kind requires a new layer schema version; a minor bump cannot extend this enum."},
                   "label": {"type": "string", "maxLength": 80},
                   "is_primary": {"type": "boolean"},
                   "append_only": {"type": "boolean"},
