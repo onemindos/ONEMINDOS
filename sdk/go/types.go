@@ -27,8 +27,13 @@ type (
 	ServiceCard  = gen.ServiceCard
 )
 
-// ConfigExportView carries the versioned settings YAML for private Git.
-type ConfigExportView = gen.ConfigExportView
+// Configuration snapshots and their dry-run and approval requests.
+type (
+	ConfigExportView = gen.ConfigExportView
+	ConfigDiffBody   = gen.ConfigDiffBody
+	ConfigDiffView   = gen.ConfigDiffView
+	ConfigApplyBody  = gen.ConfigApplyBody
+)
 
 // Action types the gateway accepts today (contract §3; §12.5 adds more).
 const (

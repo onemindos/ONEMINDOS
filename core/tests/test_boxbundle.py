@@ -99,6 +99,23 @@ def test_round_trip_to_an_empty_box(make_box):
     assert {(c["section"], c["field"]): c["action"] for c in box_config.plan(after, checked)}[("box", "box_name")] == "same"
 
 
+def test_legacy_bundle_off_hours_compare_without_rewriting_the_policy(make_box):
+    box = make_box("a")
+    set_up(box)
+    repo = updatepolicy.UpdatePolicyRepository(box)
+    policy = repo.get()["doc"]
+    policy["ai_schedule"]["off"][0]["days"] = None
+    repo.put(now=NOW, doc=policy, updated_by=OWNER)
+    current, _ = box_config.collect(box)
+    legacy, _ = box_config.collect(box)
+    legacy["updates"] = policy
+
+    checked = box_config.check(legacy)
+    assert checked.doc["updates"] == current["updates"]
+    assert box_config.apply(box, checked, now=NOW, by=OWNER, window_exists=YES) == []
+    assert repo.get()["doc"] == policy
+
+
 def test_layer_bytes_are_canonical_and_never_hold_credentials(make_box):
     a = make_box("a")
     set_up(a)
@@ -111,8 +128,9 @@ def test_layer_bytes_are_canonical_and_never_hold_credentials(make_box):
             "backup destination dst_0123456789abcdef: auth"} <= left_out
     # Logically equal documents give the same bytes whatever the key order.
     assert manifest.canonical({"b": 1, "a": [2, {"d": 3, "c": 4}]}) == manifest.canonical({"a": [2, {"c": 4, "d": 3}], "b": 1})
-    whats = [e["what"] for e in doc["excluded"]]
-    assert "passkeys and other sign-in keys" in whats and "OneMind's release signing keys" in whats
+    exclusions = {e["what"]: e["reason"] for e in doc["excluded"]}
+    assert "gateway never holds or exports passkey private keys" in exclusions["passkey private keys"]
+    assert "OneMind's release signing keys" in exclusions
     # Same box, same settings: same bytes and checksum, whatever the bundle id or time.
     assert box_config.layer(a)[0].entry["sha256"] == doc["layers"][0]["sha256"]
 
@@ -295,6 +313,56 @@ def test_secret_schema_marker_overrides_cleartext_permission(make_box, monkeypat
     del destinations["items"]["allOf"]
     doc = yaml.safe_load(config_export.export_settings(db))
     assert doc["backups"]["destinations"] == [{"label": "Offsite"}, {"label": "USB disk"}]
+
+
+def test_real_schema_cleartext_annotations_and_secret_sentinels(make_box, monkeypatch):
+    rules = manifest.schema()
+    annotated = []
+
+    def check(rule, ancestors_exported=True):
+        exported = rule.get("x-config-export") is True
+        marked = rule.get("x-secret") or rule.get("writeOnly")
+        assert not (marked and exported)
+        assert not exported or ancestors_exported
+        if marked:
+            annotated.append(rule)
+        for keyword in ("properties", "patternProperties", "dependentSchemas"):
+            for field in rule.get(keyword, {}).values():
+                check(field, ancestors_exported and exported)
+        for keyword in ("items", "additionalProperties", "contains", "if", "then", "else", "not"):
+            if isinstance(child := rule.get(keyword), dict):
+                check(child, ancestors_exported and exported)
+        for keyword in ("oneOf", "anyOf", "allOf", "prefixItems"):
+            for field in rule.get(keyword, ()):
+                check(field, ancestors_exported and exported)
+        for field in rule.get("$defs", {}).values():
+            check(field)
+
+    check(rules)
+    assert annotated, "the invariant should exercise secret-marked fields"
+
+    sentinel = "secret-schema-sentinel"
+    injected = []
+
+    def plant(node, rule):
+        if rule.get("x-secret") or rule.get("writeOnly"):
+            injected.append(rule)
+            return sentinel
+        if isinstance(node, dict):
+            return {key: plant(node.get(key, {}), child)
+                    for key, child in rule.get("properties", {}).items()}
+        if isinstance(node, list):
+            return [plant(item, rule.get("items", {})) for item in node]
+        return node
+
+    db = make_box("sentinels")
+    set_up(db)
+    doc, _ = box_config.collect(db)
+    seeded = plant(doc, rules["$defs"]["boxConfig"])
+    assert {id(rule) for rule in injected} == {id(rule) for rule in annotated}
+    monkeypatch.setattr(config_export, "collect", lambda _: (seeded, []))
+    assert sentinel in json.dumps(seeded)
+    assert sentinel not in config_export.export_settings(db)
 
 
 def test_unknown_fields_are_refused_at_this_version_and_set_aside_at_a_newer_one(make_box):

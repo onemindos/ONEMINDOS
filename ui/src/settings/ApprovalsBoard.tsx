@@ -62,6 +62,12 @@ export function EffectsCard({ plan, now }: { plan: Loadable<ActionPlan>; now: nu
                       {e.risk !== 'low' && <span className="om-visually-hidden">{RISK[e.risk].label}: </span>}
                       {e.label}
                       {e.detail && <span className="om-set-meta"> · {e.detail}</span>}
+                      {e.change && (
+                        <dl className="om-set-effect-change">
+                          <div><dt>Before</dt><dd><pre>{e.change.before}</pre></dd></div>
+                          <div><dt>After</dt><dd><pre>{e.change.after}</pre></dd></div>
+                        </dl>
+                      )}
                     </li>
                   ))}
                 </ul>

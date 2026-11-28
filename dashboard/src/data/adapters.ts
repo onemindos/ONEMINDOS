@@ -366,17 +366,58 @@ export function toPaletteApp(a: CatalogApp): PaletteApp {
 /** The gateway plan's own warning that the network path effects already say. */
 const NETWORK_WARNING = /^Opens a network path/;
 
+const record = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+
+function configurationEffects(plan: Record<string, unknown>): PlanEffect[] {
+  const patch = record(record(plan.params)?.patch);
+  if (!patch) return [];
+  const effects: PlanEffect[] = [];
+  const valueText = (value: unknown, unset: string) =>
+    value == null ? unset : typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  const add = (label: string, before: unknown, after: unknown, unset = 'Not set') => {
+    effects.push({ kind: 'configuration', risk: 'medium', label,
+      change: { before: valueText(before, unset), after: valueText(after, unset) } });
+  };
+  const box = record(patch.box);
+  const before = record(box?.before);
+  const after = record(box?.after);
+  if (before && after) {
+    const labels: Record<string, string> = {
+      box_name: 'Box name', time_zone: 'Time zone', backup_choice: 'Backup choice',
+      backup_destination_id: 'Selected backup destination',
+    };
+    for (const [field, value] of Object.entries(after)) {
+      if (value !== before[field]) add(labels[field] ?? field, before[field], value);
+    }
+    if (before.box_name === null || before.time_zone === null) {
+      effects.push({ kind: 'note', risk: 'low',
+        label: 'Choose a box name and time zone to restore a snapshot that had either field unset.' });
+    }
+  }
+  const updates = record(patch.updates);
+  if (updates) add('App update policy', updates.before, updates.after, 'Default policy');
+  const copies = Object.entries(record(patch.copy_cadence) ?? {});
+  for (const [destination, value] of copies) {
+    const change = record(value);
+    if (change) add(`Saved copy cadence for ${destination}`, change.before, change.after);
+  }
+  if (copies.length) {
+    effects.push({ kind: 'note', risk: 'low',
+      label: 'The copy cadence takes effect when the sovereign-copy publisher is available. Scheduled backups currently run hourly.' });
+  }
+  return effects;
+}
+
 /**
- * The gateway's plan (summary, objects, volumes, warnings, network paths; lifecycle.py) as the
- * plain-language effects card: what is kept or deleted, which ports and paths open, and what the
- * gateway warns about. Nothing is invented: a plan with no volumes or paths says no changes beyond
- * the action itself. Undefined when the action has no plan (the board then says so).
+ * Render the gateway's plan as effects: stored data, opened network paths, configuration changes,
+ * and warnings. Undefined when the gateway has no plan.
  */
 export function toActionPlan(a: Action): ActionPlan | undefined {
-  const p = a.plan as Record<string, unknown> | null | undefined;
+  const p = a.plan;
   if (!p || !a.plan_sha256) return undefined;
   const list = (v: unknown): Array<Record<string, unknown>> => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object') : []);
-  const effects: PlanEffect[] = [];
+  const effects: PlanEffect[] = a.type === 'config.apply' ? configurationEffects(p) : [];
   for (const v of list(p.volumes)) {
     if (v.effect === 'deleted') effects.push({ kind: 'data-delete', risk: 'high', label: 'Deletes all of this app\'s files and databases', detail: 'No undo' });
     else if (v.effect === 'kept') effects.push({ kind: 'volume', risk: 'low', label: 'Keeps this app\'s files and databases', detail: 'Your data stays on disk' });
@@ -404,6 +445,6 @@ export function toActionPlan(a: Action): ActionPlan | undefined {
     plan_hash: a.plan_sha256,
     computed_at: a.created_at ?? new Date(0).toISOString(),
     effects,
-    undo: a.type === ('app.delete_data' as string) ? 'one-way' : 'reversible',
+    undo: a.type === 'config.apply' ? 'reapply' : a.type === ('app.delete_data' as string) ? 'one-way' : 'reversible',
   };
 }

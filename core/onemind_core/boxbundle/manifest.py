@@ -33,9 +33,9 @@ LAYER_IDS = ("box_config", "people", "policies", "apps", "app_data_refs", "fabri
 
 # What every bundle leaves out, whatever layers it holds (design §3.h). Shown on the import preview.
 ALWAYS_EXCLUDED: tuple[dict, ...] = (
-    {"what": "passkeys and other sign-in keys",
-     "reason": "a passkey's private key never leaves the person's device and is bound to the box's web name; "
-               "the public records can come back on the same web name"},
+    {"what": "passkey private keys",
+     "reason": "the gateway never holds or exports passkey private keys. Public records can be restored "
+               "on the same web name"},
     {"what": "OneMind's release signing keys",
      "reason": "the update root is OneMind's, held on YubiKeys (D-031); it is never on a box, so never in a bundle"},
     {"what": "the disk encryption key and the TPM binding",

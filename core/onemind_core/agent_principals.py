@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import DateTime, Integer, String, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .actions import ActionService
+from .actions import ActionService, _audit_params
 from .audit import AuditLog
 from .auth import Principal
 from .errors import ApiError
@@ -74,7 +74,8 @@ class AgentPrincipals:
                 s.execute(update(AgentRow).where(AgentRow.principal_id == pid).values(updated_at=now, **fields))
 
     def _mine(self, pid: str, states: set[str] | None = None):
-        return [a for a in self.actions.repo.list(states) if a.requested_by.get("id") == pid]
+        return [a for a in self.actions.repo.list(states)
+                if a.requested_by.get("kind") == "agent" and a.requested_by.get("id") == pid]
 
     def used_24h(self, pid: str) -> int:
         since = self.clock() - WINDOW
@@ -144,7 +145,8 @@ class AgentPrincipals:
             if moved is not None:
                 withdrawn += 1
                 self.actions._release_feature(a)
-                self.audit.append("action.denied", p.as_dict(), a.id, {"params": a.params, "reason": "agent_cancelled"})
+                self.audit.append("action.denied", p.as_dict(), a.id,
+                                  {"params": _audit_params(a.type, a.params), "reason": "agent_cancelled"})
         revoked = self.revoke_tokens(pid, now)
         self.audit.append("agent.cancelled", p.as_dict(), None,
                           {"agent": pid, "requests_cancelled": withdrawn, "tokens_revoked": revoked})

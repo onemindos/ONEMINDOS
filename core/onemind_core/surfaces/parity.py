@@ -229,6 +229,8 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/machines/{name}/console": BYTES,
     "POST /v1/machines/{name}/upload": BYTES,
     "GET /v1/config/export": OVERSIGHT,  # owner-only export for private Git
+    "POST /v1/config/diff": OVERSIGHT,
+    "POST /v1/config/apply": OVERSIGHT,
     "GET /v1/metrics": BYTES,
     "POST /v1/migrate/repo/{plan_id}": BYTES,
     "POST /v1/migrate/repo/{plan_id}/": BYTES,

@@ -269,9 +269,11 @@ export interface ActionResult {
  * expectation (see README "Known gaps"); every one is optional so the UI degrades
  * to "unknown" instead of crashing if the gateway names them differently.
  */
-export interface Action extends ActionRequest {
+export interface Action extends Omit<ActionRequest, 'type' | 'params'> {
+  type: components['schemas']['Action']['type'];
+  params: components['schemas']['Action']['params'] & Partial<Pick<AppParams, 'app_id' | 'settings'>> & Pick<MachineParams, 'name'>;
   approval?: components['schemas']['Action']['approval'];
-  plan?: PlanPreview['plan'] | null;
+  plan?: components['schemas']['Action']['plan'];
   progress?: { step: string; pct: number } | null;
   id: string;
   state: ActionState;

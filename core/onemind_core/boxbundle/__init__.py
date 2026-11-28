@@ -15,3 +15,5 @@ Modules:
                   import would change, and write back the parts that are safe to write without a person
                   typing a secret again.
 """
+
+CONFIG_APPLY = "config.apply"

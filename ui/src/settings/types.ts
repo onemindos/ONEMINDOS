@@ -263,12 +263,14 @@ export type EffectKind =
   | 'restart'
   | 'data-delete'
   | 'exposure'
+  | 'configuration'
   /** A plain warning or fact from the gateway that fits no other group. */
   | 'note';
 export interface Effect {
   kind: EffectKind;
   label: string;
   detail?: string;
+  change?: { before: string; after: string };
   risk: 'low' | 'medium' | 'high';
 }
 export interface ActionPlan {
@@ -280,5 +282,5 @@ export interface ActionPlan {
   placement?: { node: string; fits: boolean; reason: string; stale?: boolean };
   effects: Effect[];
   scan?: { at: string; critical: number; high: number; malware: 'clean' | 'found' };
-  undo: 'reversible' | 'snapshot' | 'one-way';
+  undo: 'reversible' | 'reapply' | 'snapshot' | 'one-way';
 }

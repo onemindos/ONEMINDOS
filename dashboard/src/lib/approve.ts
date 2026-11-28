@@ -15,6 +15,8 @@ export interface ApproveOpts {
   sealed?: ApproveBody['sealed'];
   /** #173: the app id the owner typed to accept a licence that is not green (blocked or unknown). */
   acceptLicence?: string;
+  /** The fingerprint rendered on the selected approval card. */
+  planSha256?: string;
   /** Hold-to-approve: the measured hold, and the plan fingerprint the owner read (absent when the action has no plan). */
   hold?: { ms: number; plan?: string };
   /** Test seam; defaults to the browser's WebAuthn. */
@@ -22,10 +24,12 @@ export interface ApproveOpts {
 }
 
 export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'id' | 'plan_sha256'>, opts: ApproveOpts = {}): Promise<Action> {
+  const reviewed = opts.planSha256 ?? action.plan_sha256;
   const extra: ApproveBody = { ...(opts.sealed ? { sealed: opts.sealed } : {}), ...(opts.acceptLicence ? { accept_licence: opts.acceptLicence } : {}),
+    ...(opts.planSha256 ? { plan_sha256: opts.planSha256 } : {}),
     ...(opts.hold ? { hold_ms: opts.hold.ms } : {}) };
   // The hold is bound to the plan only when the action has one; many destructive actions have none.
-  if (opts.hold && action.plan_sha256 && action.plan_sha256 !== opts.hold.plan)
+  if (opts.hold && reviewed && reviewed !== opts.hold.plan)
     throw new ApiError(409, 'stale_precondition', 'Review the current plan before approving.', 'plan_changed');
   if (opts.hold && !api.approveOptions)
     throw new ApiError(400, 'unknown', 'Passkey approval is not available on this client.', 'approve_options_unavailable');
@@ -33,10 +37,11 @@ export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'i
   const sign = opts.sign ?? getPasskey;
   const challenge = await api.approveOptions(action.id);
   // The plan on screen must be the plan the passkey signs. If it moved, the owner reads it again.
-  if (action.plan_sha256 && challenge.plan_sha256 !== action.plan_sha256)
+  if (reviewed && challenge.plan_sha256 !== reviewed)
     throw new ApiError(409, 'stale_precondition', 'The plan changed since you opened this request. Review it again before approving.', 'plan_changed');
   const body: ApproveBody = { ...extra };
-  if (challenge.plan_sha256) body.plan_sha256 = challenge.plan_sha256;
+  const fingerprint = reviewed ?? challenge.plan_sha256;
+  if (fingerprint) body.plan_sha256 = fingerprint;
   const signed = async () => ({ ...body, webauthn: await sign(challenge.publicKey) });
   // A hold does not force a passkey: only physical actions need one, and the gateway answers those with
   // step_up_required (retried signed below). A destructive action on a box with no passkey goes unsigned.

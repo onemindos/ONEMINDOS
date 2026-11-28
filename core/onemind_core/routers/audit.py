@@ -26,10 +26,11 @@ register_route_scope("GET,HEAD", r"/v1/audit/(events(/[^/]+)?|verify)", ("audit:
 
 
 def owned_action_ids(gw: Gateway):
-    """Ids of the actions a principal requested (an agent's `:own` view)."""
+    """Ids of the actions an agent requested (the `:own` view)."""
 
     def ids(principal_id: str) -> set[str]:
-        return {a.id for a in gw.repo.list() if (a.requested_by or {}).get("id") == principal_id}
+        return {a.id for a in gw.repo.list()
+                if (requester := a.requested_by or {}).get("kind") == "agent" and requester.get("id") == principal_id}
 
     return ids
 
