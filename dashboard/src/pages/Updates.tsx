@@ -72,7 +72,7 @@ function LiveUpdates({ token }: { token: string }) {
   return <div className="dash-stack">
     <PageHeader title="OS updates" lede="The system version each machine runs, its A and B slots, and the update on offer. Requesting an install or going back files an approval; nothing changes from this page." />
     <Button onClick={() => { void status.reload(); void history.reload(); }}>Refresh updates</Button>
-    {filed && <p role="status">{filed.what} {filed.id}: {filed.state}. It waits for the owner{filed.what === 'Go-back request' ? ', who approves it with a passkey' : filed.what === 'Settings change' ? ', who approves turning automatic updates off or moving the window with a passkey' : ''}. <Link to={href.approval(filed.id)}>Open request in Approvals</Link></p>}
+    {filed && <p role="status">{filed.what} {filed.id}: {filed.state}. It waits for the owner{filed.what === 'Go-back request' ? ', who approves it with a passkey' : filed.what === 'Settings change' ? ', who approves it with a passkey' : ''}. <Link to={href.approval(filed.id)}>Open request in Approvals</Link></p>}
     {failed && <p className="om-note om-tone-bad" role="status">Could not file the request: {failed}</p>}
     <Load res={status} what="Loading OS update status">{(s) => <>
       {s.install.available !== true && <p className="om-note om-tone-warn" role="note">Installing from the hub is not available yet. {text(s.install.message, '')}</p>}

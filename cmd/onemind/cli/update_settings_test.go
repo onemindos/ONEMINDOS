@@ -26,7 +26,7 @@ func (g *settingsGW) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var b map[string]any
 	_ = json.NewDecoder(r.Body).Decode(&b)
-	params := map[string]any{"node_id": b["node_id"], "policy": "auto", "window": "02:00-05:00"}
+	params := map[string]any{"node_id": b["node_id"], "policy": "notify", "window": "02:00-05:00"}
 	for _, k := range []string{"policy", "window"} {
 		if v, ok := b[k]; ok {
 			params[k] = v
@@ -38,7 +38,7 @@ func (g *settingsGW) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func settingsNode(id string) map[string]any {
-	return map[string]any{"node_id": id, "reported": true, "channel": "security", "policy": "auto", "window": "02:00-05:00", "settings_source": "image"}
+	return map[string]any{"node_id": id, "reported": true, "channel": "security", "policy": "notify", "window": "02:00-05:00", "settings_source": "image"}
 }
 
 // REL-02 (#154): `onemind update settings set` files os.update.settings for the owner, keeps the value
@@ -64,7 +64,7 @@ func TestUpdateSettingsSetFilesARequestAndNeverApproves(t *testing.T) {
 	if sent, _ := a["sent"].(map[string]any); sent["window"] != nil || sent["policy"] != "off" { // a flag left out is not sent
 		t.Fatalf("sent %v", sent)
 	}
-	if r := run(t, "", false, "update", "settings", "set", "--window", "01:00-03:00"); r.code != 0 || !strings.Contains(r.out, "policy auto, window 01:00-03:00") || !strings.Contains(r.out, "passkey") {
+	if r := run(t, "", false, "update", "settings", "set", "--window", "01:00-03:00"); r.code != 0 || !strings.Contains(r.out, "policy notify, window 01:00-03:00") || !strings.Contains(r.out, "passkey") {
 		t.Fatalf("text %+v", r)
 	}
 	if g.approve != 0 || len(g.actions) != 2 {

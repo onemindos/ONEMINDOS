@@ -13,12 +13,45 @@ import (
 	"github.com/onemindos/onemindos/internal/heartbeat"
 )
 
-// REL-02 (#154): the security channel installs by default; the owner's approved opt-out and window
-// (owner.conf under /data) override the read-only image file, and a broken owner file never turns
-// automatic security updates off.
+// REL-02 (#154), Z-02 answered by the founder 2026-11-28: the box asks first by default (notify);
+// automatic installs are the owner's opt-in. The owner's approved policy and window (owner.conf under
+// /data) override the read-only image file, and a broken owner file never turns automatic installs on.
 
-func TestOwnerOptOutStopsTheDefaultInstall(t *testing.T) {
-	f := newFixture(t, "security", "window = any\n") // image default: policy auto
+func TestShippedImageAsksFirst(t *testing.T) {
+	c, err := LoadConfig(filepath.Join("..", "..", "os", "rootfs", "layers", "base", "etc", "onemind", "update.conf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Channel != ChannelSecurity || c.Policy != PolicyNotify {
+		t.Fatalf("shipped image: channel %s policy %s, want security + notify", c.Channel, c.Policy)
+	}
+	if d := Defaults(ChannelSecurity); d.Policy != PolicyNotify {
+		t.Fatalf("updater fallback for security is %s, want notify", d.Policy)
+	}
+}
+
+func TestDefaultNotifiesUntilTheOwnerOptsIn(t *testing.T) {
+	f := newFixture(t, "security", "window = any\npolicy = notify\n") // as shipped
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	if res, err := f.run(ModeScheduled); err != nil || res.Decision != DecideNotify {
+		t.Fatalf("%v %s", err, res.Decision)
+	}
+	wantCalls(t, f.calls)
+	if err := WriteOwner(f.cfg, OwnerSettings{Policy: PolicyAuto, Window: Window{Any: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	wantCalls(t, f.calls, "snapshot 0.1.0->0.1.1", "install onemind-vm-0.1.1.raucb", "reboot")
+	if st := f.status(); st.Policy != "auto" || st.SettingsSource != SourceOwner {
+		t.Fatalf("status %+v", st.Update)
+	}
+}
+
+func TestOwnerOptOutStopsAutoInstall(t *testing.T) {
+	f := newFixture(t, "security", "window = any\npolicy = auto\n")
 	f.add("vm", "0.1.1", true)
 	f.publish(0)
 	if err := WriteOwner(f.cfg, OwnerSettings{Policy: PolicyOff, Window: Window{Any: true}}); err != nil {
@@ -61,13 +94,13 @@ func TestOwnerWindowReplacesTheImageWindow(t *testing.T) {
 	wantCalls(t, f.calls, "snapshot 0.1.0->0.1.1", "install onemind-vm-0.1.1.raucb", "reboot")
 }
 
-func TestBrokenOwnerFileKeepsTheSecureDefault(t *testing.T) {
+func TestBrokenOwnerFileKeepsTheImageDefault(t *testing.T) {
 	for name, body := range map[string]string{
 		"bad policy":     "policy = never\nwindow = any\n",
-		"half written":   "policy = off\n",
-		"foreign key":    "policy = off\nwindow = any\nurl = https://evil.example\n",
-		"bad window":     "policy = off\nwindow = 25:00-01:00\n",
-		"no key = value": "policy off\n",
+		"half written":   "policy = auto\n",
+		"foreign key":    "policy = auto\nwindow = any\nurl = https://evil.example\n",
+		"bad window":     "policy = auto\nwindow = 25:00-01:00\n",
+		"no key = value": "policy auto\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := Defaults(ChannelSecurity)
@@ -76,7 +109,7 @@ func TestBrokenOwnerFileKeepsTheSecureDefault(t *testing.T) {
 				t.Fatal(err)
 			}
 			p, w, src, err := c.Effective()
-			if err == nil || p != PolicyAuto || w.String() != "02:00-05:00" || src != SourceImage {
+			if err == nil || p != PolicyNotify || w.String() != "02:00-05:00" || src != SourceImage {
 				t.Fatalf("got %s %s %s %v", p, w, src, err)
 			}
 		})
@@ -86,7 +119,7 @@ func TestBrokenOwnerFileKeepsTheSecureDefault(t *testing.T) {
 func TestOwnerFileRoundTripAndReport(t *testing.T) {
 	c := Defaults(ChannelSecurity)
 	c.StateDir = t.TempDir()
-	if p, w, src, err := c.Effective(); err != nil || p != PolicyAuto || w.String() != "02:00-05:00" || src != SourceImage {
+	if p, w, src, err := c.Effective(); err != nil || p != PolicyNotify || w.String() != "02:00-05:00" || src != SourceImage {
 		t.Fatalf("no owner file: %s %s %s %v", p, w, src, err)
 	}
 	if err := WriteOwner(&c, OwnerSettings{Policy: "sometimes"}); err == nil {

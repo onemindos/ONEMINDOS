@@ -10,12 +10,12 @@ last result) and its A/B slots (`rauc`). This module turns those heartbeats into
 - the history: every commit and rollback the gateway saw a node report, kept in its own table so it
   survives a gateway restart;
 - `os.update.install`: an owner-approved action. Nothing installs at request time.
-- `os.update.settings` (REL-02, #154): the owner's update policy (`auto`, the security channel's
-  default, `notify` or `off`) and maintenance window. The host stores them under /data, where the
-  engine reads them on its next cycle; the image's read-only update.conf stays the default. Turning
-  automatic updates off or moving the window loosens a security setting, so approving it takes the
-  owner's passkey (routers/osupdates.py); turning them back on with the same window does not (D-028:
-  every tightening stays L0).
+- `os.update.settings` (REL-02, #154): the owner's update policy (`notify`, the default on every
+  channel since the founder answered Z-02 on 2026-11-28: ask first; `auto`, the opt-in that installs
+  inside the window; or `off`) and maintenance window. The host stores them under /data, where the
+  engine reads them on its next cycle; the image's read-only update.conf stays the default. Every
+  change is a security-related setting (D-028), so approving any of them takes the owner's passkey
+  (routers/osupdates.py).
 - `os.rollback` (P-16): go back to the previous OS version. The other A/B slot already holds it and
   already passed the health gate once, so nothing is downloaded: the host marks that slot active and
   reboots, and the gate commits it. Destructive (it discards the running version and its slot), so
@@ -250,26 +250,13 @@ SETTINGS_ENGINE = {
     "available": False,
     "reason": "engine_unreachable",
     "message": "The gateway cannot reach the box's host service yet, so an approved settings change does not run. "
-               "The image's settings stay in force: security updates install by themselves inside the window.",
+               "The image's settings stay in force: the box tells you about updates and installs nothing by itself.",
 }
 SETTINGS_READY = {
     "available": True,
     "reason": None,
     "message": "An approved change is stored on this box by the host service and counts from the next update check.",
 }
-
-
-def settings_need_passkey(params: dict, current: dict | None) -> bool:
-    """True when the change loosens a security setting (D-028: L2 for every security-related setting, every
-    tightening L0): anything but automatic updates with the window the node reports now.
-
-    Deliberately coarse, erring on the strict side: off -> notify and a fixed window -> "any" also ask for
-    the passkey although neither loosens (stricter than needed, never weaker). On the stable channel,
-    notify -> auto with the same window asks for none: automatic installs inside the window are the
-    security default, and the health-gated rollback makes them safe."""
-    if params.get("policy") != "auto":
-        return True
-    return current is None or current.get("window") is None or params.get("window") != current.get("window")
 
 
 class OsUpdateService:
@@ -465,7 +452,7 @@ class OsUpdateService:
             "destructive", self._run_rollback, frozenset({"person"}), check=self.rollback_check,
             params_model=RollbackParams, check_request=self._check_rollback_request))
         # "sensitive": it changes whether security updates install by themselves (REL-02). Only an owner
-        # files it (contract §12.5: O); loosening it takes the owner's passkey (routers/osupdates.py).
+        # files it (contract §12.5: O); approving any change takes the owner's passkey (routers/osupdates.py).
         self.gw.actions.register_type(SETTINGS, FeatureAction(
             "sensitive", self._run_settings, frozenset(), check=self.settings_check,
             params_model=SettingsParams, check_request=self.check_settings_request))

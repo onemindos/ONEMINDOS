@@ -23,7 +23,7 @@ const OwnerFile = "owner.conf"
 
 // Settings sources.
 const (
-	SourceImage = "image" // the image's update.conf (BD-09 default: security = auto)
+	SourceImage = "image" // the image's update.conf (default: notify, ask first; Z-02, founder 2026-11-28)
 	SourceOwner = "owner" // the owner's choice, approved through the gateway
 )
 
@@ -150,7 +150,7 @@ func WriteOwner(c *Config, s OwnerSettings) error {
 
 // Effective returns the settings in force and where they come from: the
 // owner's file when it is present and valid, else the image's. An unreadable
-// or invalid owner file falls back to the image (BD-09's secure default) and
+// or invalid owner file falls back to the image (ask first: notify) and
 // is returned as err, so the caller logs it and the heartbeat reports it.
 func (c *Config) Effective() (Policy, Window, string, error) {
 	o, err := ReadOwner(c)

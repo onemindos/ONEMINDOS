@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // REL-02 (#154): the OS update policy and maintenance window of one machine, from GET /v1/os/updates.
-// Security updates install by themselves inside the window by default (BD-09). "Request change" only
-// files an os.update.settings request (PUT /v1/os/settings); nothing changes until the owner approves it,
-// with a passkey when it turns automatic updates off or moves the window (D-027, D-028).
+// By default the box asks first (Z-02, founder 2026-11-28): it tells the owner about security updates
+// and installs nothing by itself; installing inside the window is the owner's opt-in. "Request change"
+// only files an os.update.settings request (PUT /v1/os/settings); nothing changes until the owner
+// approves it with a passkey (D-027, D-028).
 import { useState, type FormEvent } from 'react';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { Button } from '@onemind/ui';
@@ -11,9 +12,9 @@ import { uuidv4 } from '../../lib/uuid';
 type Rec = Record<string, unknown>;
 type Policy = 'auto' | 'notify' | 'off';
 const POLICY: Record<Policy, string> = {
-  auto: 'Install by themselves inside the window (recommended)',
-  notify: 'Wait for my approval',
-  off: 'Off: never install by themselves',
+  notify: 'Ask me first (default)',
+  auto: 'Install by themselves inside the window',
+  off: 'Off: do not check for updates',
 };
 const isPolicy = (v: unknown): v is Policy => v === 'auto' || v === 'notify' || v === 'off';
 
@@ -25,12 +26,11 @@ export function OsSettings({ client, node, available, message, owner, onFiled }:
   const policy = isPolicy(node.policy) ? node.policy : undefined;
   const win = typeof node.window === 'string' ? node.window : undefined;
   const [start, end] = win && win !== 'any' ? win.split('-') : ['02:00', '05:00'];
-  const [draft, setDraft] = useState({ policy: policy ?? 'auto', any: win === 'any', start, end });
+  const [draft, setDraft] = useState({ policy: policy ?? 'notify', any: win === 'any', start, end });
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string>();
   const wanted = draft.any ? 'any' : `${draft.start}-${draft.end}`;
   const changed = draft.policy !== policy || wanted !== win;
-  const loosens = draft.policy !== 'auto' || wanted !== win;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -47,13 +47,14 @@ export function OsSettings({ client, node, available, message, owner, onFiled }:
 
   const id = `os-set-${nodeId}`;
   return <section aria-label={`Update settings of ${nodeId}`}>
-    <h3>Automatic security updates</h3>
+    <h3>Security updates</h3>
     <dl className="om-facts">
       <div><dt>Policy</dt><dd>{policy ? POLICY[policy] : 'Not reported'}</dd></div>
       <div><dt>Maintenance window</dt><dd>{win === 'any' ? 'Any time' : win ?? 'Not reported'}</dd></div>
       <div><dt>Set by</dt><dd>{node.settings_source === 'owner' ? 'The owner' : node.settings_source === 'image' ? 'OneMind default' : 'Not reported'}</dd></div>
     </dl>
-    {policy && policy !== 'auto' && <p className="om-note om-tone-warn" role="note">Security fixes do not install by themselves on this machine. Check this page for updates on offer.</p>}
+    {policy === 'notify' && <p className="om-hint">This machine tells you when a security update is ready and installs nothing until you approve it.</p>}
+    {policy === 'off' && <p className="om-note om-tone-warn" role="note">This machine does not check for security updates. Security fixes reach it only when you install them yourself.</p>}
     {!available && owner && <p className="om-hint">Changing these settings from the hub is not available yet. {message}</p>}
     {!owner ? <p className="om-hint">Only the owner can change these settings.</p> : <form className="dash-form" onSubmit={(e) => void submit(e)} aria-label={`Change update settings of ${nodeId}`}>
       <label htmlFor={`${id}-policy`}>Security updates</label>
@@ -69,7 +70,7 @@ export function OsSettings({ client, node, available, message, owner, onFiled }:
         <label htmlFor={`${id}-end`}>Window ends</label>
         <input id={`${id}-end`} type="time" required value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} />
       </>}
-      {changed && loosens && <p className="om-hint">You approve this change with your passkey in Approvals.</p>}
+      {changed && <p className="om-hint">You approve this change with your passkey in Approvals.</p>}
       <Button type="submit" disabled={busy || !changed || !available}>Request change</Button>
       {failed && <p className="om-note om-tone-bad" role="status">Could not file the request: {failed}</p>}
     </form>}

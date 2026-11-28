@@ -9318,7 +9318,7 @@
                 "type": "null"
               }
             ],
-            "description": "auto: install security updates by themselves inside the window (the default); notify: wait for the owner's approval; off: never install by themselves",
+            "description": "notify: tell the owner and wait for approval (the default, Z-02); auto: install by themselves inside the window (opt-in); off: do not check",
             "title": "Policy"
           },
           "reason": {
@@ -34659,7 +34659,7 @@
     },
     "/v1/os/settings": {
       "put": {
-        "description": "Request a new OS update policy or maintenance window for one node (owner only). Nothing changes until\nthe owner approves the `os.update.settings` action; turning automatic updates off or moving the window\nis approved with a passkey.",
+        "description": "Request a new OS update policy or maintenance window for one node (owner only). Nothing changes until\nthe owner approves the `os.update.settings` action with a passkey.",
         "operationId": "os.settings.update",
         "parameters": [
           {

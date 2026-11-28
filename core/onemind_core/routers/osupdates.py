@@ -25,7 +25,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
-from ..osupdate import ROLLBACK, SETTINGS, OsUpdateService, SettingsParams, settings_need_passkey
+from ..osupdate import ROLLBACK, SETTINGS, OsUpdateService, SettingsParams
 
 ORDER = 335
 
@@ -45,22 +45,22 @@ class OsSettingsBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     node_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
     policy: str | None = Field(default=None, pattern=r"^(auto|notify|off)$",
-                               description="auto: install security updates by themselves inside the window (the default); "
-                                           "notify: wait for the owner's approval; off: never install by themselves")
+                               description="notify: tell the owner and wait for approval (the default, Z-02); "
+                                           "auto: install by themselves inside the window (opt-in); off: do not check")
     window: str | None = Field(default=None, max_length=11,
                                description='local-time maintenance window "HH:MM-HH:MM" (may wrap past midnight) or "any"')
     reason: str | None = Field(default=None, max_length=500)
 
 
-def rollback_step_up(gw: Gateway, svc: OsUpdateService | None = None):
+def rollback_step_up(gw: Gateway):
     """Approval guard: `os.rollback` is approved only with a passkey assertion the identity guard verified
     (signed over this action, by an active owner), whatever `require_passkey_approval` says: it discards the
     running system for the other slot and reboots. Same rule as destructive storage (routers/storage.py).
     With no passkey registered the answer is the same 401, so the owner registers one first (D-028/D-029).
 
-    `os.update.settings` (REL-02, #154) follows the same rule when it loosens a security setting: turning
-    automatic updates off (or to notify) or moving the window. Turning them back on with the window the box
-    reports now is a tightening and needs no passkey (D-028)."""
+    `os.update.settings` (REL-02, #154) follows the same rule for every change: the update policy and window are
+    a security-related setting (D-028), and since the founder's Z-02 answer (2026-11-28) automatic installs are
+    the opt-in, so no direction counts as a plain tightening."""
 
     def guard(p: Principal, action_id: str, body: dict, request: Request) -> None:
         if not p.is_owner:
@@ -70,11 +70,7 @@ def rollback_step_up(gw: Gateway, svc: OsUpdateService | None = None):
         except ApiError:
             return  # unknown id: the approve route answers 404
         kind = action.get("type")
-        if kind == SETTINGS:
-            params = action.get("params") or {}
-            if not settings_need_passkey(params, svc.current_settings(params.get("node_id", "")) if svc else None):
-                return
-        elif kind != ROLLBACK:
+        if kind not in (SETTINGS, ROLLBACK):
             return
         identity_present = any(getattr(g, "__name__", "") == "approval_guard" for g in gw.approval_guards)
         if body.get("webauthn") is None or not identity_present:
@@ -83,7 +79,7 @@ def rollback_step_up(gw: Gateway, svc: OsUpdateService | None = None):
                 {"attempted": "approve", "action_id": action_id, "type": kind,
                  "reason": "os_settings_need_passkey" if kind == SETTINGS else "os_rollback_needs_passkey"},
                 principal=p.as_dict(), severity="warning", action_id=action_id)
-            what = ("turning automatic OS updates off or moving their window" if kind == SETTINGS
+            what = ("changing the OS update settings" if kind == SETTINGS
                     else "going back to the previous OS version")
             raise ApiError(401, "unauthenticated", f"{what} needs your passkey: register one, then approve with it",
                            reason="step_up_required")
@@ -94,7 +90,7 @@ def rollback_step_up(gw: Gateway, svc: OsUpdateService | None = None):
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = OsUpdateService(gw, app.state.hostlink)
     svc.register()
-    gw.approval_guards.append(rollback_step_up(gw, svc))
+    gw.approval_guards.append(rollback_step_up(gw))
     app.state.osupdate = svc
 
     @app.put("/v1/os/settings", tags=["os"], operation_id="os.settings.update", status_code=202, response_model=Action,
@@ -102,8 +98,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
              openapi_extra={"security": [{"bearer": ["updates:admin"]}]})
     def os_settings(body: OsSettingsBody, idem: IdemHeader = None, p: Principal = Depends(gw.principal)):
         """Request a new OS update policy or maintenance window for one node (owner only). Nothing changes until
-        the owner approves the `os.update.settings` action; turning automatic updates off or moving the window
-        is approved with a passkey."""
+        the owner approves the `os.update.settings` action with a passkey."""
         if not p.is_owner:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "request os.update.settings", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only an owner may change the OS update settings")

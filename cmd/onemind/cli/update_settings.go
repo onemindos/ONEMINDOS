@@ -24,9 +24,9 @@ type osUpdateNode struct {
 }
 
 // updateSettingsCommand is `onemind update settings show|set` (REL-02, #154): the OS update policy
-// (security updates install by themselves by default) and the maintenance window. `set` files an
-// os.update.settings request (PUT /v1/os/settings) and never approves it: the owner approves it in the dashboard, with a
-// passkey when it turns automatic updates off or moves the window (D-027, D-028).
+// (ask first by default, Z-02 answered by the founder 2026-11-28; auto is the opt-in) and the maintenance window. `set` files an
+// os.update.settings request (PUT /v1/os/settings) and never approves it: the owner approves it in the dashboard
+// with a passkey (D-027, D-028).
 func updateSettingsCommand(a *App) *cobra.Command {
 	root := &cobra.Command{Use: "settings", Short: "The OS update policy and maintenance window: show, set (files an approval)"}
 	nodes := func() ([]osUpdateNode, error) {
@@ -130,13 +130,13 @@ func updateSettingsCommand(a *App) *cobra.Command {
 				return nil
 			}
 			fmt.Fprintf(a.Stdout, "Requested update policy %s, window %s on %s (%s).\n"+
-				"Nothing changes until an owner approves it in the dashboard (Approvals); turning automatic updates off or moving the window needs a passkey.\n",
+				"Nothing changes until an owner approves it with a passkey in the dashboard (Approvals).\n",
 				params["policy"], params["window"], n.NodeID, id)
 			return nil
 		},
 	}
 	set.Flags().StringVar(&node, "node", "", "the machine to change (needed when more than one reports)")
-	set.Flags().StringVar(&policy, "policy", "", "auto (install inside the window; the security default), notify (wait for approval) or off")
+	set.Flags().StringVar(&policy, "policy", "", "notify (tell me and wait for my approval; the default), auto (install inside the window) or off (do not check)")
 	set.Flags().StringVar(&window, "window", "", "local-time maintenance window HH:MM-HH:MM (may wrap midnight) or any")
 	root.AddCommand(show, set)
 	return root

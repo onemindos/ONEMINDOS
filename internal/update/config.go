@@ -38,7 +38,7 @@ const (
 // Policy is the owner's update policy (brief 30 BD-09).
 type Policy string
 
-// Policies. BD-09 defaults: security channel = auto, stable channel = notify.
+// Policies. Default on both channels: notify (Z-02, founder 2026-11-28); auto is the owner's opt-in.
 const (
 	PolicyAuto   Policy = "auto"   // install inside the maintenance window
 	PolicyNotify Policy = "notify" // report only; the owner runs `onemind update apply`
@@ -111,9 +111,11 @@ func Defaults(channel string) Config {
 		CheckInterval:     time.Hour,
 		OfflineGrace:      DefaultOfflineGrace,
 	}
+	// Z-02 (founder, 2026-11-28): ask first on every channel. Nothing installs by itself until the
+	// owner opts in to auto (owner.conf); security keeps installing without a snapshot when one is missing.
 	c.Policy, c.RequireSnapshot = PolicyNotify, true
 	if channel == ChannelSecurity {
-		c.Policy, c.RequireSnapshot = PolicyAuto, false
+		c.RequireSnapshot = false
 	}
 	return c
 }
