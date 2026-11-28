@@ -230,6 +230,9 @@ def _to_action(r: ActionRow) -> Action:
     )
 
 
+SQLITE_LOCK_WAIT_S = 30.0
+
+
 def _sqlite_durability(dbapi_conn, _record) -> None:
     """WAL journal with synchronous=FULL for the gateway database file.
 
@@ -245,7 +248,7 @@ def _sqlite_durability(dbapi_conn, _record) -> None:
     cur = dbapi_conn.cursor()
     cur.execute("PRAGMA journal_mode=WAL")
     cur.execute("PRAGMA synchronous=FULL")
-    cur.execute("PRAGMA busy_timeout=5000")
+    cur.execute(f"PRAGMA busy_timeout={int(SQLITE_LOCK_WAIT_S * 1000)}")
     cur.close()
 
 
@@ -255,7 +258,10 @@ def make_engine(db_url: str) -> Engine:
         db = url.database
         if db and db != ":memory:":
             Path(db).parent.mkdir(parents=True, exist_ok=True)
-        engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        # timeout: how long a connection waits for another writer's lock before "database is
+        # locked". SQLite's default is 5 s; a busy box (or a loaded CI runner) can hold a WAL write
+        # longer, and failing an owner's request over a short wait is worse than waiting.
+        engine = create_engine(db_url, connect_args={"check_same_thread": False, "timeout": SQLITE_LOCK_WAIT_S})
         if db and db != ":memory:":
             event.listen(engine, "connect", _sqlite_durability)
         return engine

@@ -27,7 +27,7 @@ from ..identity.scopes import register_route_scope
 from ..identity.service import ctx_of
 from ..search import Asker, SearchIndex, SearchService, SearchSettings, SearchUnavailable
 from ..search.service import MAX_SKIP
-from ..search import providers as _providers  # noqa: F401  (registers the files and settings providers)
+from ..search import providers as _providers  # noqa: F401  (registers the search providers)
 
 ORDER = 310
 TYPES_RE = r"^[a-z][a-z0-9_.-]{0,62}(,[a-z][a-z0-9_.-]{0,62}){0,19}$"

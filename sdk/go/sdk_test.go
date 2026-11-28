@@ -389,3 +389,32 @@ func TestDoIdempotentSendsTheKeyHeaderAndRetries(t *testing.T) {
 		t.Fatalf("keys %v out %v", keys, out)
 	}
 }
+
+func TestDoWithHeadersSendsAndReturnsHeaders(t *testing.T) {
+	var mu sync.Mutex
+	var seen []string
+	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen = append(seen, r.Method+" "+r.Header.Get("If-Match"))
+		n := len(seen)
+		mu.Unlock()
+		if r.Method == http.MethodPut && n == 1 {
+			w.WriteHeader(502) // a write without an Idempotency-Key is never retried
+			return
+		}
+		w.Header().Set("ETag", `"e2"`)
+		w.Header().Set("Link", `</v1/x?cursor=b>; rel="next"`)
+		fmt.Fprint(w, `{"ok":true}`)
+	})
+	var out map[string]any
+	if _, err := c.DoWithHeaders(context.Background(), http.MethodPut, "/v1/x", map[string]string{"If-Match": `"e1"`}, map[string]any{}, &out); err == nil {
+		t.Fatal("a 502 on an unkeyed write must not be retried")
+	}
+	hdr, err := c.DoWithHeaders(context.Background(), http.MethodPut, "/v1/x", map[string]string{"If-Match": `"e1"`}, map[string]any{}, &out)
+	if err != nil || hdr.Get("ETag") != `"e2"` || hdr.Get("Link") == "" || out["ok"] != true {
+		t.Fatalf("hdr %v err %v out %v", hdr, err, out)
+	}
+	if len(seen) != 2 || seen[0] != `PUT "e1"` || seen[1] != `PUT "e1"` {
+		t.Fatalf("seen %v", seen)
+	}
+}
