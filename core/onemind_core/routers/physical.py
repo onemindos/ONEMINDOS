@@ -76,5 +76,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
         via = "token"
         ident = getattr(app.state, "identity", None)
         if not body.locked and ident is not None:
-            via = ident.require_step_up(ctx_of(request), p, "turn off the motion lockout")
+            via = ident.require_step_up(ctx_of(request), p, "turn off the motion lockout", op="physical.lockout.set",
+                                        body=body.model_dump(mode="json"))
         return lockout.set(p, body.locked, body.reason, via)

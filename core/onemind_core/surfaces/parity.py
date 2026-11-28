@@ -160,6 +160,12 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/auth/passkeys": CREDENTIAL,
     "POST /v1/auth/passkeys/register": CREDENTIAL,
     "POST /v1/auth/passkeys/register/options": CREDENTIAL,
+    # D-028 verification levels: a person's own step-up, the owner's table and trusted key models
+    "POST /v1/auth/step-up/options": CREDENTIAL,
+    "POST /v1/auth/step-up": CREDENTIAL,
+    "GET /v1/auth/authenticator-allowlist": CREDENTIAL,
+    "DELETE /v1/auth/authenticator-allowlist/{aaguid}": CREDENTIAL,
+    "GET /v1/verification-requirements": OVERSIGHT,
     "DELETE /v1/auth/passkeys/{credential_id}": CREDENTIAL,
     "POST /v1/auth/password": CREDENTIAL,
     "POST /v1/auth/refresh": CREDENTIAL,

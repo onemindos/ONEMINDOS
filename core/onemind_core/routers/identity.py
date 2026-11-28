@@ -30,6 +30,109 @@ class ApprovalChallenge(BaseModel):
     # #702: what a phone's approver key signs (UTF-8, ECDSA P-256 SHA-256) instead of a passkey assertion.
     device_payload: str
     publicKey: dict[str, Any]
+    # D-028 / design 3.11: the level this approval needs, and whether the no-proven-key grace eased it
+    # from L2 to L1. allowCredentials lists only the keys that meet it.
+    required_level: Literal["L0", "L1", "L2", "L3"]
+    grace: bool
+    box_code_required: bool = Field(default=False, description="N-1 b: during the grace an L2 approval also needs "
+                                    "the code the box's own screen now shows; send it as box_code")
+    decided_by: str = Field(description="the verification-table row that set the level")
+
+
+Level = Literal["L0", "L1", "L2", "L3"]
+
+
+class Passkey(BaseModel):
+    credential_id: str
+    label: str
+    created_at: str
+    last_used_at: str | None
+    level: Level = Field(description="L1 Device check, L2 Proven key, L3 Biometric-only key")
+    level_reason: str = Field(description="no_attestation | synced | model_not_trusted | chain_untrusted | "
+                                          "not_biometric_capable | proven | legacy")
+    explanation: str
+    model: str | None = Field(description="the trusted model name, for a proven key")
+    aaguid: str | None = Field(description="the authenticator model id (never identifies a person)")
+    attestation: str | None
+    device_bound: bool | None = Field(description="false for a passkey that syncs between devices")
+    synced: bool | None
+
+
+class PasskeyRegistered(BaseModel):
+    credential_id: str
+    label: str
+    created_at: str
+    level: Level
+    level_reason: str
+    explanation: str
+
+
+class StepUpOptionsBody(JsonBody):
+    op: str = Field(max_length=64, description="the owner route's operation id, e.g. users.update")
+    target: str = Field(default="", max_length=200, description="its path id (user id, app id, ...), or empty")
+    body: dict[str, Any] = Field(default_factory=dict,
+                                 description="the request body with every field (defaults filled in)")
+    at_box: bool = Field(default=False, description="when the step-up allows it (details box: alt, e.g. revoking a "
+                         "lost last proven key): confirm with any passkey plus the code on the box's own screen")
+
+
+class StepUpOptions(BaseModel):
+    challenge_id: str
+    expires_at: str
+    required_level: Level = Field(description="the level the key that answers must meet")
+    grace: bool
+    box_code_required: bool = Field(description="D-028 / N-1 b: the box's own screen now shows a code; send it "
+                                    "as box_code with the assertion")
+    publicKey: dict[str, Any]
+
+
+class StepUpBody(BaseModel):
+    credential: dict[str, Any]
+    box_code: str | None = Field(default=None, max_length=12, description="the code on the box's own screen")
+
+
+class StepUpGrant(BaseModel):
+    step_up: str = Field(description="send as the OneMind-Step-Up header on the change, once, within 2 minutes")
+    expires_at: str
+    level: Level
+
+
+class VerificationRow(BaseModel):
+    key: str
+    label: str
+    default: Level
+    current: Level
+    minimum: Level
+    maximum: Level
+    strict: bool = Field(description="never eased while the household has no proven key")
+
+
+class VerificationType(BaseModel):
+    key: str
+    current: Level
+    minimum: Level
+    maximum: Level
+
+
+class VerificationTable(BaseModel):
+    rows: list[VerificationRow]
+    types: list[VerificationType] = Field(description="per-action-type opt-ins above their tier (type:<action>)")
+    household_level: Level | None = Field(description="the strongest key any owner holds")
+    grace: bool = Field(description="no owner has had a proven key yet, so L2 rows accept L1 plus the code on the box's "
+                        "own screen (not strict rows)")
+    recovery_needed: bool = Field(description="a proven key existed and none is left: L2 rows wait for a recovery "
+                                  "path (an owner at the box can enrol a new key); the grace never returns")
+    box_confirm: bool = Field(description="this install has a box screen that can show confirmation codes")
+
+
+class TrustedModel(BaseModel):
+    aaguid: str
+    name: str
+    user_verification: list[str]
+    biometric: bool
+    roots: int
+    source: Literal["shipped", "owner"]
+    added_at: str | None
 
 
 # The random id an app install keeps for itself (#715): My devices groups a phone's sign-ins, passkeys
@@ -71,6 +174,8 @@ class PasskeyRegisterBody(BaseModel):
     credential: dict[str, Any]
     label: str | None = Field(default=None, max_length=100)
     install_id: str | None = Field(default=None, pattern=INSTALL_ID)
+    box_code: str | None = Field(default=None, max_length=12, description="N-1 b: the code on the box's own screen "
+                                 "(register/options box_code_if_proven); the first proven key is added at the box")
 
 
 class ApproverKeyBody(BaseModel):
@@ -172,9 +277,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = IdentityService(gw)
     gw.authenticators.append(svc.authenticate)
     gw.approval_guards.append(svc.approval_guard)
+    gw.action_views.append(svc.action_view)
     gw.app_filters.append(svc.app_filter)
     gw.people_sources.append(svc.people)
     app.state.identity = svc
+    svc.levels.register()
     principal = gw.principal
     cfg = svc.cfg
 
@@ -249,17 +356,48 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def passkey_options(request: Request, _: Principal = Depends(principal)):
         return svc.passkey_register_options(request, ctx_of(request))
 
-    @app.post("/v1/auth/passkeys/register", operation_id="auth.passkeys.register", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422))
+    @app.post("/v1/auth/passkeys/register", operation_id="auth.passkeys.register", tags=["auth"], status_code=201, response_model=PasskeyRegistered, responses=R(401, 403, 409, 422))
     def passkey_register(body: PasskeyRegisterBody, request: Request, _: Principal = Depends(principal)):
-        return svc.passkey_register(request, ctx_of(request), body.credential, body.label, body.install_id)
+        return svc.passkey_register(request, ctx_of(request), body.credential, body.label, body.install_id,
+                                    body.box_code)
 
-    @app.get("/v1/auth/passkeys", operation_id="auth.passkeys.list", tags=["auth"], responses=R(401, 403))
+    @app.get("/v1/auth/passkeys", operation_id="auth.passkeys.list", tags=["auth"], response_model=list[Passkey], responses=R(401, 403))
     def passkeys(request: Request, _: Principal = Depends(principal)):
         return svc.list_passkeys(ctx_of(request))
 
     @app.delete("/v1/auth/passkeys/{credential_id}", operation_id="auth.passkeys.delete", tags=["auth"], status_code=204, responses=R(401, 403, 404, 409))
     def passkey_delete(credential_id: str, request: Request, _: Principal = Depends(principal)):
         svc.delete_passkey(ctx_of(request), credential_id)
+        return Response(status_code=204)
+
+    # ---- verification levels (D-028, design 3.11) -----------------------------------------------------
+    @app.post("/v1/auth/step-up/options", operation_id="auth.step_up.options", tags=["auth"], response_model=StepUpOptions, responses=R(401, 403, 409, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def step_up_options(body: StepUpOptionsBody, request: Request, _: Principal = Depends(principal)):
+        """A passkey challenge for one owner change that needs L2 or more; only keys at that level answer."""
+        return svc.step_up_options(request, ctx_of(request), body.op, body.target, body.body, body.at_box)
+
+    @app.post("/v1/auth/step-up", operation_id="auth.step_up.verify", tags=["auth"], response_model=StepUpGrant, responses=R(401, 403, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def step_up_verify(body: StepUpBody, request: Request, _: Principal = Depends(principal)):
+        return svc.step_up_verify(request, ctx_of(request), body.credential, body.box_code)
+
+    @app.get("/v1/verification-requirements", operation_id="verification.requirements.get", tags=["auth"], response_model=VerificationTable, responses=R(401, 403), openapi_extra={"security": [{"bearer": ["actions:approve"]}]})
+    def verification_requirements(p: Principal = Depends(principal)):
+        """The level each kind of approval and change needs. Change a row by requesting
+        verification.requirement.set (POST /v1/actions); an owner approves it at the table's own level."""
+        if not p.is_owner:
+            raise svc.deny(p, "read the verification table")
+        return svc.levels.table()
+
+    @app.get("/v1/auth/authenticator-allowlist", operation_id="auth.trusted_models.list", tags=["auth"], response_model=list[TrustedModel], responses=R(401, 403), openapi_extra={"security": [{"bearer": ["actions:approve"]}]})
+    def trusted_models(p: Principal = Depends(principal)):
+        """Key models that can be proven keys (L2). Add one by requesting authenticator.allowlist.add."""
+        return svc.levels.list_models(p)
+
+    @app.delete("/v1/auth/authenticator-allowlist/{aaguid}", operation_id="auth.trusted_models.remove", tags=["auth"], status_code=204, responses=R(401, 403, 404, 409), openapi_extra={"security": [{"bearer": ["actions:approve"]}]})
+    def trusted_model_remove(aaguid: str, request: Request, p: Principal = Depends(principal)):
+        """Stop trusting a model you added. Its keys drop to L1 at once; taking trust away needs no step-up,
+        except for the model behind the household's last proven key (that key, or an owner at the box)."""
+        svc.levels.remove_model(p, aaguid, ctx_of(request))
         return Response(status_code=204)
 
     # ---- device-bound approver keys (#702): the phone's biometric-gated signing key -------------------

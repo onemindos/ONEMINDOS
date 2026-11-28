@@ -87,6 +87,8 @@ class Gateway:
     jetstream: Any = None
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
+    # Read-time facts added to an action a person reads (identity: the key level approving needs, D-028).
+    action_views: list[Callable[[dict], dict]] = field(default_factory=list)
     requester_lookups: list[RequesterLookup] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
     asset_filters: list[AssetFilter] = field(default_factory=list)

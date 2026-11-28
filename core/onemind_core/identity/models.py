@@ -32,6 +32,25 @@ def _identity_v3(conn) -> None:
         if "install_id" not in {c["name"] for c in inspect(conn).get_columns(table)}:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN install_id VARCHAR(64)"))
 
+
+# Design 3.11 / D-028: what a passkey proved at enrolment, and which credential stepped a session up.
+_V4_PASSKEY = {"aaguid": "VARCHAR(36)", "att_fmt": "VARCHAR(24)", "att_chain_sha256": "VARCHAR(71)",
+               "backup_eligible": "BOOLEAN", "backed_up": "BOOLEAN", "level": "VARCHAR(2)",
+               "level_reason": "VARCHAR(32)", "model": "VARCHAR(100)"}
+
+
+@SCHEMA.step(4, "verification levels: passkey attestation facts and level; the session's step-up credential")
+def _identity_v4(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    have = {c["name"] for c in inspect(conn).get_columns("identity_passkeys")}
+    for col, typ in _V4_PASSKEY.items():
+        if col not in have:
+            conn.execute(text(f"ALTER TABLE identity_passkeys ADD COLUMN {col} {typ}"))
+    if "step_up_credential_id" not in {c["name"] for c in inspect(conn).get_columns("identity_sessions")}:
+        conn.execute(text("ALTER TABLE identity_sessions ADD COLUMN step_up_credential_id VARCHAR(512)"))
+
+
 T = TypeVar("T", bound=Base)
 
 
@@ -84,6 +103,49 @@ class PasskeyRow(Base):
     created_at: Mapped[datetime] = mapped_column(TS)
     last_used_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
     install_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # #715, see devices/service.py
+    # Verification levels (schema v4, levels.py). Rows from before v4 have nulls and count as L1.
+    aaguid: Mapped[str | None] = mapped_column(String(36), nullable=True)  # the model, never the person
+    att_fmt: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    att_chain_sha256: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    backup_eligible: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # BE: may sync
+    backed_up: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # BS: is synced
+    level: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    level_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+
+class VerificationLevelRow(Base):
+    """An owner edit of the verification table (levels.ROWS or type:<action type>); absent = default."""
+
+    __tablename__ = "identity_verification_levels"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    level: Mapped[str] = mapped_column(String(2))
+    updated_at: Mapped[datetime] = mapped_column(TS)
+    updated_by: Mapped[str] = mapped_column(String(100))
+    action_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class TrustedModelRow(Base):
+    """An authenticator model an owner added to the allow-list (beside the shipped file)."""
+
+    __tablename__ = "identity_trusted_models"
+    aaguid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    roots: Mapped[list] = mapped_column(JSON, default=list)  # PEM strings
+    user_verification: Mapped[list] = mapped_column(JSON, default=list)
+    added_at: Mapped[datetime] = mapped_column(TS)
+    added_by: Mapped[str] = mapped_column(String(100))
+    action_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class HouseholdFlagRow(Base):
+    """A one-way household fact (design 3.11). `proven_key_seen`: an owner has held a proven (L2) key, so
+    the no-proven-key grace (N-1) never comes back by removing keys, models or owners."""
+
+    __tablename__ = "identity_household_flags"
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    set_at: Mapped[datetime] = mapped_column(TS)
+    detail: Mapped[str] = mapped_column(String(200), default="")
 
 
 class ApproverKeyRow(Base):
@@ -113,6 +175,7 @@ class SessionRow(Base):
     client: Mapped[str] = mapped_column(String(200))
     auth_method: Mapped[str] = mapped_column(String(32))
     passkey_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    step_up_credential_id: Mapped[str | None] = mapped_column(String(512), nullable=True)  # who set passkey_at
     created_at: Mapped[datetime] = mapped_column(TS)
     last_seen_at: Mapped[datetime] = mapped_column(TS)
     expires_at: Mapped[datetime] = mapped_column(TS)

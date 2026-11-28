@@ -13,6 +13,7 @@ import { FirstRun, useWizardPending } from './pages/FirstRun';
 import { SignIn } from './pages/SignIn';
 import { LocaleProvider } from './i18n/LocaleProvider';
 import { useSession, useSignedIn } from './session';
+import { BoxCodeHost } from './lib/boxcode';
 import { Shell } from './shell/Shell';
 import { LockScreen } from './shell/lock/LockScreen';
 
@@ -34,6 +35,7 @@ export function SignedInApp() {
   const [wizard, setWizard] = useWizardPending();
   return (
     <HubProvider>
+      <BoxCodeHost />
       <Appearance>
         {wizard === undefined ? (
           <p role="status">Checking first-run setup…</p>

@@ -212,6 +212,8 @@ export function toActionSummary(a: Action, appName?: (id: string) => string): Ac
     requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role } : undefined,
     decided_by: db ? { id: db.id, kind: db.kind } : undefined,
     message: RESULT_MESSAGE.has(a.state) ? (a.result?.message ?? undefined) : undefined,
+    // D-028: the key level approving needs, from the hub's read model; the card shows "Needs L2" from it.
+    required_level: a.required_level ?? undefined,
   };
 }
 

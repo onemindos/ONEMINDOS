@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button } from './Button';
+import { VerificationBadge, type VerificationLevel } from './VerificationBadge';
 
 type Mode = 'pointer' | 'keyboard' | 'confirm';
 
-export function HoldToApprove({ label, duration = 2000, disabled = false, onApprove }: {
+export function HoldToApprove({ label, duration = 2000, disabled = false, requiredLevel, onApprove }: {
   label: string;
   duration?: number;
   disabled?: boolean;
+  /** The key level this approval needs (approve-options' required_level), shown beside the button. */
+  requiredLevel?: VerificationLevel;
   onApprove: (elapsedMs: number) => void;
 }) {
   const pending = useRef<{ mode: Mode; started: number; timer: ReturnType<typeof setTimeout>; key?: string }>(null);
@@ -92,6 +95,7 @@ export function HoldToApprove({ label, duration = 2000, disabled = false, onAppr
         <span className="om-hold-fill" aria-hidden="true" /><span className="om-hold-label">Hold to approve</span>
       </Button>
       <Button disabled={disabled || mode === 'confirm'} onClick={() => start('confirm')}>Use confirmation instead</Button>
+      {requiredLevel && <VerificationBadge level={requiredLevel} required />}
       {mode === 'confirm' && <>
         <Button variant="primary" disabled={!ready || disabled} onClick={complete}>Confirm approval</Button>
         <Button onClick={cancel}>Cancel</Button>

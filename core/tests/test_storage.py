@@ -25,7 +25,7 @@ from onemind_core.storage import StorageService, StorageSettings
 
 from conftest import AGENT, GUEST, OWNER
 from onemind_core.identity import IdentitySettings
-from test_identity import ORIGIN, RP_ID, SoftAuthenticator, csrf, register_passkey, setup_owner
+from test_identity import ORIGIN, RP_ID, SoftAuthenticator, at_box, csrf, register_passkey, setup_owner
 
 SHA_A = "a" * 64
 SHA_B = "b" * 64
@@ -149,7 +149,7 @@ def no_poller(monkeypatch):
 
 def _settings(settings, node, enabled=True, **storage):
     st = StorageSettings(enabled=enabled, socket=node.sock, timeout_s=5, **storage)
-    idn = IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False)
+    idn = IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False, box_code_file=settings.audit_path.parent / "box-code.json")
     return replace(settings, sections={"storage": st, "identity": idn})
 
 
@@ -174,7 +174,7 @@ def approve(c, action_id, key=None, headers=OWNER):
     """Approve as the owner would: ask for the challenge, sign it with the passkey, send it."""
     opts = c.post(f"/v1/actions/{action_id}/approve-options", headers=headers).json()
     return c.post(f"/v1/actions/{action_id}/approve", headers=headers,
-                  json={"webauthn": (key or c.key).assert_(opts["challenge"], flat=True)})
+                  json={"webauthn": (key or c.key).assert_(opts["challenge"], flat=True), **at_box(c, opts)})
 
 
 def request_create(c, headers=OWNER, **extra):

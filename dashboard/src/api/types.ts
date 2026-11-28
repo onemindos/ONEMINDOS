@@ -271,6 +271,8 @@ export interface ActionResult {
  */
 export interface Action extends ActionRequest {
   approval?: components['schemas']['Action']['approval'];
+  /** D-028: the key level approving needs now (awaiting_approval, read by a person). */
+  required_level?: components['schemas']['Action']['required_level'];
   plan?: PlanPreview['plan'] | null;
   progress?: { step: string; pct: number } | null;
   id: string;

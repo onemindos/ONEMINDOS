@@ -32,6 +32,17 @@ class IdentitySettings:
     approver_key_high_risk: bool = False
     # §12.6 / F-14: role default scopes for sessions. Static-file tokens always keep v0 behaviour.
     enforce_role_scopes: bool = True
+    # D-028 / design 3.11, open question N-1 (= b): until any owner has had a proven (L2) key, an L2
+    # requirement is met by an L1 key plus a confirmation at the box, and the API says so (`grace`). Once a
+    # proven key has existed the grace never returns. Off = strict: L2 actions wait for a proven key.
+    # Physical actions, the motion lockout and L3 opt-ins are never eased.
+    l2_grace: bool = True
+    # N-1 = b (founder, 2026-11-25): during the grace an L2 action also needs the code the box's own screen
+    # shows (identity/presence.py). The file the gateway writes it to and onemind-screen reads; empty = this
+    # install has no box screen, so L2 actions wait for a proven key.
+    box_code_file: Path | None = None
+    # The authenticator allow-list; empty = the file shipped with the gateway (identity/levels.py).
+    allowlist_file: Path | None = None
     # How recent a passkey sign-in must be for user, passkey and access administration.
     step_up_s: int = 300
     # §12.1: failed logins per source per minute before a back-off.

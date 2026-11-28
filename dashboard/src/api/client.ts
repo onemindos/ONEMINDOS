@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
+import { askBoxCode } from '../lib/boxcode';
 import { withProtocol } from '../lib/protocol';
 import type * as W from './wiring';
-import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
+import { completeStepUp, OneMind, OneMindError, STEP_UP_HEADER, stepUpOf, type components, type operations, type StepUpRequest } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
 import type { AppSecrets, SealedInput, SecretsPublicKey } from '@onemind/ui';
 
@@ -137,6 +138,9 @@ export interface ApproveOptions {
   plan_sha256: string | null;
   expires_at: string;
   publicKey: Record<string, unknown>;
+  /** D-028: the key level this approval needs, and (N-1 b) whether the box's own screen now shows a code. */
+  required_level?: 'L0' | 'L1' | 'L2' | 'L3';
+  box_code_required?: boolean;
 }
 export interface FirstRunSettingsBody {
   box_name: string;
@@ -187,6 +191,13 @@ function isErrorBody(v: unknown): v is ApiErrorBody {
   );
 }
 
+/** The step-up a refusal names (read by the SDK's own stepUpOf), or undefined. */
+function stepUpIn(status: number, data: unknown): StepUpRequest | undefined {
+  if (!isErrorBody(data)) return undefined;
+  const details = (data as { details?: unknown }).details;
+  return stepUpOf(new OneMindError(status, data.error, data.message, { reason: data.reason ?? undefined, details: Array.isArray(details) ? details : undefined }));
+}
+
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 /** Real client: talks to the gateway over HTTP with a bearer token. */
@@ -208,14 +219,14 @@ export class HttpApi implements OneMindApi {
     this.token = opts.token;
     // Declares this build's protocol generation and watches the hub's range (lib/protocol.ts).
     this.fetchFn = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
-    this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1 });
+    this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1, stepUp: getPasskey, boxCode: askBoxCode });
   }
 
   /**
    * `shape` is what a 2xx body must be. Anything else (an HTML page from a proxy
    * or SPA fallback, an empty body, the wrong JSON type) is an error, not data.
    */
-  private async req<T>(method: string, path: string, body?: unknown, shape: 'object' | 'array' | 'text' = 'object', bearer?: string): Promise<T> {
+  private async req<T>(method: string, path: string, body?: unknown, shape: 'object' | 'array' | 'text' = 'object', bearer?: string, stepUpGrant?: string): Promise<T> {
     let res: Response;
     try {
       // The SDK's JSON-only call cannot decode text/plain logs; reuse its authenticated
@@ -228,6 +239,7 @@ export class HttpApi implements OneMindApi {
           ...((bearer ?? this.token) ? { Authorization: `Bearer ${bearer ?? this.token}` } : {}),
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(shape === 'text' ? await this.sdk.authHeader() : {}),
+          ...(stepUpGrant ? { [STEP_UP_HEADER]: stepUpGrant } : {}),
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
@@ -249,6 +261,10 @@ export class HttpApi implements OneMindApi {
       }
     }
     if (!res.ok) {
+      // D-028: an owner change the hub wants confirmed with a passkey (a proven key once the household has
+      // one). Confirm it in place, bound to this exact change, and send it once more with the grant.
+      const step = !stepUpGrant && method !== 'GET' && !bearer ? stepUpIn(res.status, data) : undefined;
+      if (step) return this.req<T>(method, path, body, shape, bearer, await this.stepUp(step));
       if (isErrorBody(data)) throw new ApiError(res.status, data.error, data.message, data.reason);
       const code = res.status === 401 ? 'unauthenticated' : res.status === 404 ? 'not_found' : 'unknown';
       throw new ApiError(res.status, code, `HTTP ${res.status}`);
@@ -262,6 +278,15 @@ export class HttpApi implements OneMindApi {
       shape === 'array' ? Array.isArray(data) : typeof data === 'object' && data !== null && !Array.isArray(data);
     if (!valid) throw new ApiError(res.status, 'unknown', 'Unexpected response from the hub');
     return data as T;
+  }
+
+  /** options -> the browser's passkey prompt -> verify (the SDK's shared helper); SDK errors read as ApiError. */
+  private async stepUp(step: StepUpRequest): Promise<string> {
+    try { return await completeStepUp(this.sdk, step, getPasskey, { boxCode: askBoxCode }); }
+    catch (e) {
+      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
+      throw e;
+    }
   }
 
   hubOffsetMs() {
@@ -453,9 +478,11 @@ export class HttpApi implements OneMindApi {
     catch (error) {
       if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
       const options = await this.sdkCall<components['schemas']['ApprovalChallenge']>('POST', path + '-options', {}, false, undefined, false);
+      // N-1 b: during the grace an L2 approval also needs the code the box's own screen now shows.
+      const box_code = options.box_code_required ? await askBoxCode(`approve ${id}`) : undefined;
       const assertion = await getPasskey(options.publicKey);
       return this.sdkCall<Action>('POST', path, {
-        webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}),
+        webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}), ...(box_code ? { box_code } : {}),
       }, false, undefined, false); // a consumed authenticator assertion must never be retried automatically
     }
   }

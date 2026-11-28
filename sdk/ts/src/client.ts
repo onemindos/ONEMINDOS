@@ -4,6 +4,7 @@
 
 import type { components } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
+import { type BoxCodeAsker, completeStepUp, type PasskeySigner, STEP_UP_HEADER, stepUpOf } from "./stepup.js";
 import { EventsApi } from "./events.js";
 import { caFetch } from "./nodeca.js";
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from "./protocol.js";
@@ -88,6 +89,13 @@ export interface ClientOptions {
   /** Called after each attempt with method, path (no query), status (0 = network) and duration. */
   onTrace?: (method: string, path: string, status: number, ms: number) => void;
   sleep?: (ms: number) => Promise<void>;
+  /** The person's authenticator (browser WebAuthn, the phone's passkeys). When set, a change the hub
+   *  answers with a named step-up (401 step_up_required + details.step_up) is confirmed in place and
+   *  sent once more with the grant (stepup.ts). Unset: the 401 reaches the caller as before. */
+  stepUp?: PasskeySigner;
+  /** Asks the person for the code the box's own screen shows (N-1 b: an L2 change before the first proven
+   *  key). Unset: such a change fails with reason box_code_required instead of showing a code nobody types. */
+  boxCode?: BoxCodeAsker;
 }
 
 export interface RequestActionInput {
@@ -135,6 +143,8 @@ export class OneMind {
   private readonly principal?: string;
   private readonly onWarning: (m: string) => void;
   private readonly onTrace?: ClientOptions["onTrace"];
+  private readonly signer?: PasskeySigner;
+  private readonly boxCode?: BoxCodeAsker;
   private warned = false;
   private offsetMs = 0;
   /** expires_at fixed per idempotency key: the hub compares the whole body on a replay, so a retry
@@ -151,6 +161,8 @@ export class OneMind {
     this.fetchImpl = opts.fetch ?? globalThis.fetch.bind(globalThis);
     this.onWarning = opts.onWarning ?? ((m) => console.warn(`onemind: warning: ${m}`));
     this.onTrace = opts.onTrace;
+    this.signer = opts.stepUp;
+    this.boxCode = opts.boxCode;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.events = new EventsApi(this, typeof opts.token === "string" && opts.token.length > 0);
   }
@@ -355,7 +367,15 @@ export class OneMind {
 
   /** One API call; returns the parsed JSON body. */
   async call<T>(r: Req): Promise<T> {
-    return (await this.raw<T>({ ...r, retry: r.retry ?? r.method === "GET" })).body;
+    const req = { ...r, retry: r.retry ?? r.method === "GET" };
+    try {
+      return (await this.raw<T>(req)).body;
+    } catch (e) {
+      const s = this.signer && !req.headers?.[STEP_UP_HEADER] ? stepUpOf(e) : undefined;
+      if (!s || !this.signer) throw e;
+      const grant = await completeStepUp(this, s, this.signer, { boxCode: this.boxCode });
+      return (await this.raw<T>({ ...req, retry: false, headers: { ...req.headers, [STEP_UP_HEADER]: grant } })).body;
+    }
   }
 
   /** @internal */
@@ -440,10 +460,11 @@ export class OneMind {
       json = undefined;
     }
     if (!res.ok) {
-      const b = json as { error?: string; message?: string; reason?: string; retry_after_s?: number } | undefined;
+      const b = json as { error?: string; message?: string; reason?: string; retry_after_s?: number; details?: unknown } | undefined;
       const ra = Number(res.headers.get("retry-after")) || b?.retry_after_s;
       if (b && typeof b.error === "string") {
-        throw errorFor(res.status, b.error, b.message ?? "", { reason: b.reason, retryAfterS: ra || undefined });
+        const details = Array.isArray(b.details) ? b.details.filter((d): d is Record<string, unknown> => !!d && typeof d === "object") : undefined;
+        throw errorFor(res.status, b.error, b.message ?? "", { reason: b.reason, retryAfterS: ra || undefined, details });
       }
       throw errorFor(res.status, res.status === 404 ? "not_found" : "unexpected_response",
         `HTTP ${res.status} without the OneMind error body`, { retryAfterS: ra || undefined });

@@ -46,6 +46,8 @@ class ApproveBody(JsonBody):
         "(blocked or unknown). Required to approve app.install for such an app; ignored otherwise.",
     )
     webauthn: dict | None = None
+    box_code: str | None = Field(default=None, max_length=12, description="D-028 / N-1 b: the code the box's own "
+                                 "screen shows, when approve-options said box_code_required")
     # #702: or a phone approver key's signature over approve-options' device_payload (identity guard).
     device_signature: DeviceSignature | None = None
     # #723 hold-to-approve: how long the approve control was held, in ms (a physical action needs
@@ -77,7 +79,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def seen_by(p: Principal, rows: list[dict]) -> list[dict]:
         # aiPolicy (#165): an app's tool output reaches an agent only when the app allows app data
         # to go to an AI, the same rule as the MCP tools. People and plugins see the action as stored.
-        return actions_for_agent(rows, lambda: app_rows(gw)) if is_agent(p) else rows
+        if is_agent(p):
+            return actions_for_agent(rows, lambda: app_rows(gw))
+        for view in gw.action_views:  # identity: required_level on a request waiting for approval (D-028)
+            rows = [view(r) for r in rows]
+        return rows
 
     def postable_feature_types() -> list[str]:
         # Only a type registered with a params model is filed through POST /v1/actions; the rest

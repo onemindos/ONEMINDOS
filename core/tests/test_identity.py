@@ -63,8 +63,25 @@ class SoftAuthenticator:
 
 
 def id_settings(settings, **changes):
+    # N-1 b: a box screen that shows confirmation codes (identity/presence.py); box_code() reads it, as a
+    # person standing at the box does.
+    changes.setdefault("box_code_file", settings.audit_path.parent / "box-code.json")
     cfg = IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False, **changes)
     return replace(settings, sections={**settings.sections, "identity": cfg})
+
+
+def at_box(c: TestClient, opts: dict) -> dict:
+    """{"box_code": ...} when approve-options or step-up options asked for it (N-1 b), as a person standing
+    at the box adds it; otherwise nothing."""
+    return {"box_code": box_code(c)} if opts.get("box_code_required") else {}
+
+
+def box_code(c: TestClient) -> str:
+    """The code the box's own screen shows now (what onemind-screen reads)."""
+    import json as _json
+
+    path = c.app.state.gateway.settings.section(IdentitySettings).box_code_file
+    return _json.loads(path.read_text())["code"]
 
 
 @pytest.fixture
@@ -225,7 +242,7 @@ def test_idle_session_expires(idc, clock):
 
 # ---- users, roles and sharing ---------------------------------------------------------------------
 def enrol(idc: TestClient, role: str, username: str) -> TestClient:
-    r = idc.post("/v1/users", json={"display_name": username.title(), "role": role}, headers=csrf(idc))
+    r = stepped(idc, "POST", "/v1/users", json={"display_name": username.title(), "role": role})
     assert r.status_code == 201, r.text
     one = r.json()["one_time"]
     assert one["enrolment_url"].endswith("/signin#enrol=" + one["enrolment_code"])
@@ -375,7 +392,28 @@ def register_passkey(c: TestClient, auth: SoftAuthenticator) -> dict:
     assert opts["publicKey"]["authenticatorSelection"]["userVerification"] == "required"
     r = c.post("/v1/auth/passkeys/register", json={"credential": auth.register(opts), "label": "phone"}, headers=csrf(c))
     assert r.status_code == 201, r.text
+    c.passkey = auth  # the session's own key, for stepped() below
     return r.json()
+
+
+def stepped(c: TestClient, method: str, path: str, auth: SoftAuthenticator | None = None, **kw):
+    """Send a change as the owner standing at the box (D-028, N-1 b): when the hub names a step-up, make it
+    with this session's passkey, type the code the box's screen shows if it asks, and send it once more."""
+    headers = {**csrf(c), **kw.pop("headers", {})}
+    r = c.request(method, path, headers=headers, **kw)
+    step = next((d["step_up"] for d in (r.json().get("details") or []) if "step_up" in d), None) \
+        if r.status_code == 401 and r.headers.get("content-type", "").startswith("application/json") else None
+    key = auth or getattr(c, "passkey", None)
+    if step is None or key is None:
+        return r
+    opts = c.post("/v1/auth/step-up/options", json={k: step[k] for k in ("op", "target", "body")}, headers=csrf(c))
+    assert opts.status_code == 200, opts.text
+    sent = {"credential": key.assert_(opts.json()["publicKey"]["challenge"])}
+    if opts.json()["box_code_required"]:
+        sent["box_code"] = box_code(c)
+    g = c.post("/v1/auth/step-up", json=sent, headers=csrf(c))
+    assert g.status_code == 200, g.text
+    return c.request(method, path, headers={**headers, "OneMind-Step-Up": g.json()["step_up"]}, **kw)
 
 
 def test_passkey_register_and_login(idc, settings):
@@ -447,7 +485,11 @@ def test_step_up_for_user_admin_and_last_passkey(idc, clock):
     setup_owner(idc)
     key = SoftAuthenticator()
     register_passkey(idc, key)  # registering counts as a fresh passkey proof on this session
-    assert idc.post("/v1/users", json={"display_name": "A", "role": "adult"}, headers=csrf(idc)).status_code == 201
+    # Adding a person is an L2 row: during the grace that is the passkey plus the box's code (N-1 b), so
+    # the fresh sign-in alone is not enough, and a step-up made at the box is.
+    r = idc.post("/v1/users", json={"display_name": "A", "role": "adult"}, headers=csrf(idc))
+    assert r.status_code == 401 and r.json()["details"][0]["step_up"]["box"] == "required"
+    assert stepped(idc, "POST", "/v1/users", json={"display_name": "A", "role": "adult"}).status_code == 201
     clock.advance(301)
     r = idc.post("/v1/users", json={"display_name": "B", "role": "adult"}, headers=csrf(idc))
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required"

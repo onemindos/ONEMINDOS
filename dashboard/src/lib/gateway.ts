@@ -4,9 +4,12 @@
 import { useMemo } from 'react';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { ApiError } from '../api/types';
+import { getPasskey } from './webauthn';
+import { askBoxCode } from './boxcode';
 
+/** stepUp: a change the hub wants confirmed with a passkey (D-028) is confirmed in place and sent once more. */
 export function useGateway(token: string): OneMind {
-  return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
+  return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1, stepUp: getPasskey, boxCode: askBoxCode }), [token]);
 }
 
 /** The dashboard code for an SDK error: no answer at all (status 0) is 'network', as api/client.ts says it. */

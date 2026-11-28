@@ -94,7 +94,7 @@ describe('People screen', () => {
     await fireEvent.press(screen.getByTestId('add'));
     await fireEvent.press(screen.getByTestId('add'));
     expect(createUser).toHaveBeenCalledWith({ display_name: 'Ana', role: 'teen' });
-    expect(await screen.findByText(/fresh passkey .* Nothing was changed/)).toBeTruthy();
+    expect(await screen.findByText(/your passkey before .* Nothing was changed/)).toBeTruthy();
   });
 
   it('shows the one-time sign-in link after adding a person, then drops it', async () => {
@@ -151,7 +151,7 @@ describe('Agents screen', () => {
     await mount(<AgentsScreen />, OWNER_OPS, { ...base, killSwitch: async () => ({ on: true }), setKillSwitch });
     await fireEvent.press(await screen.findByTestId('kill-switch-toggle'));
     expect(setKillSwitch).toHaveBeenCalledWith(false, undefined);
-    expect(await screen.findByText(/fresh passkey/)).toBeTruthy();
+    expect(await screen.findByText(/wants your passkey/)).toBeTruthy();
   });
 
   it('shows the error, no badge and no toggle when the kill switch cannot be read', async () => {
