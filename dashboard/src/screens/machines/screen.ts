@@ -8,6 +8,7 @@ const screen: ScreenDef = {
   icon: 'monitor',
   section: 'Your box',
   order: 70,
+  dock: 7,
   hue: ['#9b7bf7', '#5b2bc8'],
   pro: true,
   load: () => import('../../pages/Machines').then((m) => ({ default: m.Machines })),

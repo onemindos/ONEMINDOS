@@ -8,6 +8,7 @@ const screen: ScreenDef = {
   icon: 'storage',
   section: 'Your box',
   order: 45,
+  dock: 4,
   hue: ['#5fb4f0', '#1c63b0'],
   load: () => import('../../pages/Files').then((m) => ({ default: m.Files })),
 };

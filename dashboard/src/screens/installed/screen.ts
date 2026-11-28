@@ -8,7 +8,6 @@ const screen: ScreenDef = {
   icon: 'check',
   section: 'Your box',
   order: 50,
-  dock: 3,
   hue: ['#34c77b', '#147a45'],
   load: () => import('../../pages/Installed').then((m) => ({ default: m.Installed })),
   extra: [

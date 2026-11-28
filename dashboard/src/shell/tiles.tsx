@@ -1,23 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Screen tiles and the count badge, shared by the dock and the launcher.
-import type { CSSProperties } from 'react';
 import { Icon, type NavItem } from '@onemind/ui';
-import { HUES } from '../screens/registry';
 
-/** One colour per screen (each screen's `hue`), so a place is recognised before its name is read. White glyph on each. */
-export const SCREEN_HUES = HUES;
-
-const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
-
-export function tileStyle(id: string): CSSProperties {
-  const [a, b] = SCREEN_HUES[id] ?? FALLBACK_HUE;
-  return { '--dsk-tile-a': a, '--dsk-tile-b': b } as CSSProperties;
-}
-
-
+/**
+ * Atlas's muted tiles (founder pick 2026-11-21: icons and tiles follow Atlas; illustrated system tiles come later as
+ * original artwork): a neutral tile in the theme's surface colour with an ink glyph, never one bright hue per screen.
+ * The colours come from the design tokens in desktop.css, so the Sovereign palette applies without a change here.
+ */
 export function ScreenTile({ id, icon, size = 44 }: { id: string; icon: NavItem['icon']; size?: number }) {
   return (
-    <span className="dsk-tile" style={{ ...tileStyle(id), width: size, height: size }} aria-hidden="true">
+    <span className="dsk-tile" data-screen={id} style={{ width: size, height: size }} aria-hidden="true">
       <Icon name={icon} size={Math.round(size * 0.48)} />
     </span>
   );

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Command palette logic (backlog UX-P3): build commands from typed data, rank them, group them.
-// Every command maps to an API or CLI call (`equivalent`, P4). Commands that change something
+// Every command maps to an API or CLI call (`equivalent`, P4): the exact `onemind` command where the CLI has one
+// (cmd/onemind/cli/palette_lines_test.go resolves each against the real command tree), else the API call. Commands that change something
 // never act directly: they create a request that waits in Approvals (P1).
 import type { Tone } from '../tokens/tokens';
 import type { ActionSummary } from '../components/ApprovalCard';
@@ -202,13 +203,13 @@ const APP_STATUS: Record<NonNullable<PaletteApp['status']>, { tone: Tone; label:
 };
 
 export const SETTINGS_COMMANDS: PaletteCommand[] = [
-  { id: 'set:appearance', group: 'Settings', title: 'Appearance', subtitle: 'Theme, accent colour and wallpaper', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color'], icon: 'brush', href: '#/settings/appearance', equivalent: 'onemind settings appearance' },
-  { id: 'set:people', group: 'Settings', title: 'People', subtitle: 'Who can sign in, and their roles', keywords: ['users', 'invite', 'family', 'owner'], icon: 'user', href: '#/settings/people', equivalent: 'GET /v1/auth/principals' },
-  { id: 'set:passkeys', group: 'Settings', title: 'Passkeys and sessions', subtitle: 'Sign-in devices and open sessions', keywords: ['login', 'password', 'security', 'session', 'totp'], icon: 'passkey', href: '#/settings/account', equivalent: 'GET /v1/auth/sessions' },
-  { id: 'set:agents', group: 'Settings', title: 'Agents and tokens', subtitle: 'What each agent may request', keywords: ['ai', 'token', 'mcp', 'scope'], icon: 'agent', href: '#/settings/agents', equivalent: 'GET /v1/tokens' },
-  { id: 'set:notifications', group: 'Settings', title: 'Notification routes', subtitle: 'Phone, email, quiet hours', keywords: ['alerts', 'push', 'ntfy', 'quiet'], icon: 'bell', href: '#/settings/notifications', equivalent: 'GET /v1/notifications/channels' },
-  { id: 'set:remote', group: 'Settings', title: 'Remote access', subtitle: 'Reach the box away from home', keywords: ['vpn', 'internet', 'expose', 'mesh'], icon: 'globe', href: '#/settings/remote', equivalent: 'onemind remote status' },
-  { id: 'set:backups', group: 'Settings', title: 'Backup destinations and emergency kit', keywords: ['restore', 'usb', 's3', 'recovery key'], icon: 'backups', href: '#/backups', equivalent: 'GET /v1/backups' },
+  { id: 'set:appearance', group: 'Settings', title: 'Appearance', subtitle: 'Theme, accent colour and wallpaper', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color'], icon: 'brush', href: '#/settings/appearance', },
+  { id: 'set:people', group: 'Settings', title: 'People', subtitle: 'Who can sign in, and their roles', keywords: ['users', 'invite', 'family', 'owner'], icon: 'user', href: '#/settings/people', equivalent: 'onemind users list' },
+  { id: 'set:passkeys', group: 'Settings', title: 'Passkeys and sessions', subtitle: 'Sign-in devices and open sessions', keywords: ['login', 'password', 'security', 'session', 'totp'], icon: 'passkey', href: '#/settings/account', equivalent: 'onemind account show' },
+  { id: 'set:agents', group: 'Settings', title: 'Agents and tokens', subtitle: 'What each agent may request', keywords: ['ai', 'token', 'mcp', 'scope'], icon: 'agent', href: '#/settings/agents', equivalent: 'onemind tokens list' },
+  { id: 'set:notifications', group: 'Settings', title: 'Notification routes', subtitle: 'Phone, email, quiet hours', keywords: ['alerts', 'push', 'ntfy', 'quiet'], icon: 'bell', href: '#/settings/notifications', equivalent: 'onemind notify channel list' },
+  { id: 'set:remote', group: 'Settings', title: 'Remote access', subtitle: 'Reach the box away from home', keywords: ['vpn', 'internet', 'expose', 'mesh'], icon: 'globe', href: '#/settings/remote', equivalent: 'onemind mesh settings' },
+  { id: 'set:backups', group: 'Settings', title: 'Backup destinations and emergency kit', keywords: ['restore', 'usb', 's3', 'recovery key'], icon: 'backups', href: '#/backups', equivalent: 'onemind backup status' },
 ];
 
 export const NAV_COMMANDS: PaletteCommand[] = [
@@ -239,7 +240,7 @@ export function buildCommands(d: PaletteData): PaletteCommand[] {
       keywords: ['approve', 'deny', a.type],
       icon: 'approvals',
       href: `#/approvals/${encodeURIComponent(a.id)}`,
-      equivalent: `GET /v1/actions/${a.id}`,
+      equivalent: `onemind actions info ${a.id}`,
       pill: { tone: 'warn', label: 'Waiting' },
       disabledReason: d.canApprove ? undefined : 'Only the owner can approve. You can still read it.',
     });
@@ -258,7 +259,7 @@ export function buildCommands(d: PaletteData): PaletteCommand[] {
         keywords: kw,
         icon: cat?.icon ?? 'apps',
         href: `#/app/${encodeURIComponent(app.id)}`,
-        equivalent: `onemind apps open ${app.id}`,
+        equivalent: `onemind apps info ${app.id}`,
         pill: st,
       });
       out.push({
@@ -296,7 +297,7 @@ export function buildCommands(d: PaletteData): PaletteCommand[] {
           keywords: kw,
           icon: cat?.icon ?? 'apps',
           href: `#/app/${encodeURIComponent(app.id)}`,
-          equivalent: `onemind apps show ${app.id}`,
+          equivalent: `onemind apps info ${app.id}`,
           pill,
         });
         continue;
@@ -309,7 +310,7 @@ export function buildCommands(d: PaletteData): PaletteCommand[] {
         keywords: [...kw, 'install', 'add'],
         icon: cat?.icon ?? 'apps',
         request: { type: 'app.install', params: { app_id: app.id } },
-        equivalent: `POST /v1/actions {"type":"app.install","params":{"app_id":"${app.id}"}}`,
+        equivalent: `onemind apps install ${app.id} --no-approve`,
         pill,
       });
     }
@@ -326,7 +327,7 @@ export function buildCommands(d: PaletteData): PaletteCommand[] {
       keywords: [n.board, n.arch, n.role, 'machine', 'node'],
       icon: 'nodes',
       href: `#/nodes/${encodeURIComponent(n.node_id)}`,
-      equivalent: `GET /v1/nodes/${n.node_id}`,
+      equivalent: `onemind nodes info ${n.node_id}`,
       pill: { tone: FRESHNESS_TONE[f], label: FRESHNESS_LABEL[f] },
     });
   }

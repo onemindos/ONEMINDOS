@@ -14,7 +14,8 @@ export interface KeyEntry { id: string; group: Group; description: string; keys:
 const digits = Array.from({ length: WORKSPACES }, (_, i) => i + 1);
 export const KEYMAP: readonly KeyEntry[] = [
   { id: 'palette', group: 'Open', description: 'Search and run commands', keys: 'Ctrl/⌘ K', bindings: [{ mod: 'cmd', key: 'k' }] },
-  { id: 'launchpad', group: 'Open', description: 'Launchpad: every screen and app', keys: 'Ctrl/⌘ /', bindings: [{ mod: 'cmd', key: '/' }] },
+  { id: 'launchpad', group: 'Open', description: 'Launcher: every screen, app, machine and command', keys: 'Ctrl/⌘ /', bindings: [{ mod: 'cmd', key: '/' }] },
+  { id: 'run-bar', group: 'Open', description: 'Run bar in the dock (when switched on in Appearance)', keys: 'Alt Space', bindings: [{ mod: 'alt', code: 'Space' }] },
   { id: 'close', group: 'Windows', description: 'Close the open window (back to the desktop)', keys: 'Esc', bindings: [{ mod: 'none', key: 'Escape' }] },
   { id: 'cycle-next', group: 'Windows', description: 'Next window on this workspace', keys: 'Alt ]', bindings: [{ mod: 'alt', code: 'BracketRight' }] },
   { id: 'cycle-previous', group: 'Windows', description: 'Previous window on this workspace', keys: 'Alt [', bindings: [{ mod: 'alt', code: 'BracketLeft' }] },

@@ -223,7 +223,7 @@ describe('CommandPalette', () => {
     const first = screen.getAllByRole('option')[0]!;
     expect(box).toHaveAttribute('aria-activedescendant', first.id);
     expect(first).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText(/Same as/).parentElement).toHaveTextContent('app.install');
+    expect(screen.getByText(/Same as/).parentElement).toHaveTextContent('onemind apps install immich --no-approve');
     await user.keyboard('{Enter}');
     expect(onRun).toHaveBeenCalledWith(expect.objectContaining({ id: 'req:install:immich' }));
     expect(screen.queryByRole('dialog')).toBeNull();
