@@ -62,7 +62,6 @@ on:
       - "internal/plugin/**"
       - "go.mod"
       - "go.sum"
-      - ".github/actions/sdk-gen/**"
       - "research-output/evidence/license-matrix.csv"   # only the apps whose rows changed are gated
       - "renovate.json"
       - ".github/workflows/ci-apps.yml"

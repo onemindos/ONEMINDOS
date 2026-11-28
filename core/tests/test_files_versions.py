@@ -1,28 +1,44 @@
 # SPDX-License-Identifier: Apache-2.0
 """FILES previous versions (BAK-04, #241): a member restores yesterday's version of a file.
 
-A btrfs snapshot of the Files root reads like a plain copy of that tree, so these tests stand one in with
-shutil.copytree (which keeps sizes and modification times, as a snapshot does). The real snapshot schedule
-and its btrfs commands are tested in internal/backup/localsnapshot.
+Fixtures mirror Snapper's numeric directories, metadata and storage subtree.
+The privileged Linux check also runs the shipped timeline command against btrfs.
 """
 
 from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from pathlib import Path
+from threading import Event
+from xml.etree import ElementTree
 
 import pytest
 
 from onemind_core.files.settings import FilesSettings
 
-from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_root, ok, upload  # noqa: F401
+from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, mkdir, ok, upload  # noqa: F401
 
-YESTERDAY = "daily-20261121T030000Z"
-EARLIER = "hourly-20261121T020000Z"
+from test_identity import csrf, enrol, id_settings, setup_owner
+
+YESTERDAY = "snapper-2-20261121T030000Z"
+EARLIER = "snapper-1-20261121T020000Z"
+
+
+@pytest.fixture
+def files_root(tmp_path):
+    if os.environ.get("ONEMIND_TEST_SNAPPER_TIMELINE"):
+        return Path("/data/onemind/files")
+    return tmp_path / "files"
 
 
 @pytest.fixture
 def snapshots(tmp_path):
+    if os.environ.get("ONEMIND_TEST_SNAPPER_TIMELINE"):
+        return Path("/data/storage/.snapshots")
     return tmp_path / "snapshots"
 
 
@@ -31,9 +47,19 @@ def files_settings(files_root, snapshots):
     return FilesSettings(root=files_root, min_free_bytes=0, snapshots_dir=snapshots)
 
 
-def snapshot(files_root, snapshots, name):
-    snapshots.mkdir(exist_ok=True)
-    shutil.copytree(files_root, snapshots / name, symlinks=True)
+@pytest.fixture
+def settings(settings):
+    return id_settings(settings)
+
+
+def snapshot(files_root, snapshots, name, cleanup="timeline"):
+    _, number, stamp = name.split("-")
+    entry = snapshots / number
+    shutil.copytree(files_root, entry / "snapshot" / "files", symlinks=True)
+    taken = datetime.strptime(stamp, "%Y%m%dT%H%M%SZ")
+    (entry / "info.xml").write_text(
+        f"<snapshot><type>single</type><num>{number}</num><date>{taken}</date><cleanup>{cleanup}</cleanup></snapshot>"
+    )
 
 
 def versions(c, headers, root, path):
@@ -61,7 +87,7 @@ def test_member_restores_yesterdays_version_as_a_new_file(fc, files_root, snapsh
     assert st["versions_available"] is True
     out = versions(fc, ADULT, "home:adult", "/notes.txt")
     assert out["enabled"] is True and out["exists"] is True
-    assert [(v["version"], v["cadence"], v["size"]) for v in out["versions"]] == [(YESTERDAY, "daily", 18)]
+    assert [(v["version"], v["cadence"], v["size"]) for v in out["versions"]] == [(YESTERDAY, "timeline", 18)]
     assert out["versions"][0]["taken_at"].startswith("2026-11-21T03:00:00")
 
     # the file is still there, so the old copy lands beside it: nothing is overwritten
@@ -116,17 +142,131 @@ def test_versions_off_bad_input_and_symlinks(fc, files_root, snapshots):
     assert restore(fc, ADULT, "home:adult", "/a.txt", YESTERDAY).status_code == 404
 
     snapshot(files_root, snapshots, YESTERDAY)
-    (snapshots / "manual-copy").mkdir()  # not the scheduler's: ignored
+    (snapshots / "manual-copy").mkdir()
+    manual = "snapper-4-20261121T040000Z"
+    snapshot(files_root, snapshots, manual, cleanup="number")
+    assert restore(fc, ADULT, "home:adult", "/a.txt", manual).status_code == 404
     assert versions(fc, ADULT, "home:adult", "/a.txt")["versions"] == []  # equal to today's copy
     assert restore(fc, ADULT, "home:adult", "/a.txt", "manual-copy").status_code == 422
-    assert restore(fc, ADULT, "home:adult", "/a.txt", "daily-20261120T030000Z").status_code == 404
+    assert restore(fc, ADULT, "home:adult", "/a.txt", "snapper-3-20261120T030000Z").status_code == 404
     assert fc.get("/v1/files/versions", params={"root": "home:adult", "path": "/"}, headers=ADULT).status_code == 409
 
     # a symlink inside a snapshot is never followed out of the space
-    space = next((snapshots / YESTERDAY / "home").iterdir())
+    space = next((snapshots / "2" / "snapshot" / "files" / "home").iterdir())
     os.symlink("/etc/passwd", space / "link.txt")
     assert versions(fc, ADULT, "home:adult", "/link.txt")["versions"] == []
     r = restore(fc, ADULT, "home:adult", "/link.txt", YESTERDAY)
     assert r.status_code in (403, 409)
     names = [e["name"] for e in ok(fc.get("/v1/files/list", params={"root": "home:adult"}, headers=ADULT))]
     assert names == ["a.txt"]
+
+def test_household_sessions_reach_files_permissions(fc, files_root, snapshots):
+    ok(upload(fc, OWNER, "shared", "/", "notes.txt", b"yesterday"), 204)
+    version = YESTERDAY
+    if os.environ.get("ONEMIND_TEST_SNAPPER_TIMELINE"):
+        os.chown(files_root / "shared", 961, 961)
+        os.chown(files_root / "shared/notes.txt", 961, 961)
+        # This is the ExecStart of the Debian image's scheduled service.
+        subprocess.run(["/usr/lib/snapper/systemd-helper", "--timeline"], check=True)
+        entry, = snapshots.iterdir()
+        metadata = ElementTree.parse(entry / "info.xml")
+        assert metadata.findtext("cleanup") == "timeline"
+        subvolume = entry / "snapshot"
+        assert subprocess.check_output(["btrfs", "property", "get", "-ts", subvolume, "ro"]).strip() == b"ro=true"
+        content = subprocess.check_output(["runuser", "-u", "onemind", "--", "cat", subvolume / "files/shared/notes.txt"])
+        assert content == b"yesterday"
+        taken = datetime.strptime(metadata.findtext("date"), "%Y-%m-%d %H:%M:%S")
+        version = f"snapper-{entry.name}-{taken:%Y%m%dT%H%M%SZ}"
+    else:
+        snapshot(files_root, snapshots, version)
+    ok(upload(fc, OWNER, "shared", "/", "notes.txt", b"today", overwrite=True), 204)
+    setup_owner(fc)
+    adult = None
+    for role in ("adult", "guest", "child", "teen"):
+        member = enrol(fc, role, f"member-{role}")
+        if role == "adult":
+            adult = member
+        params = {"root": "shared", "path": "/notes.txt"}
+        ok(member.get("/v1/files/roots"))
+        ok(member.get("/v1/files/list", params={"root": "shared"}))
+        ok(member.get("/v1/files/preview", params=params))
+        assert versions(member, {}, **params)["versions"][0]["version"] == version
+        assert member.get("/v1/files/versions", params={"root": "home:adult", "path": "/notes.txt"}).status_code == 403
+    assert adult is not None
+    copy = ok(restore(adult, csrf(adult), "shared", "/notes.txt", version))
+    assert read(adult, {}, "shared", copy["path"]) == b"yesterday"
+    assert read(adult, {}, "shared", "/notes.txt") == b"today"
+    token = ok(adult.post("/v1/tokens", headers=csrf(adult),
+                          json={"name": "status only", "scopes": ["instance:read"]}), 201)["one_time"]["token"]
+    with_token = {"Authorization": f"Bearer {token}"}
+    assert adult.get("/v1/files/versions", headers=with_token, params=params).status_code == 403
+    assert restore(adult, with_token, "shared", "/notes.txt", version).status_code == 403
+    assert fc.app.openapi()["paths"]["/v1/files/versions"]["get"]["security"] == [{"bearer": ["files:read"]}]
+
+
+def test_equal_size_and_mtime_do_not_hide_distinct_versions(fc, files_root, snapshots):
+    root = "shared"
+    ok(upload(fc, ADULT, root, "/", "note.txt", b"one"), 204)
+    live = files_root / "shared" / "note.txt"
+    timestamp = live.stat().st_mtime_ns
+    snapshot(files_root, snapshots, EARLIER)
+    live.write_bytes(b"two")
+    os.utime(live, ns=(timestamp, timestamp))
+    snapshot(files_root, snapshots, YESTERDAY)
+    live.write_bytes(b"now")
+    os.utime(live, ns=(timestamp, timestamp))
+
+    assert [v["version"] for v in versions(fc, ADULT, root, "/note.txt")["versions"]] == [YESTERDAY, EARLIER]
+    for name, version, data in [("two", YESTERDAY, b"two"), ("one", EARLIER, b"one")]:
+        entry = ok(restore(fc, ADULT, root, "/note.txt", version, to_path=f"/{name}.txt"))
+        assert read(fc, ADULT, root, entry["path"]) == data
+
+
+def test_impossible_date_has_structured_validation_error(fc):
+    r = restore(fc, ADULT, "shared", "/note.txt", "snapper-2-20260230T030000Z")
+    assert r.status_code == 422 and r.json()["reason"] == "invalid_version"
+
+
+def test_restore_requires_explicit_destination_when_parent_is_missing(fc, files_root, snapshots):
+    mkdir(fc, ADULT, "shared", "/gone")
+    ok(upload(fc, ADULT, "shared", "/gone", "notes.txt", b"yesterday"), 204)
+    snapshot(files_root, snapshots, YESTERDAY)
+    ok(fc.post("/v1/files/ops", headers=ADULT, json={"op": "trash", "root": "shared", "path": "/gone"}))
+    assert versions(fc, ADULT, "shared", "/gone/notes.txt")["versions"][0]["version"] == YESTERDAY
+    r = restore(fc, ADULT, "shared", "/gone/notes.txt", YESTERDAY)
+    assert r.status_code == 404 and "choose a destination path" in r.json()["message"]
+    entry = ok(restore(fc, ADULT, "shared", "/gone/notes.txt", YESTERDAY, to_path="/notes.txt"))
+    assert read(fc, ADULT, "shared", entry["path"]) == b"yesterday"
+
+
+@pytest.mark.parametrize("race,expected", [("name", "exists"), ("quota", "quota_exceeded")])
+def test_restore_rechecks_after_unlocked_copy(fc, files_root, snapshots, monkeypatch, race, expected):
+    svc = fc.app.state.files_service
+    ok(upload(fc, ADULT, "shared", "/", "notes.txt", b"old"), 204)
+    snapshot(files_root, snapshots, YESTERDAY)
+    if race == "quota":
+        monkeypatch.setattr(svc, "limit", lambda root: 6)
+    synced, release = Event(), Event()
+    copy = svc.versions._copy
+
+    def pause_after_fsync(*args):
+        copy(*args)
+        synced.set()
+        assert release.wait(10)
+
+    monkeypatch.setattr(svc.versions, "_copy", pause_after_fsync)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = pool.submit(restore, fc, ADULT, "shared", "/notes.txt", YESTERDAY, to_path="/restored.txt")
+        try:
+            assert synced.wait(5)
+            if race == "name":
+                edit = pool.submit(mkdir, fc, ADULT, "shared", "/restored.txt")
+            else:
+                edit = pool.submit(upload, fc, ADULT, "shared", "/", "extra.txt", b"new")
+            edit.result(timeout=5)
+        finally:
+            release.set()
+        result = pending.result(timeout=5)
+    assert result.status_code == (409 if race == "name" else 413)
+    assert result.json()["reason"] == expected
+    assert list((files_root / ".system" / "restore").iterdir()) == []

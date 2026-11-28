@@ -11030,11 +11030,12 @@
                 "type": "null"
               }
             ],
+            "description": "Choose a path in an existing folder if the original folder is gone.",
             "title": "To Path"
           },
           "version": {
             "maxLength": 40,
-            "pattern": "^(?:hourly|daily)-\\d{8}T\\d{6}Z$",
+            "pattern": "^snapper-([1-9][0-9]{0,9})-([0-9]{8}T[0-9]{6}Z)$",
             "title": "Version",
             "type": "string"
           }
@@ -27567,6 +27568,13 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "files:read"
+            ]
+          }
+        ],
         "summary": "Download",
         "tags": [
           "files"
@@ -28070,6 +28078,13 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "files:read"
+            ]
+          }
+        ],
         "summary": "List Folder",
         "tags": [
           "files"
@@ -28151,6 +28166,13 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "files:write"
+            ]
+          }
+        ],
         "summary": "Ops",
         "tags": [
           "files"
@@ -28211,6 +28233,13 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "files:read"
+            ]
+          }
+        ],
         "summary": "Preview",
         "tags": [
           "files"
@@ -28640,10 +28669,20 @@
           "401": {
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
           "503": {
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "files:read"
+            ]
+          }
+        ],
         "summary": "Roots",
         "tags": [
           "files"
@@ -28906,6 +28945,13 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "files:read"
+            ]
+          }
+        ],
         "summary": "Stat",
         "tags": [
           "files"
@@ -29555,7 +29601,7 @@
         "security": [
           {
             "bearer": [
-              "*"
+              "files:read"
             ]
           }
         ],

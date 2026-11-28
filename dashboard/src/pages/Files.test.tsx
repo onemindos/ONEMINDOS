@@ -88,6 +88,8 @@ it('files a trash-empty request, never an approval, with one idempotency key', a
   await u.click(await screen.findByRole('button', { name: 'Trash' }));
   expect(await screen.findByText('old.txt')).toBeInTheDocument();
   await u.click(screen.getByRole('button', { name: 'Ask to empty this trash' }));
+  expect(screen.getByRole('alertdialog')).toHaveAccessibleDescription(/Retained snapshots may still hold copies/);
+
   await u.click(screen.getByRole('button', { name: 'File the request' }));
   expect(await screen.findByText(/Request frq_2 filed/)).toBeInTheDocument();
   const sent = calls.find((c) => c.path === '/v1/files/trash/empty')!;
@@ -132,7 +134,7 @@ it('lets an owner review and approve a request they filed themselves', async () 
 });
 
 it('restores yesterday\'s version as a new file, after a confirmation, and says snapshots are not backups', async () => {
-  const version = { version: 'daily-20261121T030000Z', cadence: 'daily', taken_at: '2026-11-21T03:00:00Z', size: 9, mtime: '2026-11-21T02:10:00Z' };
+  const version = { version: 'snapper-2-20261121T030000Z', cadence: 'timeline', taken_at: '2026-11-21T03:00:00Z', size: 9, mtime: '2026-11-21T02:10:00Z' };
   const calls = mount((c) => {
     if (c.path === '/v1/files/versions') return json({ root: 'home:owner', path: '/notes.txt', enabled: true, exists: true, versions: [version] });
     if (c.path === '/v1/files/ops') return json({ name: 'notes (version 2026-11-21 03.00 UTC).txt', path: '/notes (version 2026-11-21 03.00 UTC).txt', type: 'file', size: 9, mtime: '2026-11-22T10:00:00Z', root: 'home:owner', restored_from: version.version });
@@ -151,7 +153,7 @@ it('restores yesterday\'s version as a new file, after a confirmation, and says 
   expect(calls.some((c) => c.path === '/v1/files/ops')).toBe(false);
   await u.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore as a new file' }));
   expect(await screen.findByText(/Restored as \/notes \(version 2026-11-21 03\.00 UTC\)\.txt/)).toBeInTheDocument();
-  expect(JSON.parse(calls.find((c) => c.path === '/v1/files/ops')!.body)).toEqual({ op: 'restore_version', root: 'home:owner', path: '/notes.txt', version: 'daily-20261121T030000Z' });
+  expect(JSON.parse(calls.find((c) => c.path === '/v1/files/ops')!.body)).toEqual({ op: 'restore_version', root: 'home:owner', path: '/notes.txt', version: 'snapper-2-20261121T030000Z' });
   expect(await seriousViolations(screen.getByRole('main'))).toEqual([]);
 });
 

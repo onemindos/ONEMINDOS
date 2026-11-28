@@ -1,30 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
-"""FILES previous versions (BAK-04, #241): read a file's older copies from the local btrfs snapshots and
-restore one as a new file.
-
-`onemindd snapshots-tick` (internal/backup/localsnapshot, run by onemind-snapshots.timer as root) takes
-read-only snapshots of the whole Files root into ONEMIND_FILES_SNAPSHOTS_DIR, named `hourly-<UTC>` and
-`daily-<UTC>`. That directory is mode 0750 root:onemind, so the gateway (user onemind) can read it and
-never write it. A snapshot mirrors the Files root, so a file at (home:<person>, /Docs/a.txt) was at
-`<snapshot>/home/<space dir>/Docs/a.txt`.
-
-Rules:
-- People only. Reading an older copy and restoring it is a person's own data-plane write inside a space
-  they can already change (D-F1, the same rule as restoring from the trash). An app or agent is refused:
-  AI never restores a version on its own.
-- A restore never overwrites. The copy goes to the original path when that is free, otherwise beside it as
-  `name (version <date> UTC).ext`, or to the `to_path` the person chose; an existing name is a 409.
-- The copy is written in .system first and linked into place, so the folder never shows a half-written file.
-- Snapshots live on the same disk as the files: they are not backups. The dashboard says so and links to
-  Backups (restic, off the box).
-"""
+"""Read the storage Snapper timeline and restore a file as a new entry (BAK-04, #241)."""
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import stat as stat_mod
-from contextlib import contextmanager
+import xml.etree.ElementTree as ET
+from contextlib import closing, contextmanager
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Iterator
 
@@ -38,9 +22,12 @@ from .store import new_id
 if TYPE_CHECKING:
     from .service import FilesService
 
-SNAPSHOT_RE = re.compile(r"^(hourly|daily)-(\d{8}T\d{6}Z)$")
-VERSION_PATTERN = r"^(?:hourly|daily)-\d{8}T\d{6}Z$"
+NUMBER_PATTERN = r"[1-9][0-9]{0,9}"
+VERSION_PATTERN = rf"^snapper-({NUMBER_PATTERN})-([0-9]{{8}}T[0-9]{{6}}Z)$"
+VERSION_RE = re.compile(VERSION_PATTERN)
+ID_TIME = "%Y%m%dT%H%M%SZ"
 COPY_CHUNK = 1024 * 1024
+COMPARE_LIMIT = COPY_CHUNK  # keep larger copies visible without reading gigabytes to list history
 RESTORE_DIR = "restore"
 
 
@@ -48,49 +35,81 @@ class Versions:
     def __init__(self, svc: FilesService):
         self.svc = svc
 
-    # ---- the snapshot directory ---------------------------------------------------------
-    def snapshots(self) -> list[tuple[str, str, datetime]]:
-        """(id, cadence, taken_at) of every managed snapshot, newest first; [] when versions are off."""
+    @contextmanager
+    def _history(self) -> Iterator[int]:
+        history = self.svc.settings.snapshots_dir
+        if history is None:
+            raise not_found("local versions are unavailable on this box")
         try:
-            fd = os.open(self.svc.settings.snapshots_dir, paths.O_DIR)
+            fd = os.open(history, paths.O_DIR)
         except OSError:
-            return []
-        out = []
+            raise not_found("local versions are unavailable on this box") from None
         try:
-            for name in os.listdir(fd):
-                m = SNAPSHOT_RE.match(name)
-                if not m:
-                    continue
-                try:
-                    if not stat_mod.S_ISDIR(os.stat(name, dir_fd=fd, follow_symlinks=False).st_mode):
-                        continue
-                    taken = datetime.strptime(m.group(2), "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
-                except (OSError, ValueError):
-                    continue
-                out.append((name, m.group(1), taken))
+            yield fd
         finally:
             os.close(fd)
-        out.sort(key=lambda v: v[2], reverse=True)
-        return out
+
+    @staticmethod
+    def _timeline_date(entry: int, number: str) -> datetime | None:
+        try:
+            fd, _ = paths.open_file_at(entry, "info.xml")
+            with os.fdopen(fd, "rb") as info:
+                xml = ET.fromstring(info.read(65536))
+            if (xml.tag == "snapshot" and xml.findtext("num") == number
+                    and xml.findtext("type") == "single" and xml.findtext("cleanup") == "timeline"):
+                return datetime.strptime(xml.findtext("date", ""), "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
+        except (FilesError, OSError, ET.ParseError, ValueError):
+            pass
+        return None
+
+    def _snapshots(self, base: int) -> Iterator[tuple[str, datetime]]:
+        with os.scandir(base) as entries:
+            for entry in entries:
+                if not re.fullmatch(NUMBER_PATTERN, entry.name):
+                    continue
+                try:
+                    with paths.dir_at(base, (entry.name,)) as info, paths.dir_at(info, ("snapshot", "files")):
+                        taken = self._timeline_date(info, entry.name)
+                except FilesError:
+                    continue  # cleanup, or a snapshot from before Files moved to storage
+                if taken is not None:
+                    yield entry.name, taken
 
     def available(self) -> bool:
-        return bool(self.snapshots())
+        try:
+            with self._history() as base, closing(self._snapshots(base)) as snapshots:
+                return next(snapshots, None) is not None
+        except (FilesError, OSError):
+            return False
 
     def _space_parts(self, root) -> tuple[str, ...]:
         return ("home", self.svc.space_dir_name(root.person_id)) if root.kind == "home" else ("shared",)
 
     @contextmanager
-    def _snapshot_space(self, snapshot_id: str, root) -> Iterator[int]:
-        """Descriptor of a space's folder inside one snapshot (read-only; never created)."""
-        try:
-            base = os.open(self.svc.settings.snapshots_dir, paths.O_DIR)
-        except OSError:
-            raise not_found("versions are not turned on for this box") from None
-        try:
-            with paths.dir_at(base, (snapshot_id, *self._space_parts(root))) as fd:
+    def _snapshot_space(self, base: int, number: str, taken: datetime, root) -> Iterator[int]:
+        with paths.dir_at(base, (number,)) as info:
+            if self._timeline_date(info, number) != taken:
+                raise not_found("that version is no longer available")
+            with paths.dir_at(info, ("snapshot", "files", *self._space_parts(root))) as fd:
                 yield fd
-        finally:
-            os.close(base)
+
+    @staticmethod
+    def _fingerprint(directory: int, name: str, st: os.stat_result) -> bytes | None:
+        if not stat_mod.S_ISREG(st.st_mode) or st.st_size > COMPARE_LIMIT:
+            return None
+        try:
+            fd, before = paths.open_file_at(directory, name)
+            try:
+                data = os.pread(fd, before.st_size, 0) if before.st_size <= COMPARE_LIMIT else b""
+                after = os.fstat(fd)
+            finally:
+                os.close(fd)
+        except (FilesError, OSError):
+            return None
+        if (len(data) == before.st_size and before.st_ino == st.st_ino
+                and before.st_ctime_ns == st.st_ctime_ns == after.st_ctime_ns):
+            return hashlib.sha256(data).digest()
+        return None
 
     def _person(self, p: Principal, attempted: str) -> None:
         if not is_person(p):
@@ -103,27 +122,37 @@ class Versions:
         if not t.parts:
             raise conflict("a space is a folder, not a file", "not_a_file")
         current = None
+        seen = set()
         try:
             with self.svc._space(t.root) as space, paths.dir_at(space, t.parts[:-1]) as d:
                 current = paths.lstat_at(d, t.parts[-1])
+                fingerprint = self._fingerprint(d, t.parts[-1], current)
+                if fingerprint is not None:
+                    seen.add(fingerprint)
         except FilesError as exc:
             if exc.status != 404:
                 raise
-        snaps = self.snapshots()
-        seen = set() if current is None else {(current.st_size, current.st_mtime_ns)}
         versions = []
-        for sid, cadence, taken in snaps:
-            try:
-                with self._snapshot_space(sid, t.root) as space, paths.dir_at(space, t.parts[:-1]) as d:
-                    st = paths.lstat_at(d, t.parts[-1])
-            except FilesError:
-                continue  # the file did not exist yet, or a folder on its path was not there then
-            # Only distinct copies: a file unchanged for a day appears once, and a copy equal to today's is left out.
-            if not stat_mod.S_ISREG(st.st_mode) or (st.st_size, st.st_mtime_ns) in seen:
-                continue
-            seen.add((st.st_size, st.st_mtime_ns))
-            versions.append({"version": sid, "cadence": cadence, "taken_at": iso(taken), "size": st.st_size,
-                             "mtime": iso(datetime.fromtimestamp(st.st_mtime, tz=UTC))})
+        snaps = []
+        try:
+            with self._history() as base:
+                snaps = sorted(self._snapshots(base), key=lambda v: (v[1], int(v[0])), reverse=True)
+                for number, taken in snaps:
+                    try:
+                        with self._snapshot_space(base, number, taken, t.root) as space, paths.dir_at(space, t.parts[:-1]) as d:
+                            st = paths.lstat_at(d, t.parts[-1])
+                            fingerprint = self._fingerprint(d, t.parts[-1], st)
+                    except FilesError:
+                        continue
+                    if not stat_mod.S_ISREG(st.st_mode) or fingerprint in seen:
+                        continue
+                    if fingerprint is not None:
+                        seen.add(fingerprint)
+                    versions.append({"version": f"snapper-{number}-{taken:{ID_TIME}}", "cadence": "timeline",
+                                     "taken_at": iso(taken), "size": st.st_size,
+                                     "mtime": iso(datetime.fromtimestamp(st.st_mtime, tz=UTC))})
+        except (FilesError, OSError):
+            pass  # no Snapper history on this box
         return {"root": t.root.id, "path": t.path, "enabled": bool(snaps), "exists": current is not None,
                 "versions": versions}
 
@@ -135,16 +164,27 @@ class Versions:
 
     def restore(self, p: Principal, root: str | None, path: str | None, version: str, to_path: str | None = None) -> dict:
         self._person(p, "files versions restore")
-        m = SNAPSHOT_RE.match(version or "")
-        if not m:
-            raise FilesError(422, "conflict", "unknown version", reason="invalid_version")
+        match = VERSION_RE.fullmatch(version or "")
+        try:
+            if match is None:
+                raise ValueError
+            number, stamp = match.groups()
+            taken = datetime.strptime(stamp, ID_TIME).replace(tzinfo=UTC)
+            if taken.strftime(ID_TIME) != stamp:
+                raise ValueError
+        except ValueError:
+            raise FilesError(422, "conflict", "invalid version", reason="invalid_version") from None
         src = self.svc.target(p, root, path, "read")
         if not src.parts:
             raise conflict("a space is a folder, not a file", "not_a_file")
-        taken = datetime.strptime(m.group(2), "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
         if to_path is None:
-            with self.svc._space(src.root) as space, paths.dir_at(space, src.parts[:-1]) as d:
-                free = not paths.exists_at(d, src.parts[-1])
+            try:
+                with self.svc._space(src.root) as space, paths.dir_at(space, src.parts[:-1]) as d:
+                    free = not paths.exists_at(d, src.parts[-1])
+            except FilesError as exc:
+                if exc.status != 404:
+                    raise
+                raise not_found("the original folder is gone; choose a destination path in an existing folder") from None
             name = src.parts[-1] if free else self.default_name(src.parts[-1], taken)
             paths.validate_name(name)
             to_path = paths.join(src.parts[:-1] + (name,))
@@ -152,27 +192,30 @@ class Versions:
         if not dst.parts:
             raise conflict("cannot restore over a space", "space_root")
         tmp = new_id("rst")
-        with self._snapshot_space(version, src.root) as snap, paths.dir_at(snap, src.parts[:-1]) as sd:
-            fd, st = paths.open_file_at(sd, src.parts[-1])
+        with self._history() as base, self._snapshot_space(base, number, taken, src.root) as snap:
+            with paths.dir_at(snap, src.parts[:-1]) as sd:
+                fd, st = paths.open_file_at(sd, src.parts[-1])
         try:
-            with self.svc._lock, self.svc._system(RESTORE_DIR) as work, self.svc._space(dst.root) as space:
-                with paths.dir_at(space, dst.parts[:-1]) as d:
-                    if paths.exists_at(d, dst.parts[-1]):
-                        raise conflict("something with that name is already there; restore it under another name", "exists")
-                    self.svc.check_space(dst.root, st.st_size)
+            with self.svc._system(RESTORE_DIR) as work:
+                self.svc.check_space(dst.root, st.st_size)
+                try:
                     self._copy(fd, work, tmp)
-                    try:
-                        os.link(tmp, dst.parts[-1], src_dir_fd=work, dst_dir_fd=d, follow_symlinks=False)
-                    except FileExistsError:
-                        raise conflict("something with that name is already there; restore it under another name", "exists") from None
-                    except OSError as exc:
-                        raise paths.os_error(exc) from None
-                    finally:
+                except OSError as exc:
+                    raise paths.os_error(exc) from None
+                try:
+                    with self.svc._lock, self.svc._space(dst.root) as space, paths.dir_at(space, dst.parts[:-1]) as d:
+                        if paths.exists_at(d, dst.parts[-1]):
+                            raise conflict("something with that name is already there; restore it under another name", "exists")
+                        self.svc.check_space(dst.root, st.st_size, staged=True)
                         try:
-                            os.unlink(tmp, dir_fd=work)
-                        except FileNotFoundError:
-                            pass
-                    entry = self.svc._entry(dst.parts[-1], dst.parts[:-1], paths.lstat_at(d, dst.parts[-1]))
+                            os.link(tmp, dst.parts[-1], src_dir_fd=work, dst_dir_fd=d, follow_symlinks=False)
+                        except FileExistsError:
+                            raise conflict("something with that name is already there; restore it under another name", "exists") from None
+                        except OSError as exc:
+                            raise paths.os_error(exc) from None
+                        entry = self.svc._entry(dst.parts[-1], dst.parts[:-1], paths.lstat_at(d, dst.parts[-1]))
+                finally:
+                    os.unlink(tmp, dir_fd=work)
         finally:
             os.close(fd)
         self.svc.reindex(dst.root, dst.parts)

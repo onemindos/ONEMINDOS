@@ -217,7 +217,7 @@ describe('Files screen', () => {
     const takenAt = '2026-11-21T03:00:00Z';
     const filesVersions = jest.fn(async () => ({
       root: HOME.root, path: '/notes.txt', enabled: true, exists: true,
-      versions: [{ version: 'daily-20261121T030000Z', cadence: 'daily', taken_at: takenAt, size: 10, mtime: takenAt }],
+      versions: [{ version: 'snapper-2-20261121T030000Z', cadence: 'timeline', taken_at: takenAt, size: 10, mtime: takenAt }],
     }));
     await mount(<FilesScreen />, {
       filesRoots: async () => [HOME],

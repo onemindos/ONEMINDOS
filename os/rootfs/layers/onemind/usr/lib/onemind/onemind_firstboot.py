@@ -937,14 +937,68 @@ def run_stream(argv: list[str], env: dict, on_line) -> int:
     return proc.wait()
 
 
+def mount_files_storage(p: Paths, ids: tuple[int, int] | None) -> None:
+    """Keep the Files path stable for the gateway, Samba and restic while storing it in @storage."""
+    storage = os.path.join(p.root, "data", "storage")
+    history = os.path.join(storage, ".snapshots")
+    marker = os.path.join(os.path.dirname(p.files), ".files-on-storage")
+    if not os.path.ismount(storage) or not os.path.isdir(history):
+        if os.path.exists(marker):
+            raise RuntimeError("the Files storage subvolume did not mount")
+        return  # ext4 and boards with no storage subvolume
+
+    live = os.path.join(storage, "files")
+    old = p.files + ".before-snapper"
+    stage = os.path.join(storage, ".files-migration")
+    for path in (history, live, p.files, old, stage):
+        if os.path.lexists(path) and (os.path.islink(path) or not os.path.isdir(path)):
+            raise RuntimeError(f"expected a real directory at {path}")
+    if ids:
+        os.chown(history, 0, ids[1])
+    os.chmod(history, 0o750)
+
+    if os.path.exists(live) and os.path.exists(p.files) and os.path.samefile(live, p.files):
+        return
+    if not os.path.exists(live):
+        if os.path.exists(marker):
+            raise RuntimeError("the migrated Files directory is missing from storage")
+        # Restartable across a power cut: keep the original until the complete reflink copy is durable.
+        source = old if os.path.exists(old) else p.files
+        if os.path.exists(source):
+            if os.path.exists(stage):
+                shutil.rmtree(stage)
+            os.mkdir(stage, 0o700)
+            subprocess.run(["cp", "-a", "--reflink=always", "--", source, os.path.join(stage, "files")], check=True)
+            subprocess.run(["sync", "-f", storage], check=True)
+            if source == p.files:
+                os.rename(p.files, old)
+            os.rename(os.path.join(stage, "files"), live)
+            os.rmdir(stage)
+        else:
+            os.mkdir(live, 0o750)
+        subprocess.run(["sync", "-f", storage], check=True)
+
+    os.makedirs(p.files, mode=0o700, exist_ok=True)
+    if os.listdir(p.files):
+        raise RuntimeError("both the legacy Files directory and the storage copy have data")
+    write(marker, "Files uses the storage subvolume\n")
+    subprocess.run(["sync", "-f", storage], check=True)
+    subprocess.run(["mount", "--bind", live, p.files], check=True)
+    if os.path.exists(old):
+        shutil.rmtree(old)
+
+
 def ensure_files_root(p: Paths) -> None:
     """Make the files root (ONEMIND_FILES_ROOT) before the gateway starts. Its unit lists the folder in
     ReadWritePaths=, and systemd refuses to start a unit whose read-write path is missing (226/NAMESPACE):
     the mount namespace is set up before any ExecStartPre= runs, even a "+" one, so the unit cannot make it
     itself. Only the folder is (re-)owned, never its contents. Every boot, so updated boxes get it too."""
+    ids = onemind_ids()
+    mount_files_storage(p, ids)
+    if os.path.islink(p.files):
+        raise RuntimeError("expected a real Files directory")
     os.makedirs(p.files, mode=0o750, exist_ok=True)
     os.chmod(p.files, 0o750)
-    ids = onemind_ids()
     if ids:
         os.chown(p.files, *ids)
 

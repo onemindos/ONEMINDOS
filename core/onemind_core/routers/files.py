@@ -30,9 +30,17 @@ from ..files.store import aware
 from ..files.uploads import TUS_EXTENSIONS, TUS_VERSION, Uploads, parse_metadata, parse_repr_digest
 from ..files.versions import VERSION_PATTERN
 from ..files.watch import IndexWatcher
+from ..identity.scopes import register_route_scope
+
+# The scope is a ceiling. Files still checks the person and their access to each space.
+register_route_scope("GET,HEAD", r"/v1/files/versions", ("files:read",))
+register_route_scope("GET,HEAD", r"/v1/files/(roots|list|stat|preview|download)", ("files:read",))
+register_route_scope("POST", r"/v1/files/ops", ("files:write",))
 
 TAG = ["files"]
 STREAM_CHUNK = 256 * 1024
+READ_SECURITY = {"security": [{"bearer": ["files:read"]}]}
+WRITE_SECURITY = {"security": [{"bearer": ["files:write"]}]}
 
 _ERR = {
     401: {"description": "Missing or unknown bearer token (unauthenticated)"},
@@ -119,7 +127,8 @@ class RestoreVersionOp(_Op):
     root: Root
     path: str = Field(max_length=4096)
     version: str = Field(max_length=40, json_schema_extra={"pattern": VERSION_PATTERN})
-    to_path: str | None = Field(default=None, max_length=4096)  # beside the file when absent and the name is taken
+    to_path: str | None = Field(default=None, max_length=4096,
+                                description="Choose a path in an existing folder if the original folder is gone.")
 
 
 class FileVersion(BaseModel):
@@ -355,39 +364,45 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.files_index_watcher = watcher
 
     # -- browse --
-    @app.get("/v1/files/roots", operation_id="files.roots.list", tags=TAG, responses=errs(401, 503))
+    @app.get("/v1/files/roots", operation_id="files.roots.list", tags=TAG, responses=errs(401, 403, 503),
+             openapi_extra=READ_SECURITY)
     def roots(p: Principal = Depends(principal)):
         return svc.roots(p)
 
-    @app.get("/v1/files/list", operation_id="files.list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
+    @app.get("/v1/files/list", operation_id="files.list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503),
+             openapi_extra=READ_SECURITY)
     def list_folder(request: Request, root: RootQ, path: str = Query("/", max_length=4096),
                     limit: int = Query(100, ge=1, le=500), cursor: str | None = Query(None, max_length=64, json_schema_extra={"pattern": CURSOR_RE}),
                     p: Principal = Depends(principal)):
         return paginate(request, svc.list(p, root, path), limit, cursor)
 
-    @app.get("/v1/files/stat", operation_id="files.stat", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
+    @app.get("/v1/files/stat", operation_id="files.stat", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503),
+             openapi_extra=READ_SECURITY)
     def stat(root: RootQ, path: str = Query("/", max_length=4096), p: Principal = Depends(principal)):
         return svc.stat(p, root, path)
 
-    @app.get("/v1/files/preview", operation_id="files.preview", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
+    @app.get("/v1/files/preview", operation_id="files.preview", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503),
+             openapi_extra=READ_SECURITY)
     def preview(root: RootQ, path: str = Query(max_length=4096), p: Principal = Depends(principal)):
         return svc.preview(p, root, path)
 
     @app.get("/v1/files/download", operation_id="files.download", tags=TAG, responses={206: {"description": "Partial content (Range)"},
-                                                         **errs(401, 403, 404, 409, 416, 422, 503)})
+                                                         **errs(401, 403, 404, 409, 416, 422, 503)},
+             openapi_extra=READ_SECURITY)
     def download(request: Request, root: RootQ, path: str = Query(max_length=4096),
                  inline: bool = False, p: Principal = Depends(principal)):
         return file_response(request, svc.open_file(p, root, path), inline)
 
     @app.get("/v1/files/versions", operation_id="files.versions.list", tags=TAG,
              response_model=FileVersions, responses=error_responses(401, 403, 404, 409, 422, 503),
-             openapi_extra={"security": [{"bearer": ["*"]}]})
+             openapi_extra=READ_SECURITY)
     def versions(root: RootQ, path: str = Query(max_length=4096), p: Principal = Depends(principal)):
         """Earlier copies of a file in the box's local snapshots (BAK-04). Same disk: not a backup."""
         return svc.versions.list(p, root, path)
 
     # -- data-plane writes --
-    @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503))
+    @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503),
+              openapi_extra=WRITE_SECURITY)
     def ops(body: OpBody, p: Principal = Depends(principal)):
         if isinstance(body, MkdirOp):
             return svc.mkdir(p, body.root, body.path)

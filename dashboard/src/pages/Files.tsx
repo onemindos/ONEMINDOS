@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The Files window (FILES-01, D-016): browse, upload over tus, download, preview, trash, and ask for
 // folder access. Putting a file in the trash is the person's own click on their own files; anything
-// that gives access away or destroys data for good (a grant, emptying the trash) is filed as an
+// that gives access away or empties the trash is filed as an
 // approval request bound to its exact plan, and decided in the Sharing tab by a person, never by this page.
 // Previous versions (BAK-04, #241): a person copies an earlier snapshot of their file back as a new file;
 // the page says snapshots share the disk, so they are not a backup, and links to Backups.
@@ -34,7 +34,7 @@ function LiveFiles({ token, person, owner }: { token: string; person: string; ow
   const [root, setRoot] = useState<FileRoot>();
   const current = root ?? roots.data?.[0];
   return <div className="dash-stack">
-    <PageHeader title="Files" lede="Your files on your box. Sharing access with an app or agent, and emptying the trash for good, are requests a person approves." />
+    <PageHeader title="Files" lede="Your files on your box. An owner approves requests to share access with an app or agent or to empty the trash." />
     <div role="group" aria-label="Files sections">
       {(owner ? ['files', 'trash', 'sharing', 'quotas'] as const : ['files', 'trash', 'sharing'] as const).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
@@ -195,12 +195,13 @@ function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
       {(['home', 'shared'] as const).map((w) => <Button key={w} size="sm" variant={which === w ? 'primary' : 'secondary'} aria-pressed={which === w} onClick={() => setWhich(w)}>{w === 'home' ? 'My trash' : 'Shared trash'}</Button>)}
       <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>Ask to empty this trash</Button>
     </div>
-    {filed && <p role="status">Request {filed} filed. Nothing is deleted until a person approves it in the Sharing tab.</p>}
+    {filed && <p role="status">Request {filed} filed. Nothing is deleted until an owner approves it in the Sharing tab.</p>}
+    <p>Retained snapshots may still hold copies after items are removed from the trash.</p>
     <Load res={items} what="Loading the trash">{(rows: TrashItem[]) => rows.length === 0 ? <p>The trash is empty.</p> : <ul>
-      {rows.map((t) => <li key={t.id}><strong>{t.name}</strong> from {t.path} · {human(t.size)} · trashed {when(t.trashed_at)} · deleted for good {when(t.purge_at)}{' '}
+      {rows.map((t) => <li key={t.id}><strong>{t.name}</strong> from {t.path} · {human(t.size)} · trashed {when(t.trashed_at)} · removed from trash {when(t.purge_at)}{' '}
         <Button size="sm" variant="secondary" aria-label={`Restore ${t.name}`} onClick={() => void run(async () => { await api.restore(t.id); await items.reload(); }, `Could not restore ${t.name}`)}>Restore</Button></li>)}
     </ul>}</Load>
-    <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash for good" description="This files a request. Nothing is deleted until it is approved, and what it deletes is shown to the approver first."
+    <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash" description="An owner reviews what will be removed from the trash before approving. Retained snapshots may still hold copies."
       actions={<Button onClick={ask}>File the request</Button>}><p>Trash: {which === 'home' ? 'mine' : 'shared'}.</p></Dialog>
   </Card>;
 }
