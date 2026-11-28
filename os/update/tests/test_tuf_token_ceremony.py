@@ -376,7 +376,7 @@ FAKE_YKMAN = textwrap.dedent('''\
             sys.exit("Error: piv info failed")
         print("PIV version: 5.4.3")
         if st.get("key") or os.environ.get("FAKE_YK_BAD", "") == "pivinfo9c":   # keys info said empty, piv info disagrees
-            print("Slot 9C (SIGNATURE):\n  Algorithm: ECCP256")
+            print("Slot 9C (SIGNATURE):\\n  Algorithm: ECCP256")
         sys.exit(0)
     if a[:3] == ["piv", "keys", "generate"]:
         pp, tp = a[a.index("--pin-policy") + 1], a[a.index("--touch-policy") + 1]

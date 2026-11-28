@@ -216,7 +216,7 @@ yubikey-key)
   # Slot-in-use check, fail closed: two independent questions, and any unexpected answer refuses.
   # 1) `piv keys info 9c` exits 0 when a key is there; its "no key" error is the only accepted failure.
   # 2) `piv info` must be readable, and must not list a key or certificate in slot 9C.
-  KI=$(ykman --device "$SER" piv keys info 9c 2>&1); KI_RC=$?
+  KI=$(ykman --device "$SER" piv keys info 9c 2>&1) && KI_RC=0 || KI_RC=$?
   if [ "$KI_RC" -eq 0 ]; then
     echo "refusing: YubiKey $SER already holds a key in slot 9c. Never replace a root key by accident; reset only a spare." >&2; exit 2
   fi
