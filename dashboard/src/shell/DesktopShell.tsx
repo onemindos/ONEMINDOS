@@ -8,7 +8,7 @@
 // docs/learning/umbrelos-2-teardown.md). OneMind's own look: brand mark, signature wallpaper,
 // one colour per screen, approvals first.
 // Links are plain anchors: Shell's click handler routes them without a page reload.
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import { flushSync } from 'react-dom';
 import { WindowFrame } from './wm/WindowFrame';
@@ -20,7 +20,11 @@ import { ShortcutSheet } from './keys/ShortcutSheet';
 import { routeFor } from './wm/ScreenRoutes';
 import './wm/wm.css';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
-import { DOCK_ORDER, HUES } from '../screens/registry';
+import { DOCK_ORDER } from '../screens/registry';
+import { Launchpad } from './Launchpad';
+import { overlayOpen } from './overlay';
+import { Badge, ScreenTile } from './tiles';
+export { SCREEN_HUES, tileStyle } from './tiles';
 import { formatDate } from '../i18n';
 import './desktop.css';
 import { trackBarHeight } from './trackBarHeight';
@@ -67,17 +71,8 @@ export interface DesktopShellProps {
 /** Screens that stay in the dock (each screen's `dock` position); everything else is one click away in Launchpad. */
 export const DOCK_IDS = DOCK_ORDER;
 
-/** One colour per screen (each screen's `hue`), so a place is recognised before its name is read. White glyph on each. */
-export const SCREEN_HUES = HUES;
-
 /** Short screens (a few facts and one action) open in a narrow window instead of a wide, mostly empty one. */
 export const COMPACT_WINDOWS: ReadonlySet<string> = new Set(['storage', 'backups']);
-const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
-
-export function tileStyle(id: string): CSSProperties {
-  const [a, b] = SCREEN_HUES[id] ?? FALLBACK_HUE;
-  return { '--dsk-tile-a': a, '--dsk-tile-b': b } as CSSProperties;
-}
 
 /** Split the nav into dock items (fixed order) and Launchpad-only items (nav order). */
 export function dockSplit(nav: NavItem[]): { dock: NavItem[]; more: NavItem[] } {
@@ -90,33 +85,6 @@ export function dockSplit(nav: NavItem[]): { dock: NavItem[]; more: NavItem[] } 
 export function parentPath(pathname: string): string | null {
   const parts = pathname.split('/').filter(Boolean);
   return parts.length > 1 ? `/${parts.slice(0, -1).join('/')}` : null;
-}
-
-/**
- * Esc belongs to something else: a modal dialog or the palette, or a popover opened from the
- * menu bar (the bell, the account menu: their triggers say aria-expanded). Expandable sections
- * inside a page do not count.
- */
-function overlayOpen(except?: Element | null): boolean {
-  return [...document.querySelectorAll('[aria-modal="true"], dialog[open], .dsk-bar [aria-expanded="true"]')].some((e) => e !== except);
-}
-
-function ScreenTile({ id, icon, size = 44 }: { id: string; icon: NavItem['icon']; size?: number }) {
-  return (
-    <span className="dsk-tile" style={{ ...tileStyle(id), width: size, height: size }} aria-hidden="true">
-      <Icon name={icon} size={Math.round(size * 0.48)} />
-    </span>
-  );
-}
-
-function Badge({ item }: { item: NavItem }) {
-  if (!item.badge) return null;
-  return (
-    <span className="dsk-badge">
-      <span aria-hidden="true">{item.badge}</span>
-      <span className="om-visually-hidden">{item.badgeLabel ?? `${item.badge} new`}</span>
-    </span>
-  );
 }
 
 function GridGlyph() {
@@ -208,98 +176,6 @@ function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut, onLoc
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-function Launchpad({ nav, apps, onClose, onShortcuts }: { nav: NavItem[]; apps: DockApp[]; onClose: () => void; onShortcuts: () => void }) {
-  const [q, setQ] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-  const title = useId();
-  const input = useRef<HTMLInputElement>(null);
-  // The latest onClose without re-running the effect: the shell re-renders on every hub poll,
-  // and re-running would pull focus back to the search field each time.
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    input.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !overlayOpen(ref.current)) {
-        e.preventDefault();
-        closeRef.current();
-        return;
-      }
-      // Keep Tab inside Launchpad while it is open (aria-modal).
-      if (e.key === 'Tab' && ref.current) {
-        const items = [...ref.current.querySelectorAll<HTMLElement>('a[href], button, input, [tabindex]:not([tabindex="-1"])')];
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (!first || !last) return;
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      // Back to whatever opened it (the dock's All button), if it is still on the page.
-      if (opener?.isConnected) opener.focus();
-    };
-  }, []);
-  const needle = q.trim().toLowerCase();
-  const screens = nav.filter((n) => !needle || n.label.toLowerCase().includes(needle));
-  const shownApps = apps.filter((a) => !needle || a.name.toLowerCase().includes(needle));
-  return (
-    <div className="dsk-launchpad" role="dialog" aria-modal="true" aria-labelledby={title} ref={ref} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dsk-launchpad-inner">
-        <h2 id={title} className="om-visually-hidden">
-          Launchpad
-        </h2>
-        <label className="dsk-launchpad-search">
-          <Icon name="search" size={18} />
-          <span className="om-visually-hidden">Find a screen or app</span>
-          <input ref={input} type="search" placeholder="Find a screen or app" value={q} onChange={(e) => setQ(e.target.value)} />
-        </label>
-        {shownApps.length > 0 && (
-          <section aria-label="Your apps">
-            <h3 className="dsk-launchpad-head">Your apps</h3>
-            <ul className="dsk-launchpad-grid dsk-launchpad-big">
-              {shownApps.map((a) => (
-                <li key={a.id}>
-                  <a href={a.href} className="dsk-launchpad-item" onClick={onClose}>
-                    <AppIcon app={a} size={84} />
-                    <span className="dsk-launchpad-label">{a.name}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-        <section aria-label="Screens">
-          <h3 className="dsk-launchpad-head">Screens</h3>
-          <ul className="dsk-launchpad-grid dsk-launchpad-small">
-            {screens.map((n) => (
-              <li key={n.id}>
-                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
-                  <ScreenTile id={n.id} icon={n.icon} size={44} />
-                  <span className="dsk-launchpad-label">{n.label}</span>
-                  <Badge item={n} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <button type="button" className="dsk-launchpad-keys" onClick={onShortcuts}>
-          <Icon name="settings" size={16} /> Keyboard shortcuts
-        </button>
-        {screens.length === 0 && shownApps.length === 0 && <p className="dsk-launchpad-none">Nothing matches “{q}”. Try the search (Ctrl K) for settings and actions.</p>}
-      </div>
     </div>
   );
 }
