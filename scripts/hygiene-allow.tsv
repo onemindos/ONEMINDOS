@@ -100,3 +100,6 @@ os/rootfs/layers/onemind/*	/home/admin	B-FP-6
 test/unit/*	/home/admin	B-FP-6
 os/rootfs/Containerfile	/home/admin	B-FP-6
 scripts/release/cli-packages.py	noreply@users\.noreply\.github\.com	B-FP-deb-maintainer
+# QEMU user-network (slirp) guest-side forward address: exists only inside the test VM, never a real host (CRITERIA-UPDATE-SIGNED.md)
+test/qemu/updatesigned.py	10\.0\.2\.100	B-FP-qemu-slirp
+test/qemu/usrelay.py	10\.0\.2\.100	B-FP-qemu-slirp
