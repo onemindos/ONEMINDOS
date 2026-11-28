@@ -7,3 +7,5 @@ Founder-authorized core-a merge train (Refs #234). Round 1 adds the missing Work
 The final review fixes make Stop wait for the NATS cutoff, require action-bound L2 approval to release safety switches, keep Forever rules, or widen referenced maintenance windows, and bind standing rules and agent settings to permanent identities. Legacy permissive agent settings without an identity binding require fresh approval.
 
 The node installer provisions NATS signing support for the node health check. The local onemindd credential can read the node's own heartbeat.
+
+The rollback smoke test reports the inactive slot's status and the full health gate result when RB0 fails.

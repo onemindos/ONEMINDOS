@@ -75,7 +75,7 @@ def op_state(vm, action_id, wait=60):
 
 
 def slots(vm):
-    """(booted slot, other slot's boot_status, other slot's version, pending marker present, bad-releases text)."""
+    """(booted slot, inactive slot's boot_status, pending marker present, bad-releases text)."""
     _, out = vm.run("echo BOOTED=$(sed -n 's/.*rauc\\.slot=\\([AB]\\).*/\\1/p' /proc/cmdline); "
                     "echo OTHERSTATUS=$(rauc status --output-format=json | tr -d '\\n ' | grep -o '\"bootname\":\"[AB]\",\"state\":\"inactive\"[^}]*' | grep -o '\"boot_status\":\"[a-z]*\"' | head -n1 | sed 's/.*:\"//; s/\"//'); "
                     "echo PENDING=$(test -s /data/onemind/pending && echo yes || echo no); "
@@ -115,13 +115,18 @@ def main():
         g0 = vm.wait_gate()
         vm.shell_ready()
         ensure_bundles(vm)
-        rc, seg = battery.update_and_reboot(vm, "good.raucb")
+        rc, _ = battery.update_and_reboot(vm, "good.raucb")
         g = vm.wait_gate()
+        gate_detail = vm.last_gate
         vm.shell_ready()
         booted, other_status, pending, bad = slots(vm)
         ok0 = (g0 == ("committed-boot", "A", V1) and rc == 0 and g == ("mark-good", "B", V2)
                and booted == "B" and other_status == "good" and pending == "no")
-        record("RB0", ok0, f"first={g0} install_rc={rc} update_gate={g} booted={booted} slot_A_status={other_status} marker={pending}")
+        detail = (f"first={g0} install_rc={rc} update_gate={g} booted={booted} "
+                  f"inactive_slot_status={other_status} marker={pending}")
+        if not ok0:
+            detail += f" gate_detail={gate_detail!r}"
+        record("RB0", ok0, detail)
         if not ok0:
             raise RuntimeError("RB0 failed: RB1-RB4 cannot run")
         vm.run("systemctl start onemind-host.socket", 60)
