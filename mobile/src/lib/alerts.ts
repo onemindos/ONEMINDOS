@@ -17,6 +17,8 @@ export interface Alert {
   body: string;
   /** Deep link target inside the app. */
   route: 'approvals' | 'nodes' | 'activity' | 'inbox';
+  /** The action waiting for approval, when there is one: the notification then offers Review and Deny (never Approve). */
+  actionId?: string;
 }
 
 export function snapshot(actions: Action[] | undefined, nodes: NodeRecord[] | undefined): Snapshot {
@@ -44,6 +46,7 @@ export function diffAlerts(prev: Snapshot | undefined, next: Snapshot, actions: 
         title: 'Approval needed',
         body: `${principalLabel(a.requested_by)} asks: ${actionTitle(a)}`,
         route: 'approvals',
+        actionId: a.id,
       });
     } else if (before !== undefined && before !== a.state && FINAL.has(a.state)) {
       out.push({
@@ -71,6 +74,22 @@ export function diffAlerts(prev: Snapshot | undefined, next: Snapshot, actions: 
   return out;
 }
 
+/** The catalogue assigns approval.requested to the approvals topic. Other action events carry IDs too. */
+export function approvalActionId(n: InboxItem): string | undefined {
+  return n.topic === 'approvals' ? n.action_id || undefined : undefined;
+}
+
+export function inboxAlert(n: InboxItem): Alert {
+  const actionId = approvalActionId(n);
+  return {
+    id: `ntf:${n.id}`,
+    title: n.title,
+    body: n.body,
+    route: actionId ? 'approvals' : 'inbox',
+    actionId,
+  };
+}
+
 /**
  * Hub inbox (§12.14) → phone notifications for items that are new since the last refresh and unread.
  * The first refresh (`seen` undefined) raises nothing, for the same reason as diffAlerts.
@@ -80,5 +99,5 @@ export function inboxAlerts(seen: Set<string> | undefined, inbox: InboxItem[]): 
   if (!seen) return [];
   return inbox
     .filter((n) => !seen.has(n.id) && !n.read_at)
-    .map((n) => ({ id: `ntf:${n.id}`, title: n.title, body: n.body, route: n.action_id ? 'approvals' : 'inbox' }));
+    .map(inboxAlert);
 }

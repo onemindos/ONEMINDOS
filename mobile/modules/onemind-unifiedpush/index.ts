@@ -25,6 +25,11 @@ export interface UnifiedPushNative {
   register(vapid: string | null): void;
   unregister(): void;
   lastEndpoint(): UpEndpoint | null;
+  /**
+   * Show an approval notification with Review and Deny buttons that need the phone unlocked
+   * (setAuthenticationRequired, Android 12+). Never an Approve button. Optional: older builds lack it.
+   */
+  showApproval?(tag: string, title: string, body: string, actionId: string): void;
   /** When the last ping arrived (ms since epoch), also while the app was closed. Absent in builds before it. */
   lastPingAt?(): number | null;
   addListener<K extends keyof Events>(event: K, listener: Events[K]): EventSubscription;
